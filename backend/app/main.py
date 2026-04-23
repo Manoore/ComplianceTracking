@@ -7,7 +7,9 @@ from fastapi.responses import JSONResponse
 
 from .database import engine, Base
 from .config import settings
-from .routers import auth, users, clinics, checklists, inspections, audits, certifications, corrective_actions, reports
+from .routers import (auth, users, clinics, checklists, inspections, audits,
+                       certifications, corrective_actions, reports,
+                       notifications, announcements, settings as settings_router)
 
 
 @asynccontextmanager
@@ -18,6 +20,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.upload_dir, "evidence"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "certificates"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "reports"), exist_ok=True)
+    os.makedirs(os.path.join(settings.upload_dir, "branding"), exist_ok=True)
     _seed_admin()
     yield
 
@@ -65,6 +68,9 @@ app.include_router(audits.router, prefix="/api")
 app.include_router(certifications.router, prefix="/api")
 app.include_router(corrective_actions.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(announcements.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

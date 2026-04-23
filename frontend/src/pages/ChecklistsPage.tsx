@@ -2,10 +2,87 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import type { ChecklistTemplate } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
+
+const PRESET_LABELS: Record<string, string> = {
+  osha: 'OSHA Workplace Safety',
+  hipaa: 'HIPAA Compliance',
+  infection_control: 'Infection Control',
+  medication_safety: 'Medication Safety',
+  fire_safety: 'Fire Safety',
+  equipment_maintenance: 'Equipment Maintenance',
+  patient_safety: 'Patient Safety',
+}
+
+const PRESET_COLORS: Record<string, string> = {
+  osha: 'bg-orange-50 border-orange-200 text-orange-700',
+  hipaa: 'bg-blue-50 border-blue-200 text-blue-700',
+  infection_control: 'bg-green-50 border-green-200 text-green-700',
+  medication_safety: 'bg-purple-50 border-purple-200 text-purple-700',
+  fire_safety: 'bg-red-50 border-red-200 text-red-700',
+  equipment_maintenance: 'bg-gray-50 border-gray-200 text-gray-700',
+  patient_safety: 'bg-teal-50 border-teal-200 text-teal-700',
+}
+
+function PresetLibraryModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const { data: presets } = useQuery({
+    queryKey: ['checklists-presets'],
+    queryFn: () => api.get('/checklists/presets').then(r => r.data),
+  })
+
+  const deploy = useMutation({
+    mutationFn: (category: string) => api.post(`/checklists/presets/${category}/deploy`),
+    onSuccess: (_, category) => {
+      qc.invalidateQueries({ queryKey: ['checklists'] })
+      toast.success(`${PRESET_LABELS[category] ?? category} template deployed`)
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Library size={18} className="text-brand-600" />
+            <h2 className="text-lg font-semibold">Preset Template Library</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">Close</button>
+        </div>
+        <div className="p-6 space-y-3">
+          <p className="text-sm text-gray-500 mb-4">Deploy a pre-built compliance checklist template based on industry standards. Each deployment creates an editable copy.</p>
+          {Object.entries(PRESET_LABELS).map(([key, label]) => {
+            const preset = (presets ?? {})[key]
+            return (
+              <div key={key} className={`border rounded-lg p-4 flex items-center justify-between gap-4 ${PRESET_COLORS[key] ?? ''}`}>
+                <div>
+                  <p className="font-semibold text-sm">{label}</p>
+                  {preset?.description && (
+                    <p className="text-xs mt-0.5 opacity-75">{preset.description}</p>
+                  )}
+                  {preset && (
+                    <p className="text-xs mt-1 opacity-60">{preset.item_count ?? '?'} items</p>
+                  )}
+                </div>
+                <button
+                  className="btn-primary py-1.5 text-xs flex-shrink-0"
+                  onClick={() => deploy.mutate(key)}
+                  disabled={deploy.isPending}
+                >
+                  <Rocket size={13} /> Deploy
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function NewTemplateModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
@@ -96,20 +173,33 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
 }
 
 export function ChecklistsPage() {
+  const qc = useQueryClient()
   const [showNew, setShowNew] = useState(false)
+  const [showPresets, setShowPresets] = useState(false)
   const [expanded, setExpanded] = useState<number | null>(null)
   const { data: templates, isLoading } = useQuery<ChecklistTemplate[]>({
     queryKey: ['checklists'],
     queryFn: () => api.get('/checklists').then(r => r.data),
   })
 
+  const cloneTemplate = useMutation({
+    mutationFn: (id: number) => api.post(`/checklists/${id}/clone`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template cloned') },
+    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
-        <button className="btn-primary" onClick={() => setShowNew(true)}>
-          <Plus size={16} /> New Template
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setShowPresets(true)}>
+            <Library size={15} /> Preset Library
+          </button>
+          <button className="btn-primary" onClick={() => setShowNew(true)}>
+            <Plus size={16} /> New Template
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -120,17 +210,32 @@ export function ChecklistsPage() {
         <div className="space-y-3">
           {(templates ?? []).map(t => (
             <div key={t.id} className="card p-0 overflow-hidden">
-              <button
-                className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
-                onClick={() => setExpanded(expanded === t.id ? null : t.id)}
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">{t.name}</p>
-                  {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}
-                  <p className="text-xs text-gray-400 mt-1">{t.items.length} items · {t.items.filter(i => i.is_critical).length} critical</p>
-                </div>
-                {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
-              </button>
+              <div className="flex items-center">
+                <button
+                  className="flex-1 flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
+                  onClick={() => setExpanded(expanded === t.id ? null : t.id)}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900">{t.name}</p>
+                      {(t as any).is_preset && (
+                        <span className="badge bg-brand-100 text-brand-700 text-xs">Preset</span>
+                      )}
+                    </div>
+                    {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}
+                    <p className="text-xs text-gray-400 mt-1">{t.items.length} items · {t.items.filter(i => i.is_critical).length} critical</p>
+                  </div>
+                  {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+                </button>
+                <button
+                  className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
+                  title="Clone template"
+                  onClick={() => cloneTemplate.mutate(t.id)}
+                  disabled={cloneTemplate.isPending}
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
 
               {expanded === t.id && (
                 <div className="border-t border-gray-100">
@@ -164,12 +269,13 @@ export function ChecklistsPage() {
             </div>
           ))}
           {(templates?.length ?? 0) === 0 && (
-            <p className="text-center py-16 text-gray-400">No templates yet. Create your first checklist.</p>
+            <p className="text-center py-16 text-gray-400">No templates yet. Create your first checklist or deploy a preset.</p>
           )}
         </div>
       )}
 
       {showNew && <NewTemplateModal onClose={() => setShowNew(false)} />}
+      {showPresets && <PresetLibraryModal onClose={() => setShowPresets(false)} />}
     </div>
   )
 }

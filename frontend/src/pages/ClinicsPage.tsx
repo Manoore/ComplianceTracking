@@ -1,21 +1,38 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import type { Clinic } from '../types'
 import { useAuth } from '../hooks/useAuth'
-import { Plus, Edit2, Building2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Edit2, Building2, ExternalLink, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const CLINIC_TYPES = [
+  { value: 'general_practice', label: 'General Practice' },
+  { value: 'dental', label: 'Dental' },
+  { value: 'lab', label: 'Lab' },
+  { value: 'pharmacy', label: 'Pharmacy' },
+  { value: 'specialist', label: 'Specialist' },
+  { value: 'urgent_care', label: 'Urgent Care' },
+  { value: 'mental_health', label: 'Mental Health' },
+  { value: 'physical_therapy', label: 'Physical Therapy' },
+  { value: 'radiology', label: 'Radiology' },
+  { value: 'other', label: 'Other' },
+]
 
 function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void }) {
   const qc = useQueryClient()
   const [form, setForm] = useState({
     name: clinic?.name ?? '',
+    clinic_type: (clinic as any)?.clinic_type ?? '',
     address: clinic?.address ?? '',
     city: clinic?.city ?? '',
     state: clinic?.state ?? '',
     zip_code: clinic?.zip_code ?? '',
     phone: clinic?.phone ?? '',
     email: clinic?.email ?? '',
+    website: (clinic as any)?.website ?? '',
+    license_number: (clinic as any)?.license_number ?? '',
     notes: clinic?.notes ?? '',
   })
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api.get('/users').then(r => r.data) })
@@ -49,6 +66,13 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
             <label className="label">Clinic Name *</label>
             <input required className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
+          <div>
+            <label className="label">Clinic Type</label>
+            <select className="input" value={form.clinic_type} onChange={e => setForm(f => ({ ...f, clinic_type: e.target.value }))}>
+              <option value="">— Select type —</option>
+              {CLINIC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Address</label>
@@ -76,6 +100,14 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
             </div>
           </div>
           <div>
+            <label className="label">Website</label>
+            <input type="url" className="input" placeholder="https://…" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">License Number</label>
+            <input className="input" value={form.license_number} onChange={e => setForm(f => ({ ...f, license_number: e.target.value }))} />
+          </div>
+          <div>
             <label className="label">Assigned Manager</label>
             <select className="input" value={manager_id} onChange={e => setManagerId(e.target.value)}>
               <option value="">— None —</option>
@@ -100,6 +132,33 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
   )
 }
 
+function CsvImportButton() {
+  const qc = useQueryClient()
+  const ref = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const res = await api.post('/clinics/import/csv', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      qc.invalidateQueries({ queryKey: ['clinics'] })
+      toast.success(`Imported ${res.data.created} clinic(s)`)
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Import failed')
+    }
+    e.target.value = ''
+  }
+
+  return (
+    <label className="btn-secondary cursor-pointer">
+      <Upload size={15} /> Import CSV
+      <input ref={ref} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+    </label>
+  )
+}
+
 export function ClinicsPage() {
   const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
@@ -113,11 +172,14 @@ export function ClinicsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Clinics</h1>
-        {user?.role === 'admin' && (
-          <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true) }}>
-            <Plus size={16} /> Add Clinic
-          </button>
-        )}
+        <div className="flex gap-2">
+          {user?.role === 'admin' && <CsvImportButton />}
+          {user?.role === 'admin' && (
+            <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true) }}>
+              <Plus size={16} /> Add Clinic
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -135,19 +197,24 @@ export function ClinicsPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{clinic.name}</p>
+                    {(clinic as any).clinic_type && (
+                      <p className="text-xs text-gray-400 capitalize">{(clinic as any).clinic_type.replace('_', ' ')}</p>
+                    )}
                     {!clinic.is_active && (
                       <span className="text-xs text-red-500">Inactive</span>
                     )}
                   </div>
                 </div>
-                {user?.role === 'admin' && (
-                  <button
-                    className="p-1.5 text-gray-400 hover:text-brand-600 rounded"
-                    onClick={() => { setEditing(clinic); setShowForm(true) }}
-                  >
-                    <Edit2 size={15} />
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {user?.role === 'admin' && (
+                    <button
+                      className="p-1.5 text-gray-400 hover:text-brand-600 rounded"
+                      onClick={() => { setEditing(clinic); setShowForm(true) }}
+                    >
+                      <Edit2 size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="text-sm text-gray-500 space-y-1">
                 {clinic.address && <p>{clinic.address}</p>}
@@ -156,6 +223,14 @@ export function ClinicsPage() {
                 {clinic.manager_name && (
                   <p className="text-brand-600 font-medium">Manager: {clinic.manager_name}</p>
                 )}
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <Link
+                  to={`/clinics/${clinic.id}/profile`}
+                  className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-800 font-medium"
+                >
+                  <ExternalLink size={12} /> View Profile
+                </Link>
               </div>
             </div>
           ))}

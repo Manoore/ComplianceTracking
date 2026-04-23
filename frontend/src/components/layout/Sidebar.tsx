@@ -4,20 +4,23 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
-  Users, LogOut, Menu, X
+  Users, LogOut, Menu, X, Megaphone, Settings, Bell
 } from 'lucide-react'
 import { useState } from 'react'
+import { NotificationBell } from '../ui/NotificationBell'
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'auditor'] },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/clinics', icon: Building2, label: 'Clinics', roles: ['admin', 'manager', 'auditor'] },
   { to: '/checklists', icon: ClipboardList, label: 'Checklists', roles: ['admin'] },
   { to: '/inspections', icon: Search, label: 'Inspections', roles: ['admin', 'manager', 'auditor'] },
   { to: '/audits', icon: ShieldCheck, label: 'Audits', roles: ['admin', 'auditor'] },
   { to: '/certifications', icon: CheckSquare, label: 'Certifications', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', roles: ['admin', 'manager', 'auditor', 'team_member'] },
+  { to: '/announcements', icon: Megaphone, label: 'Announcements', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['admin', 'auditor'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['admin'] },
+  { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
 ]
 
 export function Sidebar() {
@@ -33,7 +36,7 @@ export function Sidebar() {
   }
 
   const Nav = () => (
-    <nav className="flex-1 px-3 py-4 space-y-1">
+    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
       {visible.map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
@@ -75,9 +78,9 @@ export function Sidebar() {
         'fixed inset-y-0 left-0 z-40 w-64 bg-brand-800 flex flex-col transition-transform duration-300 lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full'
       )}>
-        <div className="px-6 py-5 border-b border-brand-700">
+        <div className="px-6 py-4 border-b border-brand-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
               <ShieldCheck className="text-brand-800" size={18} />
             </div>
             <div>
@@ -85,11 +88,12 @@ export function Sidebar() {
               <p className="text-brand-300 text-xs">Medical Audit Suite</p>
             </div>
           </div>
+          <NotificationBell />
         </div>
 
         <Nav />
 
-        <div className="px-3 py-4 border-t border-brand-700">
+        <div className="px-3 py-4 border-t border-brand-700 flex-shrink-0">
           <div className="px-3 py-2 mb-2">
             <p className="text-white text-sm font-medium truncate">{user?.full_name}</p>
             <p className="text-brand-300 text-xs capitalize">{user?.role.replace('_', ' ')}</p>

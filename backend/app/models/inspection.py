@@ -42,6 +42,10 @@ class Inspection(Base):
     notes = Column(Text, nullable=True)
     submitted_at = Column(DateTime, nullable=True)
     synced_at = Column(DateTime, nullable=True)
+    # Digital signatures (stored as base64 data URLs)
+    inspector_signature = Column(Text, nullable=True)
+    rep_signature = Column(Text, nullable=True)
+    rep_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -59,8 +63,10 @@ class InspectionItem(Base):
     inspection_id = Column(Integer, ForeignKey("inspections.id"), nullable=False)
     checklist_item_id = Column(Integer, ForeignKey("checklist_items.id"), nullable=False)
     result = Column(Enum(ItemResult), default=ItemResult.pending)
+    text_value = Column(Text, nullable=True)    # for text_input / numeric types
     notes = Column(Text, nullable=True)
-    photo_urls = Column(JSON, default=list)  # list of file paths
+    photo_urls = Column(JSON, default=list)
+    auditor_comment = Column(Text, nullable=True)  # auditor's per-item comment
     answered_at = Column(DateTime, nullable=True)
 
     inspection = relationship("Inspection", back_populates="items")
