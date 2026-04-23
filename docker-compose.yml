@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - app_data:/app/data
+      - app_uploads:/app/uploads
+    environment:
+      - DATABASE_URL=sqlite:////app/data/compliance.db
+      - SECRET_KEY=${SECRET_KEY:-changeme-in-production-32chars-min}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@compliance.local}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SSO_ENABLED=${SSO_ENABLED:-false}
+      - SSO_PROVIDER=${SSO_PROVIDER:-}
+      - SSO_CLIENT_ID=${SSO_CLIENT_ID:-}
+      - SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}
+      - SSO_DISCOVERY_URL=${SSO_DISCOVERY_URL:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  app_data:
+  app_uploads:
