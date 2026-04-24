@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
   ShieldCheck, ClipboardList, Building2, CheckSquare,
-  AlertTriangle, BarChart2, Bell, Users, ArrowRight
+  AlertTriangle, BarChart2, Bell, Users, ArrowRight, ArrowLeft
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiError } from '../services/api'
@@ -43,15 +43,20 @@ export function LoginPage() {
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left — hero + features */}
       <div className="lg:flex-1 bg-gradient-to-br from-brand-800 via-brand-800 to-brand-900 flex flex-col p-8 lg:p-12 xl:p-16">
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-12">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-            <ShieldCheck className="text-brand-800" size={22} />
+        {/* Logo + back link */}
+        <div className="flex items-center justify-between mb-12">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+              <ShieldCheck className="text-brand-800" size={22} />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg leading-none">ComplianceTrack</p>
+              <p className="text-brand-300 text-xs">Medical Audit Suite</p>
+            </div>
           </div>
-          <div>
-            <p className="text-white font-bold text-lg leading-none">ComplianceTrack</p>
-            <p className="text-brand-300 text-xs">Medical Audit Suite</p>
-          </div>
+          <Link to="/home" className="flex items-center gap-1.5 text-brand-300 hover:text-white text-xs transition-colors">
+            <ArrowLeft size={13} /> Back to home
+          </Link>
         </div>
 
         {/* Headline */}
