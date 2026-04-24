@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { AppLayout } from './components/layout/AppLayout'
+import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ClinicsPage } from './pages/ClinicsPage'
@@ -26,7 +27,7 @@ function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: 
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600" />
     </div>
   )
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/home" replace />
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -34,6 +35,7 @@ function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: 
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/certify/:token" element={<TakeCertificationPage />} />
       <Route path="/verify/:certId" element={<VerifyCertificatePage />} />

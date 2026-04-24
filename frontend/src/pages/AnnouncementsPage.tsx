@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -91,8 +91,11 @@ function AnnouncementCard({ ann }: { ann: any }) {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
+  const markedRef = useRef(false)
   useEffect(() => {
-    if (!ann.is_read) markRead.mutate()
+    if (ann.is_read || markedRef.current) return
+    markedRef.current = true
+    markRead.mutate()
   }, [ann.id])
 
   return (
