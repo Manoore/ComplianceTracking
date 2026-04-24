@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -91,10 +91,9 @@ function AnnouncementCard({ ann }: { ann: any }) {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
-  // Auto-mark read on render
-  if (!ann.is_read) {
-    markRead.mutate()
-  }
+  useEffect(() => {
+    if (!ann.is_read) markRead.mutate()
+  }, [ann.id])
 
   return (
     <div className={clsx('card', ann.is_pinned && 'border-l-4 border-brand-500')}>
