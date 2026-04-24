@@ -82,6 +82,21 @@
     position: relative;
     overflow: hidden;
   }
+  .bg-drift-blob {
+    animation: drift 22s ease-in-out infinite alternate;
+  }
+  .bg-drift-blob-slow {
+    animation: drift 30s ease-in-out infinite alternate-reverse;
+  }
+}
+
+@keyframes drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(60px, -40px) scale(1.08); }
+  100% { transform: translate(-40px, 50px) scale(0.95); }
+}
+
+@layer components {
   .liquid-glass-strong::before {
     content: '';
     position: absolute;

@@ -5,22 +5,18 @@ import {
   Twitter, Linkedin, Instagram, Menu
 } from 'lucide-react'
 
-const VIDEO_URL =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260315_073750_51473149-4350-4920-ae24-c8214286f323.mp4'
-
 export function HomePage() {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-black font-display text-white">
-      {/* Video background */}
-      <video
-        className="absolute inset-0 w-full h-full object-cover z-0"
-        src={VIDEO_URL}
-        autoPlay
-        loop
-        muted
-        playsInline
-      />
-      <div className="absolute inset-0 bg-black/30 z-0" />
+    <div className="relative min-h-screen w-full overflow-hidden font-display text-white bg-gradient-to-br from-brand-900 via-brand-800 to-brand-700">
+      {/* Animated gradient blobs */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="bg-drift-blob absolute w-[640px] h-[640px] rounded-full bg-brand-500/50 blur-3xl -top-48 -left-32" />
+        <div className="bg-drift-blob-slow absolute w-[520px] h-[520px] rounded-full bg-brand-400/40 blur-3xl top-[25%] right-[-120px]" />
+        <div className="bg-drift-blob absolute w-[480px] h-[480px] rounded-full bg-blue-300/25 blur-3xl bottom-[-160px] left-[18%]" />
+        <div className="bg-drift-blob-slow absolute w-[360px] h-[360px] rounded-full bg-brand-200/15 blur-3xl top-[55%] left-[35%]" />
+      </div>
+      {/* Subtle darkening overlay for legibility */}
+      <div className="absolute inset-0 bg-brand-900/20 z-0" />
 
       {/* Content */}
       <div className="relative z-10 flex min-h-screen flex-col lg:flex-row">
