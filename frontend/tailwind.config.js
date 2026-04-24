@@ -5,6 +5,7 @@ export default {
     extend: {
       fontFamily: {
         display: ['Poppins', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        rubik: ['Rubik', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['"Source Serif 4"', 'Georgia', 'serif'],
       },
       colors: {
