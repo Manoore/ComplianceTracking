@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api' })
+const api = axios.create({ baseURL: (import.meta as any).env?.VITE_API_URL || '/api' })
 
 // Normalize Pydantic v2 validation errors (array of {msg}) into a plain string
 export function apiError(err: any, fallback = 'An error occurred'): string {
