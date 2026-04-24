@@ -3,7 +3,7 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:////app/data/compliance.db"
+    database_url: str = "sqlite:///./compliance.db"
     secret_key: str = "changeme-in-production-32chars-min"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 8  # 8 hours
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@compliance.local"
 
     frontend_url: str = "http://localhost:3000"
-    upload_dir: str = "/app/uploads"
+    upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20
 
     sso_enabled: bool = False
