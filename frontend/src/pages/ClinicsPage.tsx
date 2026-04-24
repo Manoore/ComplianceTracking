@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { Clinic } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Link } from 'react-router-dom'
@@ -47,7 +47,7 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
       toast.success(clinic ? 'Clinic updated' : 'Clinic created')
       onClose()
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -146,7 +146,7 @@ function CsvImportButton() {
       qc.invalidateQueries({ queryKey: ['clinics'] })
       toast.success(`Imported ${res.data.created} clinic(s)`)
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Import failed')
+      toast.error(apiError(err, 'Import failed'))
     }
     e.target.value = ''
   }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { AuditReview, Inspection } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
@@ -21,7 +21,7 @@ function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => 
       toast.success('Review saved')
       onClose()
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const reportMutation = useMutation({
@@ -30,7 +30,7 @@ function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => 
       toast.success('Report generated')
       window.open(r.data.report_path, '_blank')
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (
@@ -122,7 +122,7 @@ export function AuditsPage() {
       qc.invalidateQueries({ queryKey: ['submitted-inspections'] })
       toast.success('Review started')
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (

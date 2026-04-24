@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { User, UserRole } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Plus, Edit2, UserX } from 'lucide-react'
@@ -18,7 +18,7 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: (data: any) => user ? api.put(`/users/${user.id}`, data) : api.post('/users', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success(user ? 'User updated' : 'User created'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (
@@ -83,7 +83,7 @@ export function UsersPage() {
   const deactivate = useMutation({
     mutationFn: (id: number) => api.delete(`/users/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('User deactivated') },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (

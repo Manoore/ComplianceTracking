@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { Pin, Plus, CheckCheck, X, Paperclip } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -18,7 +18,7 @@ function NewAnnouncementModal({ onClose }: { onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: (data: any) => api.post('/announcements', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['announcements'] }); toast.success('Announcement posted'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -82,13 +82,13 @@ function AnnouncementCard({ ann }: { ann: any }) {
   const acknowledge = useMutation({
     mutationFn: () => api.post(`/announcements/${ann.id}/acknowledge`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['announcements'] }); toast.success('Acknowledged') },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const deactivate = useMutation({
     mutationFn: () => api.delete(`/announcements/${ann.id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['announcements'] }),
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   // Auto-mark read on render

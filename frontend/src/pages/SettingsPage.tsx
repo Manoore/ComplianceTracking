@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import { Save, Upload, Shield, Bell, Database, Key } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -45,7 +45,7 @@ export function SettingsPage() {
   const save = useMutation({
     mutationFn: (data: any) => api.put('/settings', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings'] }); toast.success('Settings saved') },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const uploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,7 +58,7 @@ export function SettingsPage() {
       qc.invalidateQueries({ queryKey: ['settings'] })
       toast.success('Logo uploaded')
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Upload failed')
+      toast.error(apiError(err, 'Upload failed'))
     }
     e.target.value = ''
   }

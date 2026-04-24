@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { Inspection, Clinic, ChecklistTemplate } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
@@ -32,7 +32,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
       navigate(`/inspections/${r.data.id}`)
       onClose()
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (

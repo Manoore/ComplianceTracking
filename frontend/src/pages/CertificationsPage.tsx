@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { Course, CertificationLink, TeamCertification } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
@@ -13,7 +13,7 @@ function NewCourseModal({ onClose }: { onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: (data: any) => api.post('/certifications/courses', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['courses'] }); toast.success('Course created'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -62,7 +62,7 @@ function GenerateLinkModal({ onClose }: { onClose: () => void }) {
       navigator.clipboard.writeText(r.data.url).then(() => toast.success('Link copied to clipboard!'))
       onClose()
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (
@@ -128,7 +128,7 @@ export function CertificationsPage() {
   const remind = useMutation({
     mutationFn: (linkId: number) => api.post(`/certifications/remind/${linkId}`),
     onSuccess: () => toast.success('Reminder sent'),
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const isAdmin = user?.role === 'admin'

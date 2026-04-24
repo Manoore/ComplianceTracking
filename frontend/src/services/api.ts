@@ -2,6 +2,15 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: '/api' })
 
+// Normalize Pydantic v2 validation errors (array of {msg}) into a plain string
+export function apiError(err: any, fallback = 'An error occurred'): string {
+  const detail = err?.response?.data?.detail
+  if (!detail) return fallback
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((d: any) => d.msg ?? String(d)).join(', ')
+  return fallback
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) config.headers.Authorization = `Bearer ${token}`

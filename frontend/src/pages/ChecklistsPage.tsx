@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { ChecklistTemplate } from '../types'
 import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -40,7 +40,7 @@ function PresetLibraryModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ['checklists'] })
       toast.success(`${PRESET_LABELS[category] ?? category} template deployed`)
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (
@@ -93,7 +93,7 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
   const mutation = useMutation({
     mutationFn: (data: any) => api.post('/checklists', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template created'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const addItem = () => setItems(i => [...i, { question: '', category: 'other', is_critical: false, is_required: true, order_index: i.length }])
@@ -185,7 +185,7 @@ export function ChecklistsPage() {
   const cloneTemplate = useMutation({
     mutationFn: (id: number) => api.post(`/checklists/${id}/clone`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template cloned') },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   return (

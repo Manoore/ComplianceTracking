@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import { Award, CheckCircle, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -31,7 +31,7 @@ export function TakeCertificationPage() {
       participant_email: email,
     }),
     onSuccess: (r) => setResult(r.data),
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Submission failed'),
+    onError: (e: any) => toast.error(apiError(e, 'Submission failed')),
   })
 
   if (isLoading) return (

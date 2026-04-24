@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { CorrectiveAction } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge, priorityBadge } from '../components/ui/Badge'
@@ -22,13 +22,13 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
   const update = useMutation({
     mutationFn: (data: any) => api.put(`/corrective-actions/${action.id}`, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['corrective-actions'] }); toast.success('Saved'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const verify = useMutation({
     mutationFn: () => api.post(`/corrective-actions/${action.id}/verify`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['corrective-actions'] }); toast.success('Action verified'); onClose() },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const fileInput = useState<HTMLInputElement | null>(null)
@@ -43,7 +43,7 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
       qc.invalidateQueries({ queryKey: ['corrective-actions'] })
       toast.success('Evidence uploaded')
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Upload failed')
+      toast.error(apiError(err, 'Upload failed'))
     }
     e.target.value = ''
   }

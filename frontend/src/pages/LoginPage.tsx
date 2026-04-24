@@ -6,6 +6,7 @@ import {
   AlertTriangle, BarChart2, Bell, Users, ArrowRight
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { apiError } from '../services/api'
 
 const FEATURES = [
   { icon: Building2, title: 'Clinic Registry', desc: 'Manage all clinic locations with profiles, staff assignments, and compliance history.' },
@@ -32,7 +33,7 @@ export function LoginPage() {
       await login(email, password)
       navigate('/')
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Login failed')
+      toast.error(apiError(err, 'Login failed'))
     } finally {
       setLoading(false)
     }

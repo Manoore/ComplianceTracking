@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../services/api'
+import api, { apiError } from '../services/api'
 import type { Inspection } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
@@ -30,7 +30,7 @@ export function InspectionDetailPage() {
     mutationFn: ({ itemId, result, note }: { itemId: number; result: ItemResult; note?: string }) =>
       api.put(`/inspections/${id}/items/${itemId}`, { result, notes: note }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inspection', id] }),
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const submitInspection = useMutation({
@@ -40,7 +40,7 @@ export function InspectionDetailPage() {
       qc.invalidateQueries({ queryKey: ['inspections'] })
       toast.success('Inspection submitted successfully!')
     },
-    onError: (e: any) => toast.error(e.response?.data?.detail || 'Error'),
+    onError: (e: any) => toast.error(apiError(e)),
   })
 
   const uploadPhoto = useMutation({
