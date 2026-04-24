@@ -54,7 +54,10 @@ export function LoginPage() {
               <p className="text-brand-300 text-xs">Medical Audit Suite</p>
             </div>
           </div>
-          <Link to="/home" className="flex items-center gap-1.5 text-brand-300 hover:text-white text-xs transition-colors">
+          <Link
+            to="/home"
+            className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 rounded-full backdrop-blur transition-colors"
+          >
             <ArrowLeft size={13} /> Back to home
           </Link>
         </div>
