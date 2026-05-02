@@ -11,7 +11,7 @@ from ..models.user import User, UserRole
 from ..services import pdf as pdf_service
 from ..utils.audit_trail import log_action
 from ..config import settings
-from .deps import get_current_user, require_admin, require_admin_or_auditor
+from .deps import get_current_user, require_admin, require_reviewer
 
 router = APIRouter(prefix="/audits", tags=["audits"])
 
@@ -55,7 +55,7 @@ def review_out(r: AuditReview) -> dict:
 
 
 @router.get("/cycles")
-def list_cycles(db: Session = Depends(get_db), _=Depends(require_admin_or_auditor)):
+def list_cycles(db: Session = Depends(get_db), _=Depends(require_reviewer)):
     cycles = db.query(AuditCycle).order_by(AuditCycle.start_date.desc()).all()
     return [{"id": c.id, "name": c.name, "start_date": str(c.start_date),
              "end_date": str(c.end_date), "is_recurring": c.is_recurring} for c in cycles]
@@ -96,7 +96,7 @@ def list_reviews(db: Session = Depends(get_db), current_user: User = Depends(get
 
 @router.post("/reviews", status_code=201)
 def create_review(inspection_id: int, db: Session = Depends(get_db),
-                  current_user: User = Depends(require_admin_or_auditor)):
+                  current_user: User = Depends(require_reviewer)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
@@ -120,7 +120,7 @@ def create_review(inspection_id: int, db: Session = Depends(get_db),
 def update_review(review_id: int, payload: ReviewPayload,
                   background_tasks: BackgroundTasks,
                   db: Session = Depends(get_db),
-                  current_user: User = Depends(require_admin_or_auditor)):
+                  current_user: User = Depends(require_reviewer)):
     review = db.query(AuditReview).filter(AuditReview.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -149,7 +149,7 @@ def update_review(review_id: int, payload: ReviewPayload,
 @router.post("/reviews/{review_id}/report")
 def generate_report(review_id: int, background_tasks: BackgroundTasks,
                     db: Session = Depends(get_db),
-                    current_user: User = Depends(require_admin_or_auditor)):
+                    current_user: User = Depends(require_reviewer)):
     review = db.query(AuditReview).filter(AuditReview.id == review_id).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -167,7 +167,7 @@ def generate_report(review_id: int, background_tasks: BackgroundTasks,
 
 
 @router.get("/trail")
-def audit_trail(db: Session = Depends(get_db), _=Depends(require_admin_or_auditor),
+def audit_trail(db: Session = Depends(get_db), _=Depends(require_reviewer),
                 resource_type: Optional[str] = None, resource_id: Optional[int] = None,
                 limit: int = 100):
     from ..models.audit_trail import AuditTrail

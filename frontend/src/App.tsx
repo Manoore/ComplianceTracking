@@ -47,7 +47,7 @@ function AppRoutes() {
         <Route path="checklists" element={<PrivateRoute roles={['admin']}><ChecklistsPage /></PrivateRoute>} />
         <Route path="inspections" element={<InspectionsPage />} />
         <Route path="inspections/:id" element={<InspectionDetailPage />} />
-        <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor']}><AuditsPage /></PrivateRoute>} />
+        <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor', 'manager']}><AuditsPage /></PrivateRoute>} />
         <Route path="certifications" element={<CertificationsPage />} />
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
         <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']}><ReportsPage /></PrivateRoute>} />

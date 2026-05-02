@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { Course, CertificationLink, TeamCertification } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
-import { Plus, Copy, Bell, ExternalLink, Award, Trash2, X } from 'lucide-react'
+import { Plus, Copy, Bell, ExternalLink, Award, Trash2, X, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type OptionDraft = { text: string; is_correct: boolean }
@@ -15,15 +15,32 @@ const newOpt = (): OptionDraft => ({ text: '', is_correct: false })
 const newQuestion = (): QuestionDraft => ({ text: '', options: [newOpt(), newOpt(), newOpt(), newOpt()] })
 const newQuiz = (n = 1): QuizDraft => ({ title: `Quiz ${n}`, time_limit: '', max_attempts: 3, questions: [newQuestion()] })
 
-function NewCourseModal({ onClose }: { onClose: () => void }) {
+function NewCourseModal({ onClose, courseId }: { onClose: () => void; courseId?: number }) {
   const qc = useQueryClient()
   const [step, setStep] = useState<1 | 2>(1)
   const [basics, setBasics] = useState({ title: '', description: '', pass_threshold: 80, validity_days: 365 })
   const [quizzes, setQuizzes] = useState<QuizDraft[]>([newQuiz()])
 
+  const { data: existing } = useQuery({
+    queryKey: ['course-detail', courseId],
+    queryFn: () => api.get(`/certifications/courses/${courseId}`).then(r => r.data),
+    enabled: !!courseId,
+  })
+
+  useEffect(() => {
+    if (!existing) return
+    setBasics({ title: existing.title, description: existing.description || '', pass_threshold: existing.pass_threshold, validity_days: existing.validity_days })
+    setQuizzes((existing.quizzes ?? []).map((qz: any) => ({
+      title: qz.title, time_limit: qz.time_limit_minutes ? String(qz.time_limit_minutes) : '', max_attempts: qz.max_attempts ?? 3,
+      questions: (qz.questions ?? []).map((q: any) => ({
+        text: q.question_text, options: (q.options ?? []).map((o: any) => ({ text: o.option_text, is_correct: o.is_correct ?? false })),
+      })),
+    })))
+  }, [existing?.id])
+
   const mutation = useMutation({
-    mutationFn: (data: any) => api.post('/certifications/courses', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['courses'] }); toast.success('Course created'); onClose() },
+    mutationFn: (data: any) => courseId ? api.put(`/certifications/courses/${courseId}`, data) : api.post('/certifications/courses', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['courses'] }); toast.success(courseId ? 'Course updated' : 'Course created'); onClose() },
     onError: (e: any) => toast.error(apiError(e)),
   })
 
@@ -84,7 +101,7 @@ function NewCourseModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-lg font-semibold">New Accreditation Course</h2>
+            <h2 className="text-lg font-semibold">{courseId ? 'Edit Course' : 'New Accreditation Course'}</h2>
             <p className="text-xs text-gray-400 mt-0.5">
               Step {step} of 2 — {step === 1 ? 'Course Details' : 'Build Quiz Questions'}
             </p>
@@ -191,7 +208,7 @@ function NewCourseModal({ onClose }: { onClose: () => void }) {
             <div className="px-6 py-4 border-t border-gray-200 flex gap-3 flex-shrink-0">
               <button className="btn-secondary" onClick={() => setStep(1)}>← Back</button>
               <button className="btn-primary" onClick={submit} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Creating…' : 'Create Course'}
+                {mutation.isPending ? 'Saving…' : courseId ? 'Save Changes' : 'Create Course'}
               </button>
             </div>
           </>
@@ -269,6 +286,13 @@ export function CertificationsPage() {
   const [tab, setTab] = useState<'courses' | 'links' | 'completions'>('courses')
   const [showNewCourse, setShowNewCourse] = useState(false)
   const [showNewLink, setShowNewLink] = useState(false)
+  const [editingId, setEditingId] = useState<number | undefined>()
+
+  const deleteCourse = useMutation({
+    mutationFn: (id: number) => api.delete(`/certifications/courses/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['courses'] }); toast.success('Course deleted') },
+    onError: (e: any) => toast.error(apiError(e)),
+  })
 
   const { data: courses, isLoading: loadingCourses } = useQuery<Course[]>({
     queryKey: ['courses'],
@@ -342,10 +366,20 @@ export function CertificationsPage() {
                 <span>Valid: {c.validity_days}d</span>
               </div>
               {isAdmin && (
-                <button className="mt-3 btn-secondary text-xs py-1.5 w-full justify-center"
-                  onClick={() => { setShowNewLink(true) }}>
-                  <Copy size={12} /> Generate Link for This Course
-                </button>
+                <div className="mt-3 flex gap-1.5">
+                  <button className="btn-secondary text-xs py-1.5 flex-1 justify-center"
+                    onClick={() => setEditingId(c.id)}>
+                    <Pencil size={12} /> Edit
+                  </button>
+                  <button className="btn-secondary text-xs py-1.5 flex-1 justify-center"
+                    onClick={() => setShowNewLink(true)}>
+                    <Copy size={12} /> Link
+                  </button>
+                  <button className="btn-secondary text-xs py-1.5 flex-1 justify-center text-red-500 hover:bg-red-50"
+                    onClick={() => { if (confirm(`Delete "${c.title}"?`)) deleteCourse.mutate(c.id) }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -458,6 +492,7 @@ export function CertificationsPage() {
       )}
 
       {showNewCourse && <NewCourseModal onClose={() => setShowNewCourse(false)} />}
+      {editingId && <NewCourseModal courseId={editingId} onClose={() => setEditingId(undefined)} />}
       {showNewLink && <GenerateLinkModal onClose={() => setShowNewLink(false)} />}
     </div>
   )

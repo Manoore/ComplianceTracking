@@ -140,24 +140,92 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db),
 
 
 @router.get("/courses/{course_id}")
-def get_course(course_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def get_course(course_id: int, db: Session = Depends(get_db),
+               current_user: User = Depends(get_current_user)):
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    is_admin = current_user.role == UserRole.admin
     result = course_out(course)
     result["quizzes"] = []
     for quiz in (course.quizzes or []):
         q_out = {"id": quiz.id, "title": quiz.title, "description": quiz.description,
-                 "time_limit_minutes": quiz.time_limit_minutes, "questions": []}
+                 "time_limit_minutes": quiz.time_limit_minutes,
+                 "max_attempts": quiz.max_attempts, "questions": []}
         for question in (quiz.questions or []):
-            opts = [{"id": o.id, "option_text": o.option_text} for o in (question.options or [])]
+            opts = []
+            for o in (question.options or []):
+                opt = {"id": o.id, "option_text": o.option_text}
+                if is_admin:
+                    opt["is_correct"] = o.is_correct
+                opts.append(opt)
             q_out["questions"].append({
                 "id": question.id,
                 "question_text": question.question_text,
+                "explanation": question.explanation if is_admin else None,
                 "options": opts,
             })
         result["quizzes"].append(q_out)
     return result
+
+
+@router.put("/courses/{course_id}")
+def update_course(course_id: int, payload: CourseCreate, db: Session = Depends(get_db),
+                  current_user: User = Depends(require_admin)):
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    course.title = payload.title
+    course.description = payload.description
+    course.pass_threshold = payload.pass_threshold
+    course.validity_days = payload.validity_days
+
+    for quiz in list(course.quizzes or []):
+        db.delete(quiz)
+    db.flush()
+
+    for quiz_data in payload.quizzes:
+        quiz = Quiz(
+            course_id=course.id,
+            title=quiz_data.title,
+            description=quiz_data.description,
+            time_limit_minutes=quiz_data.time_limit_minutes,
+            max_attempts=quiz_data.max_attempts,
+            order_index=quiz_data.order_index,
+        )
+        db.add(quiz)
+        db.flush()
+        for q_data in quiz_data.questions:
+            question = QuizQuestion(
+                quiz_id=quiz.id,
+                question_text=q_data.question_text,
+                explanation=q_data.explanation,
+                order_index=q_data.order_index,
+            )
+            db.add(question)
+            db.flush()
+            for opt in q_data.options:
+                db.add(QuizOption(question_id=question.id, option_text=opt.option_text, is_correct=opt.is_correct))
+
+    db.commit()
+    db.refresh(course)
+    log_action(db, "course.update", user_id=current_user.id, resource_type="course", resource_id=course.id)
+    db.commit()
+    return course_out(course)
+
+
+@router.delete("/courses/{course_id}", status_code=204)
+def delete_course(course_id: int, db: Session = Depends(get_db),
+                  current_user: User = Depends(require_admin)):
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    course.is_active = False
+    db.commit()
+    log_action(db, "course.delete", user_id=current_user.id, resource_type="course", resource_id=course_id)
+    db.commit()
+    return None
 
 
 @router.post("/links", status_code=201)

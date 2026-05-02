@@ -18,10 +18,39 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
   const [templateId, setTemplateId] = useState('')
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null)
 
+  const [gpsLoading, setGpsLoading] = useState(false)
+
   const captureGPS = () => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) => { setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }); toast.success('GPS captured') },
-      () => toast.error('Could not get GPS location'),
+    if (!navigator.geolocation) {
+      toast.error('Your browser does not support GPS. Try Chrome, Edge, Safari, or Firefox.')
+      return
+    }
+    if (!window.isSecureContext) {
+      toast.error('GPS needs a secure connection. Use localhost or HTTPS.', { duration: 6000 })
+      return
+    }
+    setGpsLoading(true)
+    const t = toast.loading('Requesting location…')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setGpsLoading(false)
+        toast.success(`GPS captured (±${Math.round(pos.coords.accuracy)}m)`, { id: t })
+      },
+      (err) => {
+        setGpsLoading(false)
+        toast.dismiss(t)
+        if (err.code === 1) {
+          toast.error('Location permission denied. Click the location icon in your browser\'s address bar and allow access, then try again.', { duration: 7000 })
+        } else if (err.code === 2) {
+          toast.error('Location unavailable. Check that location services are enabled in your OS settings.', { duration: 6000 })
+        } else if (err.code === 3) {
+          toast.error('Location request timed out. Make sure you have signal and try again.')
+        } else {
+          toast.error('Could not get GPS: ' + (err.message || 'unknown error'))
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     )
   }
 
@@ -60,10 +89,17 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </div>
-          <button type="button" className="btn-secondary w-full justify-center" onClick={captureGPS}>
+          <button type="button" className="btn-secondary w-full justify-center" onClick={captureGPS} disabled={gpsLoading}>
             <MapPin size={15} />
-            {gps ? `GPS: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}` : 'Capture GPS Location'}
+            {gpsLoading
+              ? 'Getting location…'
+              : gps
+                ? `GPS: ${gps.lat.toFixed(4)}, ${gps.lng.toFixed(4)}`
+                : 'Capture GPS Location'}
           </button>
+          <p className="text-xs text-gray-400 text-center -mt-2">
+            Optional — your browser will ask to share location
+          </p>
           <div className="flex gap-3 pt-2">
             <button
               disabled={!clinicId || !templateId || mutation.isPending}

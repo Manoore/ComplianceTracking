@@ -36,3 +36,4 @@ def require_roles(*roles: UserRole):
 require_admin = require_roles(UserRole.admin)
 require_admin_or_auditor = require_roles(UserRole.admin, UserRole.auditor)
 require_admin_or_manager = require_roles(UserRole.admin, UserRole.manager)
+require_reviewer = require_roles(UserRole.admin, UserRole.auditor, UserRole.manager)
