@@ -19,6 +19,9 @@ frontend/.vite/
 # Data & uploads
 backend/data/
 backend/uploads/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
 
 # OS
 .DS_Store
