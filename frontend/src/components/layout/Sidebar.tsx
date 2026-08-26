@@ -13,7 +13,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/clinics', icon: Building2, label: 'Clinics', roles: ['admin', 'manager', 'auditor'] },
   { to: '/checklists', icon: ClipboardList, label: 'Checklists', roles: ['admin'] },
-  { to: '/inspections', icon: Search, label: 'Inspections', roles: ['admin', 'manager', 'auditor'] },
+  { to: '/inspections', icon: Search, label: 'Inspections', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/audits', icon: ShieldCheck, label: 'Audits', roles: ['admin', 'manager', 'auditor'] },
   { to: '/certifications', icon: CheckSquare, label: 'Certifications', roles: ['admin', 'manager', 'auditor', 'team_member'] },
   { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', roles: ['admin', 'manager', 'auditor', 'team_member'] },

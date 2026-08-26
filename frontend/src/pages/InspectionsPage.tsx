@@ -125,10 +125,109 @@ export function InspectionsPage() {
   const { user } = useAuth()
   const [showNew, setShowNew] = useState(false)
   const navigate = useNavigate()
+  const isInspector = user?.role === 'team_member'
+
   const { data: inspections, isLoading } = useQuery<Inspection[]>({
     queryKey: ['inspections'],
     queryFn: () => api.get('/inspections').then(r => r.data),
   })
+
+  const visible = isInspector
+    ? (inspections ?? []).filter(i => i.inspector_id === user?.id)
+    : (inspections ?? [])
+
+  const pending = visible.filter(i => i.status === 'in_progress' || i.status === 'draft')
+  const completed = visible.filter(i => i.status === 'submitted' || i.status === 'reviewed')
+
+  if (isInspector) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">My Inspections</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Select a clinic and complete your checklist</p>
+          </div>
+          <button className="btn-primary" onClick={() => setShowNew(true)}>
+            <Plus size={16} /> Start New Inspection
+          </button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+          </div>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Pending / In Progress</h2>
+                <div className="space-y-3">
+                  {pending.map(insp => (
+                    <div key={insp.id}
+                      className="card flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/inspections/${insp.id}`)}>
+                      <div>
+                        <p className="font-semibold text-gray-900">{insp.clinic_name}</p>
+                        <p className="text-sm text-gray-500">{new Date(insp.created_at!).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {statusBadge(insp.status)}
+                        <ChevronRight size={18} className="text-gray-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {pending.length === 0 && (
+              <div className="card text-center py-10">
+                <p className="text-gray-400 font-medium">No pending inspections</p>
+                <p className="text-sm text-gray-400 mt-1">Click "Start New Inspection" to begin</p>
+              </div>
+            )}
+
+            {completed.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Completed</h2>
+                <div className="card p-0 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Clinic</th>
+                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Score</th>
+                        <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {completed.map(insp => (
+                        <tr key={insp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`/inspections/${insp.id}`)}>
+                          <td className="py-3 px-4 font-medium">{insp.clinic_name}</td>
+                          <td className="py-3 px-4">
+                            {insp.compliance_score != null
+                              ? <ScoreRing score={insp.compliance_score} size={40} strokeWidth={4} />
+                              : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="py-3 px-4 text-gray-500">
+                            {insp.submitted_at ? new Date(insp.submitted_at).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="py-3 px-4 text-gray-400"><ChevronRight size={16} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {showNew && <NewInspectionModal onClose={() => setShowNew(false)} />}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -160,7 +259,7 @@ export function InspectionsPage() {
               </tr>
             </thead>
             <tbody>
-              {(inspections ?? []).map((insp) => (
+              {visible.map((insp) => (
                 <tr key={insp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/inspections/${insp.id}`)}>
                   <td className="py-3 px-4 font-medium">{insp.clinic_name}</td>
@@ -180,7 +279,7 @@ export function InspectionsPage() {
                   <td className="py-3 px-4 text-gray-400"><ChevronRight size={16} /></td>
                 </tr>
               ))}
-              {(inspections?.length ?? 0) === 0 && (
+              {visible.length === 0 && (
                 <tr><td colSpan={7} className="text-center py-12 text-gray-400">No inspections yet</td></tr>
               )}
             </tbody>
