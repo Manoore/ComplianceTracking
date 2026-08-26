@@ -29,6 +29,10 @@ class RoleCreate(BaseModel):
     display_name: str
 
 
+class RoleRename(BaseModel):
+    display_name: str
+
+
 class PermissionsUpdate(BaseModel):
     modules: List[str]
 
@@ -64,6 +68,16 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db), _=Depends(re
     db.commit()
     db.refresh(role)
     return RoleOut(name=role.name, display_name=role.display_name, is_system=False, modules=[])
+
+
+@router.patch("/{role_name}")
+def rename_role(role_name: str, payload: RoleRename, db: Session = Depends(get_db), _=Depends(require_admin)):
+    role = db.query(Role).filter(Role.name == role_name).first()
+    if not role:
+        raise HTTPException(404, "Role not found")
+    role.display_name = payload.display_name.strip()
+    db.commit()
+    return {"ok": True}
 
 
 @router.put("/{role_name}/permissions")
