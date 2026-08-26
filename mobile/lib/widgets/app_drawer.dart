@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/permissions_service.dart';
 import '../theme.dart';
+import 'complinow_mark.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -23,13 +24,7 @@ class AppDrawer extends StatelessWidget {
             decoration: const BoxDecoration(color: kBrand),
             accountName: Text(user?.fullName ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
             accountEmail: Text(displayRole, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            currentAccountPicture: CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Text(
-                (user?.fullName.isNotEmpty == true) ? user!.fullName[0].toUpperCase() : 'U',
-                style: const TextStyle(color: kBrand, fontWeight: FontWeight.bold, fontSize: 22),
-              ),
-            ),
+            currentAccountPicture: const CompliNowMark(size: 56),
           ),
           Expanded(
             child: ListView(

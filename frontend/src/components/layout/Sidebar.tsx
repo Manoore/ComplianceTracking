@@ -5,10 +5,11 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
-  Users, LogOut, Menu, X, Megaphone, Settings, Bell, Shield
+  Users, LogOut, Menu, X, Megaphone, Settings, Shield
 } from 'lucide-react'
 import { useState } from 'react'
 import { NotificationBell } from '../ui/NotificationBell'
+import { CompliNowMark } from '../ui/CompliNowMark'
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
@@ -84,9 +85,7 @@ export function Sidebar() {
       )}>
         <div className="px-6 py-4 border-b border-brand-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="text-brand-800" size={18} />
-            </div>
+            <CompliNowMark size={32} />
             <div>
               <p className="text-white font-semibold text-sm leading-tight">CompliNow</p>
               <p className="text-brand-300 text-xs">Audit anything, anywhere</p>

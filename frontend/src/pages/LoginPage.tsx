@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import {
-  ShieldCheck, ClipboardList, Building2, CheckSquare,
-  AlertTriangle, BarChart2, Bell, Users, ArrowRight, ArrowLeft
+  ClipboardList, Building2, CheckSquare,
+  AlertTriangle, BarChart2, Bell, Users, ArrowRight, ArrowLeft, ShieldCheck
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiError } from '../services/api'
+import { CompliNowMark } from '../components/ui/CompliNowMark'
 
 const FEATURES = [
   { icon: Building2, title: 'Clinic Registry', desc: 'Manage all clinic locations with profiles, staff assignments, and compliance history.' },
@@ -46,9 +47,7 @@ export function LoginPage() {
         {/* Logo + back link */}
         <div className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-              <ShieldCheck className="text-brand-800" size={22} />
-            </div>
+            <CompliNowMark size={40} />
             <div>
               <p className="text-white font-bold text-lg leading-none">CompliNow</p>
               <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
@@ -65,11 +64,11 @@ export function LoginPage() {
         {/* Headline */}
         <div className="mb-10">
           <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4">
-            Medical compliance,<br />
-            <span className="text-brand-300">made effortless.</span>
+            Audit anything,<br />
+            <span className="text-brand-300">anywhere.</span>
           </h1>
           <p className="text-brand-200 text-base leading-relaxed max-w-md">
-            A self-hosted audit and compliance platform built for healthcare organizations.
+            A compliance platform for any industry — restaurants, construction, healthcare, hospitality.
             Inspect, certify, track, and report — all in one place.
           </p>
         </div>
@@ -91,7 +90,7 @@ export function LoginPage() {
 
         {/* Footer note */}
         <p className="mt-auto pt-10 text-brand-400 text-xs">
-          Self-hosted · Docker-ready · HIPAA-aware
+          Self-hosted · Docker-ready · Any industry
         </p>
       </div>
 

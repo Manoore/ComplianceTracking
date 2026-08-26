@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../theme.dart';
+import '../widgets/complinow_mark.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -50,11 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.shield_outlined, color: kBrand, size: 36),
-                ),
+                const CompliNowMark(size: 72),
                 const SizedBox(height: 20),
                 const Text('CompliNow', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
                 const Text('Audit anything, anywhere', style: TextStyle(color: Colors.white60, fontSize: 14)),
