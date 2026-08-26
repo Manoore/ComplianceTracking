@@ -5,18 +5,22 @@ class AuthUser {
   final String email;
   final String fullName;
   final String role;
+  final String? customRole;
   final bool isActive;
 
-  AuthUser({required this.id, required this.email, required this.fullName, required this.role, required this.isActive});
+  AuthUser({required this.id, required this.email, required this.fullName,
+            required this.role, this.customRole, required this.isActive});
 
   factory AuthUser.fromJson(Map<String, dynamic> j) => AuthUser(
         id: j['id'],
         email: j['email'],
         fullName: j['full_name'],
         role: j['role'],
+        customRole: j['custom_role'],
         isActive: j['is_active'] ?? true,
       );
 
+  String get effectiveRole => customRole ?? role;
   bool get isAdmin => role == 'admin';
   bool get isManager => role == 'manager';
   bool get isAuditor => role == 'auditor';

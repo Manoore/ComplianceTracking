@@ -139,10 +139,25 @@ class AppNotification {
 class AppUser {
   final int id;
   final String email, fullName, role;
+  final String? customRole;
   final bool isActive;
-  AppUser({required this.id, required this.email, required this.fullName, required this.role, required this.isActive});
+  AppUser({required this.id, required this.email, required this.fullName,
+           required this.role, this.customRole, required this.isActive});
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
         id: j['id'], email: j['email'], fullName: j['full_name'] ?? '',
-        role: j['role'], isActive: j['is_active'] ?? true,
+        role: j['role'], customRole: j['custom_role'], isActive: j['is_active'] ?? true,
+      );
+  String get effectiveRole => customRole ?? role;
+}
+
+class RoleConfig {
+  final String name, displayName;
+  final bool isSystem;
+  final List<String> modules;
+  RoleConfig({required this.name, required this.displayName, required this.isSystem, required this.modules});
+  factory RoleConfig.fromJson(Map<String, dynamic> j) => RoleConfig(
+        name: j['name'], displayName: j['display_name'],
+        isSystem: j['is_system'] ?? false,
+        modules: List<String>.from(j['modules'] ?? []),
       );
 }
