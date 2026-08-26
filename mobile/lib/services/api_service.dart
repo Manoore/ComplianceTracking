@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-// Swap this to your Render URL when backend is deployed
-const String kBaseUrl = 'https://compliancetrack-api.onrender.com/api';
+const String kBaseUrl = 'https://compliancetracking.onrender.com/api';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
