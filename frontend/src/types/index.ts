@@ -5,8 +5,16 @@ export interface User {
   email: string
   full_name: string
   role: UserRole
+  custom_role?: string
   is_active: boolean
   last_login?: string
+}
+
+export interface RoleConfig {
+  name: string
+  display_name: string
+  is_system: boolean
+  modules: string[]
 }
 
 export interface AuthState {

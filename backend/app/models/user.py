@@ -19,6 +19,7 @@ class User(Base):
     full_name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=True)  # null for SSO-only users
     role = Column(Enum(UserRole), default=UserRole.team_member, nullable=False)
+    custom_role = Column(String(50), nullable=True)  # overrides role for permission lookup
     is_active = Column(Boolean, default=True)
     sso_subject = Column(String, nullable=True, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -19,6 +19,7 @@ import { UsersPage } from './pages/UsersPage'
 import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { RolesPage } from './pages/RolesPage'
 
 function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth()
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
         <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']}><ReportsPage /></PrivateRoute>} />
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
+        <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="settings" element={<PrivateRoute roles={['admin']}><SettingsPage /></PrivateRoute>} />
         <Route path="notifications" element={<NotificationsPage />} />

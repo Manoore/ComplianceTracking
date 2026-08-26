@@ -1,19 +1,38 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
-import type { User, UserRole } from '../types'
+import type { User, UserRole, RoleConfig } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Plus, Edit2, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
+const SYSTEM_ROLES = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'auditor', label: 'Auditor' },
+  { value: 'team_member', label: 'Team Member' },
+]
+
+function UserForm({ user, customRoles, onClose }: { user?: User; customRoles: RoleConfig[]; onClose: () => void }) {
   const qc = useQueryClient()
+  const effectiveRole = user?.custom_role ?? user?.role ?? 'team_member'
   const [form, setForm] = useState({
     email: user?.email ?? '',
     full_name: user?.full_name ?? '',
-    role: (user?.role ?? 'team_member') as UserRole,
+    selectedRole: effectiveRole,
     password: '',
   })
+
+  const buildPayload = () => {
+    const isCustom = !SYSTEM_ROLES.find(r => r.value === form.selectedRole)
+    return {
+      email: form.email,
+      full_name: form.full_name,
+      password: form.password || undefined,
+      role: isCustom ? 'team_member' : form.selectedRole,
+      custom_role: isCustom ? form.selectedRole : '',
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: (data: any) => user ? api.put(`/users/${user.id}`, data) : api.post('/users', data),
@@ -27,7 +46,7 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{user ? 'Edit User' : 'Add User'}</h2>
         </div>
-        <form className="p-6 space-y-4" onSubmit={e => { e.preventDefault(); mutation.mutate(form) }}>
+        <form className="p-6 space-y-4" onSubmit={e => { e.preventDefault(); mutation.mutate(buildPayload()) }}>
           <div>
             <label className="label">Full Name *</label>
             <input required className="input" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
@@ -38,11 +57,15 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
           </div>
           <div>
             <label className="label">Role *</label>
-            <select className="input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="auditor">Auditor</option>
-              <option value="team_member">Team Member</option>
+            <select className="input" value={form.selectedRole} onChange={e => setForm(f => ({ ...f, selectedRole: e.target.value }))}>
+              <optgroup label="System Roles">
+                {SYSTEM_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </optgroup>
+              {customRoles.length > 0 && (
+                <optgroup label="Custom Roles">
+                  {customRoles.map(r => <option key={r.name} value={r.name}>{r.display_name}</option>)}
+                </optgroup>
+              )}
             </select>
           </div>
           <div>
@@ -79,6 +102,12 @@ export function UsersPage() {
     queryKey: ['users'],
     queryFn: () => api.get('/users').then(r => r.data),
   })
+
+  const { data: allRoles = [] } = useQuery<RoleConfig[]>({
+    queryKey: ['roles'],
+    queryFn: () => api.get('/roles').then(r => r.data),
+  })
+  const customRoles = allRoles.filter(r => !r.is_system)
 
   const deactivate = useMutation({
     mutationFn: (id: number) => api.delete(`/users/${id}`),
@@ -121,8 +150,8 @@ export function UsersPage() {
                   </td>
                   <td className="py-3 px-4 text-gray-500">{u.email}</td>
                   <td className="py-3 px-4">
-                    <span className={`badge ${roleColors[u.role] || 'bg-gray-100 text-gray-800'}`}>
-                      {u.role.replace('_', ' ')}
+                    <span className={`badge ${roleColors[u.custom_role ?? u.role] || roleColors[u.role] || 'bg-gray-100 text-gray-800'}`}>
+                      {(u.custom_role ?? u.role).replace(/_/g, ' ')}
                     </span>
                   </td>
                   <td className="py-3 px-4">
@@ -154,7 +183,7 @@ export function UsersPage() {
         </div>
       )}
 
-      {showForm && <UserForm user={editing} onClose={() => { setShowForm(false); setEditing(undefined) }} />}
+      {showForm && <UserForm user={editing} customRoles={customRoles} onClose={() => { setShowForm(false); setEditing(undefined) }} />}
     </div>
   )
 }

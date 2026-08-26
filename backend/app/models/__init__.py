@@ -1,4 +1,5 @@
 from .user import User, UserRole
+from .role import Role, RolePermission
 from .clinic import Clinic, ClinicStaff, ClinicType
 from .checklist import ChecklistTemplate, ChecklistSection, ChecklistItem, ItemCategory, ItemType
 from .inspection import Inspection, InspectionItem, InspectionStatus, ItemResult

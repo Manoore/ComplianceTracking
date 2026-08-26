@@ -10,11 +10,13 @@ from .config import settings
 from .routers import (auth, users, clinics, checklists, inspections, audits,
                        certifications, corrective_actions, reports,
                        notifications, announcements, settings as settings_router)
+from .routers import roles as roles_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _apply_migrations()
     os.makedirs(settings.upload_dir, exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "inspections"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "evidence"), exist_ok=True)
@@ -22,7 +24,36 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.upload_dir, "reports"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "branding"), exist_ok=True)
     _seed_admin()
+    _seed_roles()
     yield
+
+
+def _apply_migrations():
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN custom_role VARCHAR(50)"))
+            conn.commit()
+    except Exception:
+        pass  # column already exists
+
+
+def _seed_roles():
+    from .database import SessionLocal
+    from .models.role import Role, RolePermission, DEFAULT_PERMISSIONS, SYSTEM_ROLES
+    db = SessionLocal()
+    try:
+        for role_name, display_name in SYSTEM_ROLES.items():
+            existing = db.query(Role).filter(Role.name == role_name).first()
+            if not existing:
+                role = Role(name=role_name, display_name=display_name, is_system=True)
+                db.add(role)
+                db.flush()
+                for module in DEFAULT_PERMISSIONS.get(role_name, []):
+                    db.add(RolePermission(role_id=role.id, module=module))
+        db.commit()
+    finally:
+        db.close()
 
 
 def _seed_admin():
@@ -71,6 +102,7 @@ app.include_router(reports.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(announcements.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
+app.include_router(roles_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

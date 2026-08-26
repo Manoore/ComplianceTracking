@@ -1,34 +1,41 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { usePermissions } from '../../hooks/usePermissions'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
-  Users, LogOut, Menu, X, Megaphone, Settings, Bell
+  Users, LogOut, Menu, X, Megaphone, Settings, Bell, Shield
 } from 'lucide-react'
 import { useState } from 'react'
 import { NotificationBell } from '../ui/NotificationBell'
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'auditor', 'team_member'] },
-  { to: '/clinics', icon: Building2, label: 'Clinics', roles: ['admin', 'manager', 'auditor'] },
-  { to: '/checklists', icon: ClipboardList, label: 'Checklists', roles: ['admin'] },
-  { to: '/inspections', icon: Search, label: 'Inspections', roles: ['admin', 'manager', 'auditor', 'team_member'] },
-  { to: '/audits', icon: ShieldCheck, label: 'Audits', roles: ['admin', 'manager', 'auditor'] },
-  { to: '/certifications', icon: CheckSquare, label: 'Certifications', roles: ['admin', 'manager', 'auditor', 'team_member'] },
-  { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', roles: ['admin', 'manager', 'auditor', 'team_member'] },
-  { to: '/announcements', icon: Megaphone, label: 'Announcements', roles: ['admin', 'manager', 'auditor', 'team_member'] },
-  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['admin', 'auditor'] },
-  { to: '/users', icon: Users, label: 'Users', roles: ['admin'] },
-  { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
+const allNavItems = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
+  { to: '/clinics', icon: Building2, label: 'Clinics', module: 'clinics' },
+  { to: '/checklists', icon: ClipboardList, label: 'Checklists', module: 'checklists' },
+  { to: '/inspections', icon: Search, label: 'Inspections', module: 'inspections' },
+  { to: '/audits', icon: ShieldCheck, label: 'Audits', module: 'audits' },
+  { to: '/certifications', icon: CheckSquare, label: 'Certifications', module: 'certifications' },
+  { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', module: 'corrective_actions' },
+  { to: '/announcements', icon: Megaphone, label: 'Announcements', module: 'announcements' },
+  { to: '/reports', icon: BarChart2, label: 'Reports', module: 'reports' },
+  { to: '/users', icon: Users, label: 'Users', module: 'users' },
+  { to: '/roles', icon: Shield, label: 'Roles & Permissions', module: 'roles' },
+  { to: '/settings', icon: Settings, label: 'Settings', module: 'settings' },
 ]
 
 export function Sidebar() {
   const { user, logout } = useAuth()
+  const { canView } = usePermissions()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
-  const visible = navItems.filter(item => user && item.roles.includes(user.role))
+  const visible = allNavItems.filter(item => canView(item.module))
+
+  const displayRole = user?.custom_role
+    ? user.custom_role.replace(/_/g, ' ')
+    : user?.role.replace('_', ' ')
 
   const handleLogout = () => {
     logout()
@@ -60,7 +67,6 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
       <button
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-brand-800 text-white rounded-lg"
         onClick={() => setOpen(!open)}
@@ -68,12 +74,10 @@ export function Sidebar() {
         {open ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Mobile overlay */}
       {open && (
         <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={clsx(
         'fixed inset-y-0 left-0 z-40 w-64 bg-brand-800 flex flex-col transition-transform duration-300 lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full'
@@ -96,7 +100,7 @@ export function Sidebar() {
         <div className="px-3 py-4 border-t border-brand-700 flex-shrink-0">
           <div className="px-3 py-2 mb-2">
             <p className="text-white text-sm font-medium truncate">{user?.full_name}</p>
-            <p className="text-brand-300 text-xs capitalize">{user?.role.replace('_', ' ')}</p>
+            <p className="text-brand-300 text-xs capitalize">{displayRole}</p>
           </div>
           <button
             onClick={handleLogout}
