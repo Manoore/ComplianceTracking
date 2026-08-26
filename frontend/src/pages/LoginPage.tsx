@@ -50,8 +50,8 @@ export function LoginPage() {
               <ShieldCheck className="text-brand-800" size={22} />
             </div>
             <div>
-              <p className="text-white font-bold text-lg leading-none">ComplianceTrack</p>
-              <p className="text-brand-300 text-xs">Medical Audit Suite</p>
+              <p className="text-white font-bold text-lg leading-none">CompliNow</p>
+              <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
             </div>
           </div>
           <Link

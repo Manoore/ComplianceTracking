@@ -88,8 +88,8 @@ export function Sidebar() {
               <ShieldCheck className="text-brand-800" size={18} />
             </div>
             <div>
-              <p className="text-white font-semibold text-sm leading-tight">ComplianceTrack</p>
-              <p className="text-brand-300 text-xs">Medical Audit Suite</p>
+              <p className="text-white font-semibold text-sm leading-tight">CompliNow</p>
+              <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
             </div>
           </div>
           <NotificationBell />

@@ -56,8 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Icon(Icons.shield_outlined, color: kBrand, size: 36),
                 ),
                 const SizedBox(height: 20),
-                const Text('ComplianceTrack', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
-                const Text('Medical Audit Suite', style: TextStyle(color: Colors.white60, fontSize: 14)),
+                const Text('CompliNow', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                const Text('Audit anything, anywhere', style: TextStyle(color: Colors.white60, fontSize: 14)),
                 const SizedBox(height: 36),
                 Card(
                   elevation: 0,

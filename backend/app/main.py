@@ -76,8 +76,8 @@ def _seed_admin():
 
 
 app = FastAPI(
-    title="Compliance & Audit Management",
-    description="Medical clinic compliance inspections, auditor reviews, and team certifications.",
+    title="CompliNow",
+    description="Compliance inspections, audits, corrective actions, and certifications for any industry.",
     version="1.0.0",
     lifespan=lifespan,
 )

@@ -23,7 +23,7 @@ import 'screens/admin/roles_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ComplianceTrackApp());
+  runApp(const CompliNowApp());
 }
 
 class AuthState extends ChangeNotifier {
@@ -66,8 +66,8 @@ class AuthState extends ChangeNotifier {
   }
 }
 
-class ComplianceTrackApp extends StatelessWidget {
-  const ComplianceTrackApp({super.key});
+class CompliNowApp extends StatelessWidget {
+  const CompliNowApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +107,7 @@ class ComplianceTrackApp extends StatelessWidget {
                 ],
               );
               return MaterialApp.router(
-                title: 'ComplianceTrack',
+                title: 'CompliNow',
                 theme: appTheme(),
                 routerConfig: router,
                 debugShowCheckedModeBanner: false,

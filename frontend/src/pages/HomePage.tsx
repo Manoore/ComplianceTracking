@@ -252,8 +252,8 @@ export function HomePage() {
               <ShieldCheck size={16} className="text-white" />
             </div>
             <div>
-              <p className="font-bold text-sm">ComplianceTrack</p>
-              <p className="text-gray-400 text-xs">Medical Audit Suite · Self-Hosted · HIPAA-Aware</p>
+              <p className="font-bold text-sm">CompliNow</p>
+              <p className="text-gray-400 text-xs">Audit anything, anywhere · All industries</p>
             </div>
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-400">
@@ -261,7 +261,7 @@ export function HomePage() {
             <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
             <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
           </div>
-          <p className="text-xs text-gray-500">© {new Date().getFullYear()} ComplianceTrack</p>
+          <p className="text-xs text-gray-500">© {new Date().getFullYear()} CompliNow</p>
         </div>
       </footer>
     </div>
