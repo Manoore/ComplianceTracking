@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 
-const kBrand = Color(0xFF21346E);
-const kBrand700 = Color(0xFF1a2a5a);
-const kBrand100 = Color(0xFFdce3f5);
+// CompliNow brand palette — mirrors the logo mark exactly
+const kDeepNavy  = Color(0xFF07142A);  // darkest surface
+const kBrand     = Color(0xFF1B3260);  // Brand Navy — sidebar, AppBar
+const kBrand700  = Color(0xFF162A52);  // hover / border on dark surfaces
+const kBrand100  = Color(0xFFDCE8F8);  // active tile tint
+const kTeal      = Color(0xFF00C4A0);  // Now Teal — primary CTA accent
+const kTealDeep  = Color(0xFF00917A);  // Teal Deep — hover
+
 const kSuccess = Color(0xFF16a34a);
 const kWarning = Color(0xFFd97706);
-const kDanger = Color(0xFFdc2626);
+const kDanger  = Color(0xFFdc2626);
 
 ThemeData appTheme() => ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: kBrand, primary: kBrand),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: kBrand,
+        primary: kBrand,
+        secondary: kTeal,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: kBrand,
         foregroundColor: Colors.white,
@@ -17,20 +26,38 @@ ThemeData appTheme() => ThemeData(
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: kBrand,
-          foregroundColor: Colors.white,
+          backgroundColor: kTeal,
+          foregroundColor: kDeepNavy,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: kTeal, width: 2),
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       cardTheme: CardTheme(
         elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? kTeal : null,
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? kTeal : null,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? kTeal.withOpacity(0.4) : null,
+        ),
       ),
     );
 

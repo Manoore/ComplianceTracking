@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/permissions_service.dart';
-import '../theme.dart';
+import '../theme.dart' show kBrand, kBrand100, kTeal;
 import 'complinow_mark.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -78,10 +78,10 @@ class AppDrawer extends StatelessWidget {
     final current = GoRouterState.of(context).matchedLocation;
     final isActive = route == '/' ? current == '/' : current.startsWith(route);
     return ListTile(
-      leading: Icon(icon, color: isActive ? kBrand : null),
+      leading: Icon(icon, color: isActive ? kTeal : null),
       title: Text(label, style: TextStyle(
         fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-        color: isActive ? kBrand : null,
+        color: isActive ? kTeal : null,
       )),
       selected: isActive,
       selectedTileColor: kBrand100,
