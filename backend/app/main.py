@@ -47,19 +47,20 @@ def _apply_migrations():
         "ALTER TABLE org_settings ADD COLUMN tenant_id INTEGER",
         "ALTER TABLE courses ADD COLUMN target_roles JSONB",
     ]
-    with engine.connect() as conn:
-        for stmt in stmts:
+    for stmt in stmts:
+        with engine.connect() as conn:
             try:
                 conn.execute(text(stmt))
                 conn.commit()
             except Exception:
-                pass
-        # Drop old unique constraint on roles.name if it exists (Postgres)
+                conn.rollback()
+    # Drop old unique constraint on roles.name if it exists (Postgres)
+    with engine.connect() as conn:
         try:
             conn.execute(text("ALTER TABLE roles DROP CONSTRAINT roles_name_key"))
             conn.commit()
         except Exception:
-            pass
+            conn.rollback()
 
 
 def _seed_default_tenant():
