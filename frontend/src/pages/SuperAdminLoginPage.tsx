@@ -4,7 +4,7 @@ import { ShieldAlert, ArrowRight, Lock } from 'lucide-react'
 import axios from 'axios'
 import { CompliNowMark } from '../components/ui/CompliNowMark'
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api'
+const BASE = (import.meta as any).env?.VITE_API_URL ?? '/api'
 
 export function SuperAdminLoginPage() {
   const navigate = useNavigate()

@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE = (import.meta.env.VITE_API_URL ?? '/api') + '/superadmin'
+const BASE = ((import.meta as any).env?.VITE_API_URL ?? '/api') + '/superadmin'
 
 export const saApi = axios.create({ baseURL: BASE })
 
