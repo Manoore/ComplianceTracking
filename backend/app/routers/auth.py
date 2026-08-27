@@ -1,13 +1,15 @@
 import re
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from ..database import get_db
 from ..models.user import User, UserRole
 from ..models.tenant import Tenant
 from ..services.auth import authenticate_user, create_access_token, create_refresh_token, decode_token, hash_password
+from ..services.email import send_email
 from ..utils.audit_trail import log_action
+from ..config import settings
 from .deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,6 +36,15 @@ class RegisterRequest(BaseModel):
     full_name: str
     email: str
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 def _make_token_data(user: User) -> dict:
@@ -109,6 +120,58 @@ async def logout(request: Request, db: Session = Depends(get_db), current_user: 
                ip_address=request.client.host if request.client else None)
     db.commit()
     return {"message": "Logged out successfully"}
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, background: BackgroundTasks,
+                          db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == req.email, User.is_active == True).first()  # noqa: E712
+    # Always return 200 to avoid user enumeration
+    if not user:
+        return {"message": "If that email exists you will receive a reset link shortly."}
+
+    token = create_access_token(
+        {"sub": str(user.id), "type_override": "password_reset"},
+        expires_delta=timedelta(minutes=30),
+    )
+    reset_url = f"{settings.frontend_url}/reset-password?token={token}"
+    html = f"""
+    <html><body style="font-family:sans-serif;max-width:480px;margin:40px auto;color:#1B3260">
+      <h2 style="color:#1B3260">Password Reset</h2>
+      <p>Hi {user.full_name},</p>
+      <p>We received a request to reset your CompliNow password. Click the button below — this link expires in 30 minutes.</p>
+      <p style="margin:24px 0">
+        <a href="{reset_url}" style="background:#00C4A0;color:#07142A;padding:12px 24px;text-decoration:none;border-radius:8px;font-weight:600">
+          Reset Password
+        </a>
+      </p>
+      <p style="color:#999;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
+      <p style="color:#999;font-size:11px">Or copy this link: {reset_url}</p>
+    </body></html>
+    """
+    background.add_task(send_email, user.email, "Reset your CompliNow password", html)
+    log_action(db, "user.forgot_password", user_id=user.id)
+    db.commit()
+    return {"message": "If that email exists you will receive a reset link shortly."}
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    payload = decode_token(req.token)
+    if not payload or payload.get("type_override") != "password_reset":
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user = db.query(User).filter(User.id == int(payload["sub"]), User.is_active == True).first()  # noqa: E712
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user.hashed_password = hash_password(req.new_password)
+    log_action(db, "user.password_reset", user_id=user.id)
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 
 @router.post("/register", status_code=201)

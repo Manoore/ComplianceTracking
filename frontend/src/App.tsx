@@ -23,6 +23,8 @@ import { RolesPage } from './pages/RolesPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { SuperAdminLoginPage } from './pages/SuperAdminLoginPage'
 import { SuperAdminDashboardPage } from './pages/SuperAdminDashboardPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('sa_access_token')
@@ -48,6 +50,8 @@ function AppRoutes() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
       <Route path="/superadmin/dashboard" element={<SuperAdminPrivateRoute><SuperAdminDashboardPage /></SuperAdminPrivateRoute>} />
       <Route path="/certify/:token" element={<TakeCertificationPage />} />
