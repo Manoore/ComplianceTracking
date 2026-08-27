@@ -25,6 +25,8 @@ import { SuperAdminLoginPage } from './pages/SuperAdminLoginPage'
 import { SuperAdminDashboardPage } from './pages/SuperAdminDashboardPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('sa_access_token')
@@ -73,9 +75,10 @@ function AppRoutes() {
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="settings" element={<PrivateRoute roles={['admin']}><SettingsPage /></PrivateRoute>} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
