@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from .database import engine, Base
 from .config import settings
+from .models import platform_setting as _ps_model  # noqa: ensure table registered
 from .routers import (auth, users, clinics, checklists, inspections, audits,
                        certifications, corrective_actions, reports,
                        notifications, announcements, settings as settings_router)
