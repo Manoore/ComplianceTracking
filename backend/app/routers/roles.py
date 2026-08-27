@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -15,6 +16,11 @@ ADMIN_MODULES = ["dashboard"] + ALL_MODULES + ["users", "settings", "roles"]
 def _effective_role(user: User) -> str:
     cr = getattr(user, "custom_role", None)
     return cr if cr else str(user.role.value if hasattr(user.role, "value") else user.role)
+
+
+def _role_filter(tenant_id):
+    """Returns system roles (tenant_id IS NULL) + this tenant's custom roles."""
+    return or_(Role.tenant_id == tenant_id, Role.tenant_id.is_(None))
 
 
 class RoleOut(BaseModel):
@@ -42,15 +48,18 @@ def my_permissions(current_user: User = Depends(get_current_user), db: Session =
     role_name = _effective_role(current_user)
     if role_name == "admin":
         return {"role": role_name, "modules": ADMIN_MODULES}
-    role = db.query(Role).filter(Role.name == role_name).first()
+    role = db.query(Role).filter(
+        Role.name == role_name,
+        _role_filter(current_user.tenant_id),
+    ).first()
     if not role:
         return {"role": role_name, "modules": ["dashboard"]}
     return {"role": role_name, "modules": ["dashboard"] + [p.module for p in role.permissions]}
 
 
 @router.get("/", response_model=List[RoleOut])
-def list_roles(db: Session = Depends(get_db), _=Depends(require_admin)):
-    roles = db.query(Role).order_by(Role.name).all()
+def list_roles(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    roles = db.query(Role).filter(_role_filter(current_user.tenant_id)).order_by(Role.name).all()
     return [
         RoleOut(name=r.name, display_name=r.display_name, is_system=r.is_system,
                 modules=[p.module for p in r.permissions])
@@ -59,11 +68,11 @@ def list_roles(db: Session = Depends(get_db), _=Depends(require_admin)):
 
 
 @router.post("/", response_model=RoleOut, status_code=201)
-def create_role(payload: RoleCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
+def create_role(payload: RoleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     name = payload.name.lower().replace(" ", "_")
-    if db.query(Role).filter(Role.name == name).first():
+    if db.query(Role).filter(Role.name == name, Role.tenant_id == current_user.tenant_id).first():
         raise HTTPException(400, "Role name already exists")
-    role = Role(name=name, display_name=payload.display_name, is_system=False)
+    role = Role(name=name, display_name=payload.display_name, is_system=False, tenant_id=current_user.tenant_id)
     db.add(role)
     db.commit()
     db.refresh(role)
@@ -71,8 +80,9 @@ def create_role(payload: RoleCreate, db: Session = Depends(get_db), _=Depends(re
 
 
 @router.patch("/{role_name}")
-def rename_role(role_name: str, payload: RoleRename, db: Session = Depends(get_db), _=Depends(require_admin)):
-    role = db.query(Role).filter(Role.name == role_name).first()
+def rename_role(role_name: str, payload: RoleRename, db: Session = Depends(get_db),
+                current_user: User = Depends(require_admin)):
+    role = db.query(Role).filter(Role.name == role_name, _role_filter(current_user.tenant_id)).first()
     if not role:
         raise HTTPException(404, "Role not found")
     role.display_name = payload.display_name.strip()
@@ -83,11 +93,11 @@ def rename_role(role_name: str, payload: RoleRename, db: Session = Depends(get_d
 @router.put("/{role_name}/permissions")
 def update_permissions(
     role_name: str, payload: PermissionsUpdate,
-    db: Session = Depends(get_db), _=Depends(require_admin),
+    db: Session = Depends(get_db), current_user: User = Depends(require_admin),
 ):
     if role_name == "admin":
         raise HTTPException(400, "Admin permissions cannot be changed")
-    role = db.query(Role).filter(Role.name == role_name).first()
+    role = db.query(Role).filter(Role.name == role_name, _role_filter(current_user.tenant_id)).first()
     if not role:
         raise HTTPException(404, "Role not found")
     db.query(RolePermission).filter(RolePermission.role_id == role.id).delete()
@@ -99,10 +109,12 @@ def update_permissions(
 
 
 @router.delete("/{role_name}", status_code=204)
-def delete_role(role_name: str, db: Session = Depends(get_db), _=Depends(require_admin)):
-    role = db.query(Role).filter(Role.name == role_name).first()
+def delete_role(role_name: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    role = db.query(Role).filter(
+        Role.name == role_name, Role.tenant_id == current_user.tenant_id
+    ).first()
     if not role:
-        raise HTTPException(404, "Role not found")
+        raise HTTPException(404, "Role not found or cannot be deleted")
     if role.is_system:
         raise HTTPException(400, "Cannot delete system roles")
     db.delete(role)

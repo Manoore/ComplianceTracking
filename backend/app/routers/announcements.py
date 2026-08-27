@@ -52,7 +52,7 @@ def ann_out(a: Announcement, user_id: int) -> dict:
 @router.get("/")
 def list_announcements(db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user)):
-    q = db.query(Announcement).filter(Announcement.is_active == True)
+    q = db.query(Announcement).filter(Announcement.is_active == True, Announcement.tenant_id == current_user.tenant_id)
     announcements = q.order_by(Announcement.is_pinned.desc(), Announcement.created_at.desc()).limit(100).all()
     return [ann_out(a, current_user.id) for a in announcements]
 
@@ -84,7 +84,7 @@ def create_announcement(payload: AnnouncementCreate,
 def update_announcement(ann_id: int, payload: AnnouncementUpdate,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(require_admin)):
-    ann = db.query(Announcement).filter(Announcement.id == ann_id).first()
+    ann = db.query(Announcement).filter(Announcement.id == ann_id, Announcement.tenant_id == current_user.tenant_id).first()
     if not ann:
         raise HTTPException(status_code=404, detail="Announcement not found")
     for k, v in payload.model_dump(exclude_none=True).items():

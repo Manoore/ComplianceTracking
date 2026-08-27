@@ -1,3 +1,4 @@
+from .tenant import Tenant
 from .user import User, UserRole
 from .role import Role, RolePermission
 from .clinic import Clinic, ClinicStaff, ClinicType

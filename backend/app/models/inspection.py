@@ -25,6 +25,7 @@ class Inspection(Base):
     __tablename__ = "inspections"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)
     template_id = Column(Integer, ForeignKey("checklist_templates.id"), nullable=False)
     inspector_id = Column(Integer, ForeignKey("users.id"), nullable=False)

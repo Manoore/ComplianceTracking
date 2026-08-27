@@ -24,10 +24,12 @@ SYSTEM_ROLES = {
 class Role(Base):
     __tablename__ = "roles"
     id = Column(Integer, primary_key=True)
-    name = Column(String(50), unique=True, nullable=False)
+    name = Column(String(50), nullable=False)
     display_name = Column(String(100), nullable=False)
     is_system = Column(Boolean, default=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     permissions = relationship("RolePermission", back_populates="role", cascade="all, delete-orphan")
+    __table_args__ = (UniqueConstraint("name", "tenant_id", name="uq_role_name_tenant"),)
 
 
 class RolePermission(Base):

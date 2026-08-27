@@ -20,6 +20,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { RolesPage } from './pages/RolesPage'
+import { RegisterPage } from './pages/RegisterPage'
 
 function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth()
@@ -38,6 +39,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/certify/:token" element={<TakeCertificationPage />} />
       <Route path="/verify/:certId" element={<VerifyCertificatePage />} />
 

@@ -138,8 +138,11 @@ export function LoginPage() {
             <p className="text-xs text-gray-600 font-mono">admin123</p>
           </div>
 
-          <p className="mt-6 text-xs text-gray-400 text-center">
-            Access is managed by your organization administrator.
+          <p className="mt-6 text-sm text-gray-500 text-center">
+            New organization?{' '}
+            <Link to="/register" className="text-teal-500 font-medium hover:underline">
+              Start a free trial
+            </Link>
           </p>
         </div>
       </div>

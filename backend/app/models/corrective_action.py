@@ -19,6 +19,7 @@ class CorrectiveAction(Base):
     __tablename__ = "corrective_actions"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     inspection_id = Column(Integer, ForeignKey("inspections.id"), nullable=True)   # nullable for manual actions
     inspection_item_id = Column(Integer, ForeignKey("inspection_items.id"), nullable=True)
     clinic_id = Column(Integer, ForeignKey("clinics.id"), nullable=False)

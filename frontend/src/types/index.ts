@@ -8,6 +8,17 @@ export interface User {
   custom_role?: string
   is_active: boolean
   last_login?: string
+  tenant_id?: number
+}
+
+export interface Tenant {
+  id: number
+  name: string
+  slug: string
+  plan: string
+  is_active: boolean
+  trial_ends_at: string | null
+  created_at: string
 }
 
 export interface RoleConfig {

@@ -41,8 +41,8 @@ class UserOut(BaseModel):
 
 
 @router.get("/", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db), _=Depends(require_admin)):
-    users = db.query(User).order_by(User.full_name).all()
+def list_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    users = db.query(User).filter(User.tenant_id == current_user.tenant_id).order_by(User.full_name).all()
     return [UserOut(id=u.id, email=u.email, full_name=u.full_name, role=u.role.value,
                     custom_role=u.custom_role, is_active=u.is_active,
                     last_login=str(u.last_login) if u.last_login else None)
@@ -60,6 +60,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db),
         hashed_password=hash_password(payload.password) if payload.password else None,
         role=payload.role,
         custom_role=payload.custom_role or None,
+        tenant_id=current_user.tenant_id,
     )
     db.add(user)
     db.commit()
@@ -75,7 +76,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
                 current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.admin and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if payload.full_name is not None:
@@ -98,7 +99,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
 @router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if user.id == current_user.id:

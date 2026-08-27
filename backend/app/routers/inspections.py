@@ -100,6 +100,7 @@ def create_inspection(payload: InspectionCreate, db: Session = Depends(get_db),
         template_id=payload.template_id,
         inspector_id=current_user.id,
         status=InspectionStatus.in_progress,
+        tenant_id=current_user.tenant_id,
         checkin_time=datetime.utcnow(),
         checkin_lat=payload.checkin_lat,
         checkin_lng=payload.checkin_lng,
@@ -119,7 +120,7 @@ def create_inspection(payload: InspectionCreate, db: Session = Depends(get_db),
 
 @router.get("/{inspection_id}")
 def get_inspection(inspection_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    insp = db.query(Inspection).filter(Inspection.tenant_id == current_user.tenant_id,Inspection.id == inspection_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
     return inspection_out(insp)

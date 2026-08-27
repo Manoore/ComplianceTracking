@@ -103,6 +103,7 @@ async def create_action(payload: ActionCreate,
     action = CorrectiveAction(
         clinic_id=payload.clinic_id,
         created_by=current_user.id,
+        tenant_id=current_user.tenant_id,
         assigned_to=payload.assigned_to,
         title=payload.title,
         description=payload.description,
@@ -144,7 +145,7 @@ async def create_action(payload: ActionCreate,
 
 @router.get("/{action_id}")
 def get_action(action_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    action = db.query(CorrectiveAction).filter(CorrectiveAction.id == action_id).first()
+    action = db.query(CorrectiveAction).filter(CorrectiveAction.tenant_id == current_user.tenant_id,CorrectiveAction.id == action_id).first()
     if not action:
         raise HTTPException(status_code=404, detail="Action not found")
     return action_out(action)

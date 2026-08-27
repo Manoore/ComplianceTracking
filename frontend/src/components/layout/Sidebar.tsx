@@ -8,8 +8,10 @@ import {
   Users, LogOut, Menu, X, Megaphone, Settings, Shield
 } from 'lucide-react'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { NotificationBell } from '../ui/NotificationBell'
 import { CompliNowMark } from '../ui/CompliNowMark'
+import api from '../../services/api'
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
@@ -31,6 +33,13 @@ export function Sidebar() {
   const { canView } = usePermissions()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+
+  const { data: tenant } = useQuery<{ name: string }>({
+    queryKey: ['tenant-me'],
+    queryFn: () => api.get('/tenants/me').then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
 
   const visible = allNavItems.filter(item => canView(item.module))
 
@@ -88,7 +97,7 @@ export function Sidebar() {
             <CompliNowMark size={32} />
             <div>
               <p className="text-white font-semibold text-sm leading-tight">CompliNow</p>
-              <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
+              <p className="text-brand-300 text-xs">{tenant?.name ?? 'Audit anything, anywhere'}</p>
             </div>
           </div>
           <NotificationBell />

@@ -17,6 +17,7 @@ class AuditCycle(Base):
     __tablename__ = "audit_cycles"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     start_date = Column(Date, nullable=False)

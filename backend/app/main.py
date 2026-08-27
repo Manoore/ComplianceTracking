@@ -11,6 +11,7 @@ from .routers import (auth, users, clinics, checklists, inspections, audits,
                        certifications, corrective_actions, reports,
                        notifications, announcements, settings as settings_router)
 from .routers import roles as roles_router
+from .routers import tenants as tenants_router
 
 
 @asynccontextmanager
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.upload_dir, "certificates"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "reports"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "branding"), exist_ok=True)
+    _seed_default_tenant()
     _seed_admin()
     _seed_roles()
     yield
@@ -30,12 +32,83 @@ async def lifespan(app: FastAPI):
 
 def _apply_migrations():
     from sqlalchemy import text
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN custom_role VARCHAR(50)"))
+    stmts = [
+        "ALTER TABLE users ADD COLUMN custom_role VARCHAR(50)",
+        "ALTER TABLE users ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE clinics ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE checklist_templates ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE inspections ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE audit_cycles ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE courses ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE corrective_actions ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE announcements ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE roles ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE org_settings ADD COLUMN tenant_id INTEGER",
+    ]
+    with engine.connect() as conn:
+        for stmt in stmts:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass
+        # Drop old unique constraint on roles.name if it exists (Postgres)
+        try:
+            conn.execute(text("ALTER TABLE roles DROP CONSTRAINT roles_name_key"))
             conn.commit()
-    except Exception:
-        pass  # column already exists
+        except Exception:
+            pass
+
+
+def _seed_default_tenant():
+    from sqlalchemy import text
+    from .database import SessionLocal
+    from .models.tenant import Tenant
+    db = SessionLocal()
+    try:
+        existing = db.query(Tenant).first()
+        if existing:
+            return existing.id
+        tenant = Tenant(name="My Organization", slug="default", plan="free")
+        db.add(tenant)
+        db.commit()
+        db.refresh(tenant)
+        tid = tenant.id
+        tables = ["users", "clinics", "checklist_templates", "inspections",
+                  "audit_cycles", "courses", "corrective_actions", "announcements",
+                  "org_settings"]
+        with engine.connect() as conn:
+            for table in tables:
+                try:
+                    conn.execute(text(f"UPDATE {table} SET tenant_id = {tid} WHERE tenant_id IS NULL"))
+                    conn.commit()
+                except Exception:
+                    pass
+        return tid
+    finally:
+        db.close()
+
+
+def _seed_admin():
+    from .database import SessionLocal
+    from .models.user import User, UserRole
+    from .models.tenant import Tenant
+    from .services.auth import hash_password
+    db = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            tenant = db.query(Tenant).first()
+            admin = User(
+                email="admin@compliance.local",
+                full_name="System Administrator",
+                hashed_password=hash_password("admin123"),
+                role=UserRole.admin,
+                tenant_id=tenant.id if tenant else None,
+            )
+            db.add(admin)
+            db.commit()
+    finally:
+        db.close()
 
 
 def _seed_roles():
@@ -44,33 +117,17 @@ def _seed_roles():
     db = SessionLocal()
     try:
         for role_name, display_name in SYSTEM_ROLES.items():
-            existing = db.query(Role).filter(Role.name == role_name).first()
+            existing = db.query(Role).filter(
+                Role.name == role_name,
+                Role.tenant_id == None,  # noqa: E711
+            ).first()
             if not existing:
-                role = Role(name=role_name, display_name=display_name, is_system=True)
+                role = Role(name=role_name, display_name=display_name, is_system=True, tenant_id=None)
                 db.add(role)
                 db.flush()
                 for module in DEFAULT_PERMISSIONS.get(role_name, []):
                     db.add(RolePermission(role_id=role.id, module=module))
         db.commit()
-    finally:
-        db.close()
-
-
-def _seed_admin():
-    from .database import SessionLocal
-    from .models.user import User, UserRole
-    from .services.auth import hash_password
-    db = SessionLocal()
-    try:
-        if db.query(User).count() == 0:
-            admin = User(
-                email="admin@compliance.local",
-                full_name="System Administrator",
-                hashed_password=hash_password("admin123"),
-                role=UserRole.admin,
-            )
-            db.add(admin)
-            db.commit()
     finally:
         db.close()
 
@@ -103,6 +160,7 @@ app.include_router(notifications.router, prefix="/api")
 app.include_router(announcements.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(roles_router.router, prefix="/api")
+app.include_router(tenants_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

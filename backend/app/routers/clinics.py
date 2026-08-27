@@ -83,7 +83,7 @@ def clinic_out(c: Clinic) -> dict:
 
 @router.get("/")
 def list_clinics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    q = db.query(Clinic)
+    q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id)
     if current_user.role == UserRole.manager:
         q = q.filter(Clinic.manager_id == current_user.id)
     elif current_user.role == UserRole.team_member:
@@ -96,7 +96,7 @@ def list_clinics(db: Session = Depends(get_db), current_user: User = Depends(get
 @router.post("/", status_code=201)
 def create_clinic(payload: ClinicCreate, db: Session = Depends(get_db),
                   current_user: User = Depends(require_admin)):
-    clinic = Clinic(**payload.model_dump())
+    clinic = Clinic(**payload.model_dump(), tenant_id=current_user.tenant_id)
     db.add(clinic)
     db.commit()
     db.refresh(clinic)
@@ -107,7 +107,7 @@ def create_clinic(payload: ClinicCreate, db: Session = Depends(get_db),
 
 @router.get("/{clinic_id}")
 def get_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
     if current_user.role == UserRole.manager and clinic.manager_id != current_user.id:
@@ -119,7 +119,7 @@ def get_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User
 def clinic_profile(clinic_id: int, db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     """Detailed clinic profile: compliance summary, recent inspections, open actions, staff."""
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
 
@@ -181,7 +181,7 @@ def clinic_profile(clinic_id: int, db: Session = Depends(get_db),
 @router.put("/{clinic_id}")
 def update_clinic(clinic_id: int, payload: ClinicUpdate, db: Session = Depends(get_db),
                   current_user: User = Depends(require_admin)):
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
     for k, v in payload.model_dump(exclude_none=True).items():
@@ -195,7 +195,7 @@ def update_clinic(clinic_id: int, payload: ClinicUpdate, db: Session = Depends(g
 
 @router.delete("/{clinic_id}", status_code=204)
 def delete_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
     clinic.is_active = False
@@ -207,7 +207,7 @@ def delete_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: U
 @router.post("/{clinic_id}/staff")
 def add_staff(clinic_id: int, user_id: int, role_note: str = "",
               db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
     existing = db.query(ClinicStaff).filter(

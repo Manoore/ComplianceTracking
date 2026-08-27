@@ -7,6 +7,7 @@ class OrgSettings(Base):
     __tablename__ = "org_settings"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     org_name = Column(String, default="My Organization")
     org_logo_url = Column(String, nullable=True)
     primary_color = Column(String, default="#1E40AF")

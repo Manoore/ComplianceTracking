@@ -22,6 +22,7 @@ class Clinic(Base):
     __tablename__ = "clinics"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     clinic_type = Column(Enum(ClinicType), default=ClinicType.general_practice, nullable=True)
     address = Column(String, nullable=True)
