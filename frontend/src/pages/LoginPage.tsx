@@ -8,7 +8,7 @@ import {
 import toast from 'react-hot-toast'
 import api, { apiError } from '../services/api'
 import { CompliNowMark } from '../components/ui/CompliNowMark'
-import { firebaseEnabled, signInWithGoogle, signInWithEmail } from '../services/firebase'
+import { firebaseEnabled, signInWithGoogle } from '../services/firebase'
 
 const FEATURES = [
   { icon: Building2, title: 'Clinic Registry', desc: 'Manage all clinic locations with profiles, staff assignments, and compliance history.' },
@@ -39,21 +39,10 @@ export function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      if (firebaseEnabled) {
-        const cred = await signInWithEmail(email, password)
-        const idToken = await cred.user.getIdToken()
-        await exchangeFirebaseToken(idToken)
-        navigate('/')
-        window.location.reload()
-      } else {
-        await login(email, password)
-        navigate('/')
-      }
+      await login(email, password)
+      navigate('/')
     } catch (err: any) {
-      const msg = err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password'
-        ? 'Invalid email or password'
-        : err?.response?.data?.detail ?? apiError(err, 'Login failed')
-      toast.error(msg)
+      toast.error(err?.response?.data?.detail ?? apiError(err, 'Login failed'))
     } finally {
       setLoading(false)
     }
