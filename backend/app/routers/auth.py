@@ -38,6 +38,10 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -120,6 +124,40 @@ async def logout(request: Request, db: Session = Depends(get_db), current_user: 
                ip_address=request.client.host if request.client else None)
     db.commit()
     return {"message": "Logged out successfully"}
+
+
+@router.post("/firebase")
+def firebase_login(req: FirebaseLoginRequest, db: Session = Depends(get_db)):
+    from ..services.firebase_service import verify_firebase_token
+    decoded = verify_firebase_token(req.id_token)
+    if not decoded:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid or expired Firebase token")
+    email = decoded.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email in Firebase token")
+
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()  # noqa: E712
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="No account found for this email. Contact your organization admin or register a new organization."
+        )
+
+    user.last_login = datetime.utcnow()
+    log_action(db, "user.login_firebase", user_id=user.id)
+    db.commit()
+
+    token_data = _make_token_data(user)
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+        user={
+            "id": user.id, "email": user.email,
+            "full_name": user.full_name, "role": user.role.value,
+            "tenant_id": user.tenant_id,
+        },
+    )
 
 
 @router.post("/forgot-password")

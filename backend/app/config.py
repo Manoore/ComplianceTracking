@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     super_admin_email: str = "superadmin@complinow.app"
     super_admin_password: str = "SuperAdmin2025!"
 
+    firebase_project_id: Optional[str] = None
+    firebase_service_account_json: Optional[str] = None
+
     sso_enabled: bool = False
     sso_provider: Optional[str] = None
     sso_client_id: Optional[str] = None

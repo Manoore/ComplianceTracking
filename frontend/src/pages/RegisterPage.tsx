@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api, { apiError } from '../services/api'
 import { CompliNowMark } from '../components/ui/CompliNowMark'
+import { firebaseEnabled, createFirebaseUser } from '../services/firebase'
 
 const PERKS = [
   '14-day free trial — no credit card required',
@@ -25,7 +26,12 @@ export function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    let fbUser: any = null
     try {
+      if (firebaseEnabled) {
+        const cred = await createFirebaseUser(form.email, form.password)
+        fbUser = cred.user
+      }
       const { data } = await api.post('/auth/register', form)
       localStorage.setItem('access_token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
@@ -33,6 +39,7 @@ export function RegisterPage() {
       navigate('/')
       window.location.reload()
     } catch (err: any) {
+      if (fbUser) await fbUser.delete().catch(() => {})  // rollback Firebase user on failure
       const msg = err?.response?.status === 409
         ? 'An account with this email already exists.'
         : apiError(err, 'Registration failed. Please try again.')

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react'
 import api, { apiError } from '../services/api'
 import { CompliNowMark } from '../components/ui/CompliNowMark'
+import { firebaseEnabled, sendFirebasePasswordReset } from '../services/firebase'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -15,7 +16,11 @@ export function ForgotPasswordPage() {
     setLoading(true)
     setError(null)
     try {
-      await api.post('/auth/forgot-password', { email })
+      if (firebaseEnabled) {
+        await sendFirebasePasswordReset(email)
+      } else {
+        await api.post('/auth/forgot-password', { email })
+      }
       setSent(true)
     } catch (err: any) {
       setError(apiError(err, 'Something went wrong. Please try again.'))
