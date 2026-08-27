@@ -92,8 +92,16 @@ export function SuperAdminDashboardPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [openPlanMenu, setOpenPlanMenu] = useState<number | null>(null)
+  const [planMenuPos, setPlanMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [tab, setTab] = useState<Tab>('orgs')
   const [planFilter, setPlanFilter] = useState<string | null>(null)
+
+  const handlePlanButtonClick = (e: React.MouseEvent, tenantId: number) => {
+    if (openPlanMenu === tenantId) { setOpenPlanMenu(null); return }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setPlanMenuPos({ top: rect.bottom + 6, left: rect.left })
+    setOpenPlanMenu(tenantId)
+  }
 
   const { data: stats } = useQuery<Stats>({
     queryKey: ['sa-stats'],
@@ -252,26 +260,11 @@ export function SuperAdminDashboardPage() {
                             <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.28)' }}>{t.slug}</p>
                           </td>
                           <td className="px-5 py-4">
-                            <div className="relative inline-block">
-                              <button className="flex items-center gap-1"
-                                onClick={() => setOpenPlanMenu(openPlanMenu === t.id ? null : t.id)}>
-                                <PlanBadge plan={t.plan} />
-                                <ChevronDown size={12} style={{ color: 'rgba(255,255,255,0.3)' }} />
-                              </button>
-                              {openPlanMenu === t.id && (
-                                <div className="absolute left-0 top-full mt-1 z-20 rounded-lg shadow-2xl overflow-hidden min-w-[130px]"
-                                  style={{ background: '#0E1829', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                  {PLANS.map(p => (
-                                    <button key={p} onClick={() => updateTenant.mutate({ id: t.id, plan: p })}
-                                      className="w-full text-left px-4 py-2.5 text-xs flex items-center justify-between transition-colors hover:bg-white/5"
-                                      style={{ color: t.plan === p ? '#00C4A0' : 'rgba(255,255,255,0.6)' }}>
-                                      <span className="capitalize">{PLAN_META[p].label}</span>
-                                      {t.plan === p && <CheckCircle size={11} style={{ color: '#00C4A0' }} />}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <button className="flex items-center gap-1"
+                              onClick={e => handlePlanButtonClick(e, t.id)}>
+                              <PlanBadge plan={t.plan} />
+                              <ChevronDown size={12} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                            </button>
                           </td>
                           <td className="px-5 py-4 tabular-nums" style={{ color: 'rgba(255,255,255,0.5)' }}>{t.user_count}</td>
                           <td className="px-5 py-4 tabular-nums" style={{ color: 'rgba(255,255,255,0.5)' }}>{t.inspection_count}</td>
@@ -435,10 +428,33 @@ export function SuperAdminDashboardPage() {
         )}
       </main>
 
-      {/* Click-away for plan dropdown */}
-      {openPlanMenu !== null && (
-        <div className="fixed inset-0 z-10" onClick={() => setOpenPlanMenu(null)} />
-      )}
+      {/* Plan dropdown — rendered as fixed to escape overflow:auto clipping */}
+      {openPlanMenu !== null && planMenuPos && (() => {
+        const t = tenants.find(x => x.id === openPlanMenu)
+        if (!t) return null
+        return (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpenPlanMenu(null)} />
+            <div className="fixed z-50 rounded-xl shadow-2xl overflow-hidden min-w-[140px] py-1"
+              style={{ top: planMenuPos.top, left: planMenuPos.left, background: '#0E1829', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <p className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Change plan
+              </p>
+              {PLANS.map(p => (
+                <button key={p} onClick={() => updateTenant.mutate({ id: t.id, plan: p })}
+                  className="w-full text-left px-3 py-2.5 text-sm flex items-center justify-between transition-colors hover:bg-white/5"
+                  style={{ color: t.plan === p ? '#00C4A0' : 'rgba(255,255,255,0.7)' }}>
+                  <div>
+                    <span className="font-medium">{PLAN_META[p].label}</span>
+                    <span className="ml-2 text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>{PLAN_META[p].price}</span>
+                  </div>
+                  {t.plan === p && <CheckCircle size={13} style={{ color: '#00C4A0' }} />}
+                </button>
+              ))}
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }
