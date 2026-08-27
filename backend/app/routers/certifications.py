@@ -143,11 +143,12 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db),
     log_action(db, "course.create", user_id=current_user.id, resource_type="course", resource_id=course.id)
 
     if payload.target_roles:
+        valid_roles = [UserRole(r) for r in payload.target_roles if r in UserRole._value2member_map_]
         target_users = db.query(User).filter(
             User.tenant_id == current_user.tenant_id,
             User.is_active == True,
-            User.role.in_(payload.target_roles),
-        ).all()
+            User.role.in_(valid_roles),
+        ).all() if valid_roles else []
         role_label = ', '.join(r.replace('_', ' ').title() for r in payload.target_roles)
         for u in target_users:
             notify(db, u.id, NotificationType.system,

@@ -10,7 +10,7 @@ from ..models.user import User
 from ..models.inspection import Inspection
 from ..models.certification import Course, TeamCertification
 from ..models.corrective_action import CorrectiveAction
-from ..services.auth import create_access_token, verify_password, hash_password
+from ..services.auth import create_access_token
 from ..config import settings
 
 router = APIRouter(prefix="/superadmin", tags=["superadmin"])
