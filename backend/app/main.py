@@ -12,6 +12,7 @@ from .routers import (auth, users, clinics, checklists, inspections, audits,
                        notifications, announcements, settings as settings_router)
 from .routers import roles as roles_router
 from .routers import tenants as tenants_router
+from .routers import superadmin as superadmin_router
 
 
 @asynccontextmanager
@@ -162,6 +163,7 @@ app.include_router(announcements.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(roles_router.router, prefix="/api")
 app.include_router(tenants_router.router, prefix="/api")
+app.include_router(superadmin_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

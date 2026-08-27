@@ -144,6 +144,12 @@ export function LoginPage() {
               Start a free trial
             </Link>
           </p>
+
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <Link to="/superadmin/login" className="text-xs text-gray-300 hover:text-gray-500 transition-colors">
+              Platform Console
+            </Link>
+          </div>
         </div>
       </div>
     </div>

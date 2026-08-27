@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20
 
+    super_admin_email: str = "superadmin@complinow.app"
+    super_admin_password: str = "SuperAdmin2025!"
+
     sso_enabled: bool = False
     sso_provider: Optional[str] = None
     sso_client_id: Optional[str] = None

@@ -21,6 +21,14 @@ import { SettingsPage } from './pages/SettingsPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { RolesPage } from './pages/RolesPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { SuperAdminLoginPage } from './pages/SuperAdminLoginPage'
+import { SuperAdminDashboardPage } from './pages/SuperAdminDashboardPage'
+
+function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('sa_access_token')
+  if (!token) return <Navigate to="/superadmin/login" replace />
+  return <>{children}</>
+}
 
 function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth()
@@ -40,6 +48,8 @@ function AppRoutes() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
+      <Route path="/superadmin/dashboard" element={<SuperAdminPrivateRoute><SuperAdminDashboardPage /></SuperAdminPrivateRoute>} />
       <Route path="/certify/:token" element={<TakeCertificationPage />} />
       <Route path="/verify/:certId" element={<VerifyCertificatePage />} />
 
