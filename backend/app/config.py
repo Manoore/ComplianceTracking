@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 8  # 8 hours
     refresh_token_expire_days: int = 30
 
+    resend_api_key: Optional[str] = None
+    email_from: str = "CompliNow <noreply@complinow.app>"
+
+    # Legacy SMTP (kept for fallback; Resend takes precedence if api key is set)
     smtp_host: Optional[str] = None
     smtp_port: int = 587
     smtp_user: Optional[str] = None
