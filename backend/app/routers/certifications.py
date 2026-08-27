@@ -14,6 +14,8 @@ from ..services.email import send_certification_reminder
 from ..utils.audit_trail import log_action
 from ..config import settings
 from .deps import get_current_user, require_admin
+from .notifications import notify
+from ..models.notification import NotificationType
 
 router = APIRouter(prefix="/certifications", tags=["certifications"])
 
@@ -45,6 +47,7 @@ class CourseCreate(BaseModel):
     pass_threshold: float = 80.0
     validity_days: int = 365
     quizzes: List[QuizIn] = []
+    target_roles: Optional[List[str]] = None  # e.g. ['auditor', 'team_member']
 
 
 class LinkCreate(BaseModel):
@@ -68,6 +71,7 @@ def course_out(c: Course) -> dict:
         "pass_threshold": c.pass_threshold,
         "validity_days": c.validity_days,
         "is_active": c.is_active,
+        "target_roles": c.target_roles,
         "quiz_count": len(c.quizzes) if c.quizzes else 0,
         "created_at": str(c.created_at) if c.created_at else None,
     }
@@ -104,6 +108,8 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db),
         description=payload.description,
         pass_threshold=payload.pass_threshold,
         validity_days=payload.validity_days,
+        target_roles=payload.target_roles,
+        tenant_id=current_user.tenant_id,
         created_by=current_user.id,
     )
     db.add(course)
@@ -135,6 +141,20 @@ def create_course(payload: CourseCreate, db: Session = Depends(get_db),
     db.commit()
     db.refresh(course)
     log_action(db, "course.create", user_id=current_user.id, resource_type="course", resource_id=course.id)
+
+    if payload.target_roles:
+        target_users = db.query(User).filter(
+            User.tenant_id == current_user.tenant_id,
+            User.is_active == True,
+            User.role.in_(payload.target_roles),
+        ).all()
+        role_label = ', '.join(r.replace('_', ' ').title() for r in payload.target_roles)
+        for u in target_users:
+            notify(db, u.id, NotificationType.system,
+                   title=f"New Training: {course.title}",
+                   message=f"A new certification course has been assigned to {role_label}.",
+                   resource_type="course", resource_id=course.id)
+
     db.commit()
     return course_out(course)
 

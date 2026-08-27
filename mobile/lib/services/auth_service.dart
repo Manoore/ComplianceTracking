@@ -7,9 +7,10 @@ class AuthUser {
   final String role;
   final String? customRole;
   final bool isActive;
+  final int? tenantId;
 
   AuthUser({required this.id, required this.email, required this.fullName,
-            required this.role, this.customRole, required this.isActive});
+            required this.role, this.customRole, required this.isActive, this.tenantId});
 
   factory AuthUser.fromJson(Map<String, dynamic> j) => AuthUser(
         id: j['id'],
@@ -18,6 +19,7 @@ class AuthUser {
         role: j['role'],
         customRole: j['custom_role'],
         isActive: j['is_active'] ?? true,
+        tenantId: j['tenant_id'],
       );
 
   String get effectiveRole => customRole ?? role;

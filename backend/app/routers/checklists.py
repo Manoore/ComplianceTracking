@@ -44,6 +44,7 @@ class TemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    items: Optional[List[ItemIn]] = None
 
 
 def section_out(s: ChecklistSection) -> dict:
@@ -260,8 +261,15 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
     t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Template not found")
-    for k, v in payload.model_dump(exclude_none=True).items():
+    for k, v in payload.model_dump(exclude_none=True, exclude={'items'}).items():
         setattr(t, k, v)
+    if payload.items is not None:
+        db.query(ChecklistItem).filter(ChecklistItem.template_id == template_id).delete()
+        for idx, item_data in enumerate(payload.items):
+            data = item_data.model_dump()
+            data['order_index'] = idx
+            item = ChecklistItem(template_id=template_id, **data)
+            db.add(item)
     db.commit()
     db.refresh(t)
     return template_out(t)

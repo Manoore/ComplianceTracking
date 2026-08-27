@@ -24,6 +24,7 @@ class Course(Base):
     pass_threshold = Column(Float, default=80.0)  # percentage
     validity_days = Column(Integer, default=365)  # cert valid for N days
     is_active = Column(Boolean, default=True)
+    target_roles = Column(JSON, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

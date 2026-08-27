@@ -2,12 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../services/api_service.dart';
 import '../services/permissions_service.dart';
-import '../theme.dart' show kBrand, kBrand100, kTeal;
+import '../theme.dart' show kBrand, kBrand100, kDeepNavy, kTeal;
 import 'complinow_mark.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  String? _orgName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrgName();
+  }
+
+  Future<void> _loadOrgName() async {
+    try {
+      final data = await ApiService().get('/tenants/me');
+      if (mounted) setState(() => _orgName = data['name'] as String?);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,11 +41,44 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       child: Column(
         children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(color: kBrand),
-            accountName: Text(user?.fullName ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: Text(displayRole, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-            currentAccountPicture: const CompliNowMark(size: 56),
+          Container(
+            width: double.infinity,
+            color: kBrand,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 16,
+              left: 20, right: 20, bottom: 16,
+            ),
+            child: Row(
+              children: [
+                const CompliNowMark(size: 48),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _orgName ?? 'CompliNow',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        user?.fullName ?? '',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        displayRole,
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: ListView(

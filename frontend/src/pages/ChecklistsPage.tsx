@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { ChecklistTemplate } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
@@ -172,11 +172,110 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState(template.name)
+  const [description, setDescription] = useState(template.description ?? '')
+  const [items, setItems] = useState(
+    template.items.map(i => ({ id: i.id, question: i.question, category: i.category, is_critical: i.is_critical, is_required: i.is_required }))
+  )
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => api.put(`/checklists/${template.id}`, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template updated'); onClose() },
+    onError: (e: any) => toast.error(apiError(e)),
+  })
+
+  const addItem = () => setItems(i => [...i, { id: 0, question: '', category: 'other', is_critical: false, is_required: true }])
+  const removeItem = (idx: number) => setItems(i => i.filter((_, j) => j !== idx))
+  const updateItem = (idx: number, field: string, value: any) =>
+    setItems(i => i.map((item, j) => j === idx ? { ...item, [field]: value } : item))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold">Edit Template</h2>
+        </div>
+        <div className="p-6 space-y-5">
+          <div>
+            <label className="label">Template Name *</label>
+            <input required className="input" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Description</label>
+            <textarea rows={2} className="input" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="label mb-0">Checklist Items ({items.length})</label>
+              <button type="button" className="btn-secondary py-1.5 text-xs" onClick={addItem}>
+                <Plus size={13} /> Add Item
+              </button>
+            </div>
+            <div className="space-y-3">
+              {items.map((item, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <input className="input" placeholder={`Item ${idx + 1} question…`} value={item.question}
+                        onChange={e => updateItem(idx, 'question', e.target.value)} />
+                    </div>
+                    <button type="button" onClick={() => removeItem(idx)} className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className="flex gap-3 items-center flex-wrap">
+                    <select className="input w-auto text-sm py-1.5" value={item.category}
+                      onChange={e => updateItem(idx, 'category', e.target.value)}>
+                      {['safety', 'hygiene', 'equipment', 'documentation', 'staff', 'facility', 'regulatory', 'other'].map(c => (
+                        <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                      ))}
+                    </select>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={item.is_critical} onChange={e => updateItem(idx, 'is_critical', e.target.checked)} className="accent-red-600" />
+                      <span className="flex items-center gap-1 text-red-600"><AlertTriangle size={13} /> Critical</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={item.is_required} onChange={e => updateItem(idx, 'is_required', e.target.checked)} className="accent-brand-600" />
+                      Required
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              className="btn-primary"
+              disabled={!name || mutation.isPending}
+              onClick={() => mutation.mutate({
+                name,
+                description,
+                items: items.filter(i => i.question).map((i, idx) => ({
+                  question: i.question, category: i.category,
+                  is_critical: i.is_critical, is_required: i.is_required, order_index: idx
+                }))
+              })}
+            >
+              {mutation.isPending ? 'Saving…' : 'Save Changes'}
+            </button>
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChecklistsPage() {
   const qc = useQueryClient()
   const [showNew, setShowNew] = useState(false)
   const [showPresets, setShowPresets] = useState(false)
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [editTemplate, setEditTemplate] = useState<ChecklistTemplate | null>(null)
   const { data: templates, isLoading } = useQuery<ChecklistTemplate[]>({
     queryKey: ['checklists'],
     queryFn: () => api.get('/checklists').then(r => r.data),
@@ -229,6 +328,13 @@ export function ChecklistsPage() {
                 </button>
                 <button
                   className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
+                  title="Edit template"
+                  onClick={() => setEditTemplate(t)}
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
                   title="Clone template"
                   onClick={() => cloneTemplate.mutate(t.id)}
                   disabled={cloneTemplate.isPending}
@@ -276,6 +382,7 @@ export function ChecklistsPage() {
 
       {showNew && <NewTemplateModal onClose={() => setShowNew(false)} />}
       {showPresets && <PresetLibraryModal onClose={() => setShowPresets(false)} />}
+      {editTemplate && <EditTemplateModal template={editTemplate} onClose={() => setEditTemplate(null)} />}
     </div>
   )
 }

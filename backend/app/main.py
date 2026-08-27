@@ -44,6 +44,7 @@ def _apply_migrations():
         "ALTER TABLE announcements ADD COLUMN tenant_id INTEGER",
         "ALTER TABLE roles ADD COLUMN tenant_id INTEGER",
         "ALTER TABLE org_settings ADD COLUMN tenant_id INTEGER",
+        "ALTER TABLE courses ADD COLUMN target_roles JSONB",
     ]
     with engine.connect() as conn:
         for stmt in stmts:

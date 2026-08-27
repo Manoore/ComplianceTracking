@@ -20,6 +20,7 @@ function NewCourseModal({ onClose, courseId }: { onClose: () => void; courseId?:
   const [step, setStep] = useState<1 | 2>(1)
   const [basics, setBasics] = useState({ title: '', description: '', pass_threshold: 80, validity_days: 365 })
   const [quizzes, setQuizzes] = useState<QuizDraft[]>([newQuiz()])
+  const [targetRoles, setTargetRoles] = useState<string[]>([])
 
   const { data: existing } = useQuery({
     queryKey: ['course-detail', courseId],
@@ -30,6 +31,7 @@ function NewCourseModal({ onClose, courseId }: { onClose: () => void; courseId?:
   useEffect(() => {
     if (!existing) return
     setBasics({ title: existing.title, description: existing.description || '', pass_threshold: existing.pass_threshold, validity_days: existing.validity_days })
+    if (existing.target_roles) setTargetRoles(existing.target_roles)
     setQuizzes((existing.quizzes ?? []).map((qz: any) => ({
       title: qz.title, time_limit: qz.time_limit_minutes ? String(qz.time_limit_minutes) : '', max_attempts: qz.max_attempts ?? 3,
       questions: (qz.questions ?? []).map((q: any) => ({
@@ -44,9 +46,13 @@ function NewCourseModal({ onClose, courseId }: { onClose: () => void; courseId?:
     onError: (e: any) => toast.error(apiError(e)),
   })
 
+  const toggleRole = (role: string) =>
+    setTargetRoles(r => r.includes(role) ? r.filter(x => x !== role) : [...r, role])
+
   function submit() {
     const payload = {
       ...basics,
+      target_roles: targetRoles.length ? targetRoles : null,
       quizzes: quizzes.map((qz, qi) => ({
         title: qz.title || `Quiz ${qi + 1}`,
         time_limit_minutes: qz.time_limit ? parseInt(qz.time_limit) : null,
@@ -133,6 +139,23 @@ function NewCourseModal({ onClose, courseId }: { onClose: () => void; courseId?:
                 <label className="label">Certificate Validity (days)</label>
                 <input type="number" min={1} className="input" value={basics.validity_days}
                   onChange={e => setBasics(b => ({ ...b, validity_days: parseInt(e.target.value) }))} />
+              </div>
+            </div>
+            <div>
+              <label className="label">Notify Roles (optional)</label>
+              <p className="text-xs text-gray-400 mb-2">Selected roles will receive an in-app notification when this course is published.</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 'admin', label: 'Admin' },
+                  { value: 'manager', label: 'Manager' },
+                  { value: 'auditor', label: 'Auditor' },
+                  { value: 'team_member', label: 'Team Member' },
+                ].map(({ value, label }) => (
+                  <label key={value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                    <input type="checkbox" checked={targetRoles.includes(value)} onChange={() => toggleRole(value)} className="accent-teal-500" />
+                    {label}
+                  </label>
+                ))}
               </div>
             </div>
             <div className="flex gap-3 pt-2">
