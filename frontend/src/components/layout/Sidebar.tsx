@@ -93,13 +93,13 @@ export function Sidebar() {
         open ? 'translate-x-0' : '-translate-x-full'
       )}>
         <div className="px-6 py-4 border-b border-brand-700 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <NavLink to="/home" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <CompliNowMark size={32} />
             <div>
               <p className="text-white font-semibold text-sm leading-tight">CompliNow</p>
               <p className="text-brand-300 text-xs">{tenant?.name ?? 'Audit anything, anywhere'}</p>
             </div>
-          </div>
+          </NavLink>
           <NotificationBell />
         </div>
 

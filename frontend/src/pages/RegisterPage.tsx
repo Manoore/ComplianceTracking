@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle } from 'lucide-react'
+import { ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api, { apiError } from '../services/api'
 import { CompliNowMark } from '../components/ui/CompliNowMark'
@@ -53,12 +53,20 @@ export function RegisterPage() {
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left panel */}
       <div className="lg:flex-1 bg-brand-900 flex flex-col p-8 lg:p-12 xl:p-16">
-        <div className="flex items-center gap-3 mb-12">
-          <CompliNowMark size={40} />
-          <div>
-            <p className="text-white font-bold text-lg leading-none">CompliNow</p>
-            <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
-          </div>
+        <div className="flex items-center justify-between mb-12">
+          <Link to="/home" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <CompliNowMark size={40} />
+            <div>
+              <p className="text-white font-bold text-lg leading-none">CompliNow</p>
+              <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
+            </div>
+          </Link>
+          <Link
+            to="/home"
+            className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 rounded-full backdrop-blur transition-colors"
+          >
+            <ArrowLeft size={13} /> Back to home
+          </Link>
         </div>
 
         <div className="mb-10">

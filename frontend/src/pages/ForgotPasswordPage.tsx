@@ -32,10 +32,10 @@ export function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-3 justify-center mb-8">
+        <Link to="/home" className="flex items-center gap-3 justify-center mb-8 hover:opacity-80 transition-opacity">
           <CompliNowMark size={36} />
           <p className="text-brand-800 font-bold text-lg">CompliNow</p>
-        </div>
+        </Link>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           {sent ? (

@@ -82,13 +82,13 @@ export function LoginPage() {
       <div className="lg:flex-1 bg-gradient-to-br from-brand-800 via-brand-800 to-brand-900 flex flex-col p-8 lg:p-12 xl:p-16">
         {/* Logo + back link */}
         <div className="flex items-center justify-between mb-12">
-          <div className="flex items-center gap-3">
+          <Link to="/home" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <CompliNowMark size={40} />
             <div>
               <p className="text-white font-bold text-lg leading-none">CompliNow</p>
               <p className="text-brand-300 text-xs">Audit anything, anywhere</p>
             </div>
-          </div>
+          </Link>
           <Link
             to="/home"
             className="flex items-center gap-1.5 text-white text-xs font-medium bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 rounded-full backdrop-blur transition-colors"
