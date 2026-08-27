@@ -9,19 +9,20 @@ import {
 const env = (import.meta as any).env ?? {}
 
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+  apiKey: env.VITE_FIREBASE_API_KEY ?? 'AIzaSyAxpE5lYioOk1yTp3nkB-Tt07fY_vp68ig',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? 'complinow.firebaseapp.com',
+  projectId: env.VITE_FIREBASE_PROJECT_ID ?? 'complinow',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? 'complinow.firebasestorage.app',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '518109429586',
+  appId: env.VITE_FIREBASE_APP_ID ?? '1:518109429586:web:1f2fce420100ad6555448b',
+  measurementId: 'G-F0P8DR66P3',
 }
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
 
-export const firebaseEnabled = !!env.VITE_FIREBASE_API_KEY
+export const firebaseEnabled = true
 
 export async function signInWithGoogle(): Promise<UserCredential> {
   return signInWithPopup(auth, googleProvider)
