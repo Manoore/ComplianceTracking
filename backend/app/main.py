@@ -170,6 +170,7 @@ if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 
+@app.get("/")
 @app.get("/health")
 def health():
     return {"status": "ok"}
