@@ -195,13 +195,15 @@ export function SuperAdminDashboardPage() {
   }
 
   const startEdit = (plan: string) => {
-    setPlanDraft({ ...planConfigs[plan] })
+    const base = planConfigs[plan] ?? { label: plan, price_monthly: 0, price_annual: 0, max_locations: 0, max_users: 0, features: [] }
+    setPlanDraft({ ...base, features: [...(base.features ?? [])] })
     setEditingPlan(plan)
   }
 
   const saveEdit = () => {
     if (!editingPlan || !planDraft) return
-    const updated = { ...planConfigs, [editingPlan]: planDraft }
+    const cleaned = { ...planDraft, features: planDraft.features.filter(f => f.trim() !== '') }
+    const updated = { ...planConfigs, [editingPlan]: cleaned }
     savePlans.mutate(updated)
   }
 
@@ -493,7 +495,7 @@ export function SuperAdminDashboardPage() {
                         <div>
                           <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Features (one per line)</label>
                           <textarea rows={5} value={draft.features.join('\n')}
-                            onChange={e => setPlanDraft(d => d ? { ...d, features: e.target.value.split('\n').filter(Boolean) } : d)}
+                            onChange={e => setPlanDraft(d => d ? { ...d, features: e.target.value.split('\n') } : d)}
                             className="w-full rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none resize-none"
                             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }} />
                         </div>
