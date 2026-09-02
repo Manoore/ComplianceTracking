@@ -1,8 +1,7 @@
 import os
-import asyncio
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -299,7 +298,8 @@ def checkout(inspection_id: int, payload: CheckoutPayload,
 
 
 @router.post("/{inspection_id}/submit")
-def submit_inspection(inspection_id: int, db: Session = Depends(get_db),
+def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks,
+                      db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not insp:
@@ -348,7 +348,7 @@ def submit_inspection(inspection_id: int, db: Session = Depends(get_db),
         inspector_name = current_user.full_name
         score = result["score"]
         for aud in auditors:
-            asyncio.create_task(send_inspection_submitted(aud.email, aud.full_name, clinic_name, score, inspector_name))
+            background_tasks.add_task(send_inspection_submitted, aud.email, aud.full_name, clinic_name, score, inspector_name)
     except Exception:
         pass
 

@@ -1,7 +1,6 @@
-import asyncio
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -203,7 +202,8 @@ def delete_policy(policy_id: int, db: Session = Depends(get_db),
 
 
 @router.post("/{policy_id}/publish")
-def publish_policy(policy_id: int, db: Session = Depends(get_db),
+def publish_policy(policy_id: int, background_tasks: BackgroundTasks,
+                   db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     if not _is_admin_or_manager(current_user):
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -243,7 +243,7 @@ def publish_policy(policy_id: int, db: Session = Depends(get_db),
     try:
         notify_users = [u for u in all_users if not target_roles or u.role.value in target_roles]
         for u in notify_users:
-            asyncio.create_task(send_policy_published(u.email, u.full_name, p.title, p.requires_quiz))
+            background_tasks.add_task(send_policy_published, u.email, u.full_name, p.title, p.requires_quiz)
     except Exception:
         pass
 
