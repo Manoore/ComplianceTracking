@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api, { apiError } from '../services/api'
-import type { Inspection, Clinic, ChecklistTemplate } from '../types'
+import type { Inspection, Clinic, ChecklistTemplate, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
@@ -124,6 +124,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
 export function InspectionsPage() {
   const { user } = useAuth()
   const [showNew, setShowNew] = useState(false)
+  const [filterDept, setFilterDept] = useState('')
   const navigate = useNavigate()
   const isInspector = user?.role === 'team_member'
 
@@ -131,10 +132,18 @@ export function InspectionsPage() {
     queryKey: ['inspections'],
     queryFn: () => api.get('/inspections').then(r => r.data),
   })
+  const { data: clinics } = useQuery<Clinic[]>({ queryKey: ['clinics'], queryFn: () => api.get('/clinics').then(r => r.data), enabled: !isInspector })
+  const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data), enabled: !isInspector })
+
+  const clinicsByDept = filterDept
+    ? new Set((clinics ?? []).filter((c: any) => c.department_id?.toString() === filterDept).map(c => c.id))
+    : null
 
   const visible = isInspector
     ? (inspections ?? []).filter(i => i.inspector_id === user?.id)
-    : (inspections ?? [])
+    : clinicsByDept
+      ? (inspections ?? []).filter(i => clinicsByDept.has(i.clinic_id))
+      : (inspections ?? [])
 
   const pending = visible.filter(i => i.status === 'in_progress' || i.status === 'draft')
   const completed = visible.filter(i => i.status === 'submitted' || i.status === 'reviewed')
@@ -233,11 +242,19 @@ export function InspectionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Inspections</h1>
-        {(user?.role === 'admin' || user?.role === 'manager') && (
-          <button className="btn-primary" onClick={() => setShowNew(true)}>
-            <Plus size={16} /> New Inspection
-          </button>
-        )}
+        <div className="flex gap-2 items-center">
+          {(departments ?? []).length > 0 && (
+            <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+              <option value="">All Departments</option>
+              {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          )}
+          {(user?.role === 'admin' || user?.role === 'manager') && (
+            <button className="btn-primary" onClick={() => setShowNew(true)}>
+              <Plus size={16} /> New Inspection
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

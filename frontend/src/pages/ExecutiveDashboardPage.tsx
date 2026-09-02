@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
-  Building2, BarChart2, Award, ShieldAlert
+  Building2, BarChart2, Award, ShieldAlert, Layers
 } from 'lucide-react'
 import api from '../services/api'
-import { DashboardData } from '../types'
+import { DashboardData, Department } from '../types'
 
 const RISK_COLOR: Record<string, string> = {
   low: '#22c55e',
@@ -89,6 +89,14 @@ export function ExecutiveDashboardPage() {
     queryFn: () => api.get('/reports/dashboard').then(r => r.data),
     refetchInterval: 60_000,
   })
+  const { data: departments } = useQuery<Department[]>({
+    queryKey: ['departments'],
+    queryFn: () => api.get('/departments').then(r => r.data),
+  })
+  const { data: clinicsRaw } = useQuery<any[]>({
+    queryKey: ['clinics'],
+    queryFn: () => api.get('/clinics').then(r => r.data),
+  })
 
   if (isLoading) {
     return (
@@ -103,6 +111,18 @@ export function ExecutiveDashboardPage() {
   const trend = data?.trend ?? []
 
   const highRisk = clinics.filter(c => c.risk_level === 'high' || c.risk_level === 'critical')
+
+  // Compute department-level rollup from clinic scores
+  const deptBreakdown = (departments ?? []).map(dept => {
+    const deptClinicIds = new Set(
+      (clinicsRaw ?? []).filter((c: any) => c.department_id === dept.id).map((c: any) => c.id)
+    )
+    const deptScores = clinics.filter(c => deptClinicIds.has(c.clinic_id))
+    const avg = deptScores.length
+      ? deptScores.reduce((acc, c) => acc + (c.score ?? 0), 0) / deptScores.length
+      : null
+    return { dept, clinicCount: deptScores.length, avg }
+  }).filter(d => d.clinicCount > 0)
   const avgScore = s?.avg_compliance_score ?? 0
 
   return (
@@ -200,6 +220,25 @@ export function ExecutiveDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Department breakdown */}
+      {deptBreakdown.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Layers size={16} className="text-brand-600" /> Department Breakdown
+          </h2>
+          <div className="space-y-3">
+            {deptBreakdown.sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0)).map(({ dept, clinicCount, avg }) => (
+              <ScoreBar
+                key={dept.id}
+                label={dept.name}
+                score={avg ?? 0}
+                sub={`${clinicCount} location${clinicCount !== 1 ? 's' : ''}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent inspections */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">

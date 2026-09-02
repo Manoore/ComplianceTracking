@@ -4,12 +4,14 @@ import api, { apiError } from '../services/api'
 import type { CorrectiveAction } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge, priorityBadge } from '../components/ui/Badge'
-import { Upload, CheckSquare, X } from 'lucide-react'
+import { Upload, CheckSquare, X, RefreshCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
 function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: () => void }) {
   const qc = useQueryClient()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api.get('/users').then(r => r.data), enabled: user?.role === 'admin' || user?.role === 'auditor' })
   const [form, setForm] = useState({
     assigned_to: action.assigned_to?.toString() ?? '',
@@ -131,6 +133,12 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
             {canVerify && (
               <button className="btn-secondary" onClick={() => verify.mutate()} disabled={verify.isPending}>
                 <CheckSquare size={15} /> Verify Resolved
+              </button>
+            )}
+            {action.requires_reinspection && (user?.role === 'admin' || user?.role === 'manager') && (
+              <button className="btn-secondary text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={() => { onClose(); navigate('/inspections') }}>
+                <RefreshCw size={15} /> Schedule Re-Inspection
               </button>
             )}
             <button className="btn-secondary" onClick={onClose}>Cancel</button>

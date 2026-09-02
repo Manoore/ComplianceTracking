@@ -28,6 +28,7 @@ class ClinicCreate(BaseModel):
     email: Optional[str] = None
     website: Optional[str] = None
     manager_id: Optional[int] = None
+    department_id: Optional[int] = None
     notes: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -47,6 +48,7 @@ class ClinicUpdate(BaseModel):
     email: Optional[str] = None
     website: Optional[str] = None
     manager_id: Optional[int] = None
+    department_id: Optional[int] = None
     is_active: Optional[bool] = None
     notes: Optional[str] = None
     lat: Optional[float] = None
@@ -70,6 +72,8 @@ def clinic_out(c: Clinic) -> dict:
         "website": c.website,
         "manager_id": c.manager_id,
         "manager_name": c.manager.full_name if c.manager else None,
+        "department_id": c.department_id,
+        "department_name": c.department.name if c.department else None,
         "is_active": c.is_active,
         "notes": c.notes,
         "lat": c.lat,

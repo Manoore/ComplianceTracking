@@ -127,6 +127,34 @@ async def send_corrective_action_notification(email: str, name: str, action_titl
     await send_email(email, f"Corrective Action Assigned: {action_title}", body)
 
 
+async def send_inspection_submitted(email: str, name: str, clinic: str, score: float, inspector: str):
+    score_color = '#16a34a' if score >= 80 else '#d97706' if score >= 60 else '#dc2626'
+    body = f"""
+    <span class="label">Inspection Submitted</span>
+    <p>Hi {name},</p>
+    <p>An inspection has been submitted for your review.</p>
+    <p style="background:#F0F4FF;border-left:3px solid #3B82F6;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0">
+      <strong>Location:</strong> {clinic}<br>
+      <strong>Inspector:</strong> {inspector}<br>
+      <strong>Compliance Score:</strong> <span style="color:{score_color};font-weight:700">{score:.1f}%</span>
+    </p>
+    <p>Log in to CompliNow to review and approve this inspection.</p>
+    """
+    await send_email(email, f"Inspection Submitted: {clinic}", body)
+
+
+async def send_policy_published(email: str, name: str, policy_title: str, requires_quiz: bool):
+    action = 'complete a quiz and acknowledge' if requires_quiz else 'read and acknowledge'
+    body = f"""
+    <span class="label">Policy Update</span>
+    <p>Hi {name},</p>
+    <p>A new policy requires your attention:</p>
+    <p style="font-size:17px;font-weight:700;color:#1B3260;margin-bottom:8px">{policy_title}</p>
+    <p>Please log in to CompliNow to {action} this policy.</p>
+    """
+    await send_email(email, f"Policy Requires Acknowledgement: {policy_title}", body)
+
+
 async def send_password_reset(email: str, name: str, reset_url: str):
     body = f"""
     <span class="label">Password Reset</span>

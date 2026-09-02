@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts'
-import { ClipboardList, AlertTriangle, CheckSquare, Building2, LayoutDashboard, User } from 'lucide-react'
+import { ClipboardList, AlertTriangle, CheckSquare, Building2, LayoutDashboard, User, Award, X } from 'lucide-react'
 
 function StatCard({ title, value, sub, icon: Icon, color }: {
   title: string; value: number | string; sub?: string; icon: any; color: string
@@ -107,6 +107,28 @@ function MyTasksView() {
   )
 }
 
+function CredentialExpiryBanner() {
+  const [dismissed, setDismissed] = useState(false)
+  const { data } = useQuery({
+    queryKey: ['credentials-summary'],
+    queryFn: () => api.get('/credentials/summary').then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+  })
+  if (dismissed || !data) return null
+  const urgent = (data.expired ?? 0) + (data.expiring_30 ?? 0)
+  if (urgent === 0) return null
+  return (
+    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+      <Award size={16} className="text-amber-600 flex-shrink-0" />
+      <span className="flex-1 text-amber-800">
+        <strong>{urgent} credential{urgent !== 1 ? 's' : ''}</strong> {data.expired > 0 ? `${data.expired} expired` : ''}{data.expired > 0 && data.expiring_30 > 0 ? ', ' : ''}{data.expiring_30 > 0 ? `${data.expiring_30} expiring within 30 days` : ''}.
+        {' '}<a href="/credentials" className="font-medium underline">Review now →</a>
+      </span>
+      <button onClick={() => setDismissed(true)} className="p-1 hover:bg-amber-100 rounded text-amber-500"><X size={14} /></button>
+    </div>
+  )
+}
+
 export function DashboardPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState<'overview' | 'my-tasks'>('overview')
@@ -156,6 +178,7 @@ export function DashboardPage() {
 
       {tab === 'my-tasks' ? <MyTasksView /> : (
         <>
+          {(user?.role === 'admin' || user?.role === 'manager') && <CredentialExpiryBanner />}
           {!isStaff && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               <StatCard title="Total Inspections" value={s?.total_inspections ?? 0}

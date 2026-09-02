@@ -30,6 +30,7 @@ class ItemIn(BaseModel):
     weight: float = 1.0
     type_config: Optional[dict] = None
     conditional_logic: Optional[dict] = None
+    standard_tags: Optional[list] = None
     order_index: int = 0
 
 
@@ -71,6 +72,7 @@ def item_out(i: ChecklistItem) -> dict:
         "weight": i.weight,
         "type_config": i.type_config,
         "conditional_logic": i.conditional_logic,
+        "standard_tags": i.standard_tags or [],
         "order_index": i.order_index,
     }
 

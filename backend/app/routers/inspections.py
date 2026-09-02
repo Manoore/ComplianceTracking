@@ -1,4 +1,5 @@
 import os
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
@@ -10,6 +11,7 @@ from ..models.checklist import ChecklistItem
 from ..models.corrective_action import CorrectiveAction, ActionStatus
 from ..models.user import User, UserRole
 from ..services.scoring import calculate_compliance_score
+from ..services.email import send_inspection_submitted
 from ..utils.audit_trail import log_action
 from ..config import settings
 from .deps import get_current_user, require_admin_or_auditor
@@ -334,4 +336,20 @@ def submit_inspection(inspection_id: int, db: Session = Depends(get_db),
     log_action(db, "inspection.submit", user_id=current_user.id, resource_type="inspection", resource_id=inspection_id,
                details={"score": result["score"], "risk": result["risk_level"]})
     db.commit()
+
+    # Notify auditors/admins about the submitted inspection
+    try:
+        auditors = db.query(User).filter(
+            User.role.in_([UserRole.admin, UserRole.auditor]),
+            User.is_active == True,
+            User.tenant_id == current_user.tenant_id,
+        ).all()
+        clinic_name = insp.clinic.name if insp.clinic else "Unknown"
+        inspector_name = current_user.full_name
+        score = result["score"]
+        for aud in auditors:
+            asyncio.create_task(send_inspection_submitted(aud.email, aud.full_name, clinic_name, score, inspector_name))
+    except Exception:
+        pass
+
     return inspection_out(insp)

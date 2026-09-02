@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
-import type { ChecklistTemplate } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil } from 'lucide-react'
+import type { ChecklistTemplate, AccreditationStandard } from '../types'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
@@ -30,6 +30,7 @@ interface ItemDraft {
   is_required: boolean
   item_type: ItemType
   type_config: { min?: string; max?: string; unit?: string; options?: string }
+  standard_tags: string[]
   order_index?: number
 }
 
@@ -102,12 +103,13 @@ function buildItemPayload(item: ItemDraft) {
     is_required: item.is_required,
     item_type: item.item_type,
     type_config: Object.keys(cfg).length ? cfg : null,
+    standard_tags: item.standard_tags ?? [],
     order_index: item.order_index ?? 0,
   }
 }
 
 function emptyItem(order_index = 0): ItemDraft {
-  return { question: '', category: 'safety', is_critical: false, is_required: true, item_type: 'pass_fail_na', type_config: {}, order_index }
+  return { question: '', category: 'safety', is_critical: false, is_required: true, item_type: 'pass_fail_na', type_config: {}, standard_tags: [], order_index }
 }
 
 const PRESET_LABELS: Record<string, string> = {
@@ -187,6 +189,39 @@ function PresetLibraryModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function StandardsTagPicker({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const { data: standards } = useQuery<AccreditationStandard[]>({
+    queryKey: ['standards'],
+    queryFn: () => api.get('/standards').then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+  })
+  const toggle = (code: string) =>
+    onChange(tags.includes(code) ? tags.filter(t => t !== code) : [...tags, code])
+  if (!standards?.length) return null
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Tag size={12} className="text-gray-400" />
+        <span className="text-xs text-gray-500">Standards tags (for compliance report)</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {standards.map(s => (
+          <button key={s.code} type="button"
+            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+              tags.includes(s.code)
+                ? 'bg-brand-600 text-white border-brand-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-brand-400'
+            }`}
+            onClick={() => toggle(s.code)}
+          >
+            {s.code}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ItemRowEditor({ item, idx, onChange, onRemove }: {
   item: ItemDraft; idx: number
   onChange: (idx: number, field: string, value: any) => void
@@ -224,6 +259,7 @@ function ItemRowEditor({ item, idx, onChange, onRemove }: {
         </label>
       </div>
       <ItemTypeConfigFields item={item} onChange={(field, value) => onChange(idx, field, value)} />
+      <StandardsTagPicker tags={item.standard_tags} onChange={t => onChange(idx, 'standard_tags', t)} />
     </div>
   )
 }
@@ -306,6 +342,7 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
         unit: (i as any).type_config?.unit,
         options: ((i as any).type_config?.options as string[] | undefined)?.join('\n'),
       },
+      standard_tags: (i as any).standard_tags ?? [],
     }))
   )
 

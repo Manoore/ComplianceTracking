@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
-import type { Clinic } from '../types'
+import type { Clinic, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Link } from 'react-router-dom'
-import { Plus, Edit2, Building2, ExternalLink, Upload } from 'lucide-react'
+import { Plus, Edit2, Building2, ExternalLink, Upload, Layers } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const CLINIC_TYPES = [
@@ -36,7 +36,9 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
     notes: clinic?.notes ?? '',
   })
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api.get('/users').then(r => r.data) })
+  const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
   const [manager_id, setManagerId] = useState<string>(clinic?.manager_id?.toString() ?? '')
+  const [department_id, setDepartmentId] = useState<string>((clinic as any)?.department_id?.toString() ?? '')
 
   const mutation = useMutation({
     mutationFn: (data: any) => clinic
@@ -52,7 +54,7 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    mutation.mutate({ ...form, manager_id: manager_id ? parseInt(manager_id) : null })
+    mutation.mutate({ ...form, manager_id: manager_id ? parseInt(manager_id) : null, department_id: department_id ? parseInt(department_id) : null })
   }
 
   return (
@@ -106,6 +108,15 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
           <div>
             <label className="label">License Number</label>
             <input className="input" value={form.license_number} onChange={e => setForm(f => ({ ...f, license_number: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">Department</label>
+            <select className="input" value={department_id} onChange={e => setDepartmentId(e.target.value)}>
+              <option value="">— None —</option>
+              {(departments ?? []).map((d: Department) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="label">Assigned Manager</label>
@@ -163,16 +174,31 @@ export function ClinicsPage() {
   const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Clinic | undefined>()
+  const [filterDept, setFilterDept] = useState('')
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
     queryKey: ['clinics'],
     queryFn: () => api.get('/clinics').then(r => r.data),
   })
+  const { data: departments } = useQuery<Department[]>({
+    queryKey: ['departments'],
+    queryFn: () => api.get('/departments').then(r => r.data),
+  })
+
+  const visible = filterDept
+    ? (clinics ?? []).filter(c => (c as any).department_id?.toString() === filterDept)
+    : (clinics ?? [])
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Clinics</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {(departments ?? []).length > 0 && (
+            <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+              <option value="">All Departments</option>
+              {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          )}
           {user?.role === 'admin' && <CsvImportButton />}
           {user?.role === 'admin' && (
             <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true) }}>
@@ -188,7 +214,7 @@ export function ClinicsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(clinics ?? []).map((clinic) => (
+          {visible.map((clinic) => (
             <div key={clinic.id} className="card hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -220,6 +246,11 @@ export function ClinicsPage() {
                 {clinic.address && <p>{clinic.address}</p>}
                 {(clinic.city || clinic.state) && <p>{[clinic.city, clinic.state, clinic.zip_code].filter(Boolean).join(', ')}</p>}
                 {clinic.phone && <p>{clinic.phone}</p>}
+                {(clinic as any).department_name && (
+                  <p className="flex items-center gap-1 text-gray-500">
+                    <Layers size={11} /> {(clinic as any).department_name}
+                  </p>
+                )}
                 {clinic.manager_name && (
                   <p className="text-brand-600 font-medium">Manager: {clinic.manager_name}</p>
                 )}
@@ -234,9 +265,9 @@ export function ClinicsPage() {
               </div>
             </div>
           ))}
-          {(clinics?.length ?? 0) === 0 && (
+          {visible.length === 0 && (
             <div className="col-span-3 text-center py-16 text-gray-400">
-              No clinics registered yet
+              {filterDept ? 'No clinics in this department' : 'No clinics registered yet'}
             </div>
           )}
         </div>

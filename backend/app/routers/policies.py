@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..models.policy import PolicyDocument, PolicyAttestation
 from ..models.user import User, UserRole
+from ..services.email import send_policy_published
 from .deps import get_current_user
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -236,6 +238,15 @@ def publish_policy(policy_id: int, db: Session = Depends(get_db),
     db.refresh(p)
     total = len(p.attestations)
     signed = sum(1 for a in p.attestations if a.status == "signed")
+
+    # Notify targeted users about the new policy
+    try:
+        notify_users = [u for u in all_users if not target_roles or u.role.value in target_roles]
+        for u in notify_users:
+            asyncio.create_task(send_policy_published(u.email, u.full_name, p.title, p.requires_quiz))
+    except Exception:
+        pass
+
     return policy_out(p, None, total, signed)
 
 
