@@ -87,6 +87,8 @@ class ChecklistItem(Base):
     type_config = Column(JSON, nullable=True)
     # Conditional: {"if_item_id": 5, "if_answer": "fail", "action": "show"}
     conditional_logic = Column(JSON, nullable=True)
+    # Accreditation standard tags: ["OSHA", "HIPAA", "AAAHC"]
+    standard_tags = Column(JSON, nullable=True)
     order_index = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 

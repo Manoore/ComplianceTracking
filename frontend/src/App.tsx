@@ -27,6 +27,11 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { PoliciesPage } from './pages/PoliciesPage'
+import { ExecutiveDashboardPage } from './pages/ExecutiveDashboardPage'
+import { DepartmentsPage } from './pages/DepartmentsPage'
+import { CredentialsPage } from './pages/CredentialsPage'
+import { DocumentHubPage } from './pages/DocumentHubPage'
+import { StandardsPage } from './pages/StandardsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
@@ -74,6 +79,11 @@ function AppRoutes() {
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />
+        <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']}><ExecutiveDashboardPage /></PrivateRoute>} />
+        <Route path="departments" element={<PrivateRoute roles={['admin', 'manager']}><DepartmentsPage /></PrivateRoute>} />
+        <Route path="credentials" element={<CredentialsPage />} />
+        <Route path="document-hub" element={<DocumentHubPage />} />
+        <Route path="standards" element={<PrivateRoute roles={['admin', 'manager', 'auditor']}><StandardsPage /></PrivateRoute>} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="settings" element={<PrivateRoute roles={['admin']}><SettingsPage /></PrivateRoute>} />
         <Route path="notifications" element={<NotificationsPage />} />

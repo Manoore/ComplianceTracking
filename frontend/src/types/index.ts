@@ -251,6 +251,57 @@ export interface PolicyAttestation {
   quiz_passed?: boolean
 }
 
+export interface Department {
+  id: number
+  name: string
+  description?: string
+  color?: string
+  clinic_count: number
+  created_at?: string
+}
+
+export interface Credential {
+  id: number
+  user_id: number
+  user_name?: string
+  user_email?: string
+  title: string
+  credential_type: string
+  issuing_body?: string
+  credential_number?: string
+  issue_date?: string
+  expiry_date?: string
+  expiry_status: 'expired' | 'expiring_soon' | 'expiring_90' | 'valid' | 'no_expiry'
+  notes?: string
+  file_url?: string
+  file_name?: string
+}
+
+export interface HubDocument {
+  id: number
+  title: string
+  description?: string
+  category?: string
+  tags?: string
+  current_version: number
+  file_url: string
+  file_name: string
+  file_size?: number
+  uploader_name?: string
+  created_at?: string
+  updated_at?: string
+  version_count: number
+}
+
+export interface AccreditationStandard {
+  id: number
+  code: string
+  name: string
+  description?: string
+  is_builtin: boolean
+  is_active: boolean
+}
+
 export interface DashboardData {
   summary: {
     total_inspections: number

@@ -43,10 +43,12 @@ class Clinic(Base):
     # Branding / org info
     license_number = Column(String, nullable=True)
     accreditation = Column(String, nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     manager = relationship("User", foreign_keys=[manager_id])
+    department = relationship("Department", foreign_keys=[department_id], back_populates="clinics")
     inspections = relationship("Inspection", back_populates="clinic", cascade="all, delete-orphan")
     staff = relationship("ClinicStaff", back_populates="clinic", cascade="all, delete-orphan")
 

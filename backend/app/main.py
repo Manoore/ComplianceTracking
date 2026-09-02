@@ -9,6 +9,10 @@ from .database import engine, Base
 from .config import settings
 from .models import platform_setting as _ps_model  # noqa: ensure table registered
 from .models import policy as _policy_model  # noqa: ensure table registered
+from .models import department as _dept_model  # noqa
+from .models import credential as _cred_model  # noqa
+from .models import document_hub as _dochub_model  # noqa
+from .models import standard as _std_model  # noqa
 from .routers import (auth, users, clinics, checklists, inspections, audits,
                        certifications, corrective_actions, reports,
                        notifications, announcements, settings as settings_router)
@@ -16,6 +20,10 @@ from .routers import roles as roles_router
 from .routers import tenants as tenants_router
 from .routers import superadmin as superadmin_router
 from .routers import policies as policies_router
+from .routers import departments as departments_router
+from .routers import credentials as credentials_router
+from .routers import document_hub as document_hub_router
+from .routers import standards as standards_router
 
 
 @asynccontextmanager
@@ -28,9 +36,12 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.upload_dir, "certificates"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "reports"), exist_ok=True)
     os.makedirs(os.path.join(settings.upload_dir, "branding"), exist_ok=True)
+    os.makedirs(os.path.join(settings.upload_dir, "credentials"), exist_ok=True)
+    os.makedirs(os.path.join(settings.upload_dir, "documents"), exist_ok=True)
     _seed_default_tenant()
     _seed_admin()
     _seed_roles()
+    _seed_standards()
     yield
 
 
@@ -56,6 +67,8 @@ def _apply_migrations():
         "ALTER TABLE inspection_items ADD COLUMN second_signed_at TIMESTAMP",
         "ALTER TABLE inspection_items ADD COLUMN second_signature TEXT",
         "ALTER TABLE inspection_items ADD COLUMN answered_at TIMESTAMP",
+        "ALTER TABLE clinics ADD COLUMN department_id INTEGER REFERENCES departments(id)",
+        "ALTER TABLE checklist_items ADD COLUMN standard_tags JSONB",
     ]
     for stmt in stmts:
         with engine.connect() as conn:
@@ -155,6 +168,23 @@ def _seed_roles():
         db.close()
 
 
+def _seed_standards():
+    from .database import SessionLocal
+    from .models.standard import AccreditationStandard, BUILTIN_STANDARDS
+    db = SessionLocal()
+    try:
+        for s in BUILTIN_STANDARDS:
+            existing = db.query(AccreditationStandard).filter(
+                AccreditationStandard.code == s["code"],
+                AccreditationStandard.is_builtin == True,
+            ).first()
+            if not existing:
+                db.add(AccreditationStandard(code=s["code"], name=s["name"], is_builtin=True, tenant_id=None))
+        db.commit()
+    finally:
+        db.close()
+
+
 app = FastAPI(
     title="CompliNow",
     description="Compliance inspections, audits, corrective actions, and certifications for any industry.",
@@ -186,6 +216,10 @@ app.include_router(roles_router.router, prefix="/api")
 app.include_router(tenants_router.router, prefix="/api")
 app.include_router(superadmin_router.router, prefix="/api")
 app.include_router(policies_router.router, prefix="/api")
+app.include_router(departments_router.router, prefix="/api")
+app.include_router(credentials_router.router, prefix="/api")
+app.include_router(document_hub_router.router, prefix="/api")
+app.include_router(standards_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

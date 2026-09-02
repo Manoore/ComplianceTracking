@@ -3,14 +3,18 @@ from sqlalchemy.orm import relationship
 from ..database import Base
 
 ALL_MODULES = [
-    "clinics", "checklists", "inspections", "audits",
-    "certifications", "corrective_actions", "policies", "announcements", "reports",
+    "clinics", "checklists", "inspections", "audits", "certifications",
+    "corrective_actions", "policies", "executive", "departments", "credentials",
+    "document_hub", "standards", "announcements", "reports",
 ]
 
 DEFAULT_PERMISSIONS = {
-    "manager": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "policies", "announcements"],
-    "auditor": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "policies", "announcements", "reports"],
-    "team_member": ["inspections", "certifications", "corrective_actions", "policies", "announcements"],
+    "manager": ["clinics", "inspections", "audits", "certifications", "corrective_actions",
+                "policies", "executive", "departments", "credentials", "document_hub", "standards", "announcements"],
+    "auditor": ["clinics", "inspections", "audits", "certifications", "corrective_actions",
+                "policies", "executive", "credentials", "document_hub", "standards", "announcements", "reports"],
+    "team_member": ["inspections", "certifications", "corrective_actions", "policies",
+                    "credentials", "document_hub", "announcements"],
 }
 
 SYSTEM_ROLES = {

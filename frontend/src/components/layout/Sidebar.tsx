@@ -5,7 +5,8 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
-  Users, LogOut, Menu, X, Megaphone, Settings, Shield, FileText
+  Users, LogOut, Menu, X, Megaphone, Settings, Shield, FileText,
+  TrendingUp, Layers, Award, FolderOpen, BookMarked
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -21,6 +22,11 @@ const allNavItems = [
   { to: '/audits', icon: ShieldCheck, label: 'Audits', module: 'audits' },
   { to: '/certifications', icon: CheckSquare, label: 'Certifications', module: 'certifications' },
   { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', module: 'corrective_actions' },
+  { to: '/executive', icon: TrendingUp, label: 'Executive View', module: 'executive' },
+  { to: '/departments', icon: Layers, label: 'Departments', module: 'departments' },
+  { to: '/credentials', icon: Award, label: 'Credentialing', module: 'credentials' },
+  { to: '/document-hub', icon: FolderOpen, label: 'Document Hub', module: 'document_hub' },
+  { to: '/standards', icon: BookMarked, label: 'Standards', module: 'standards' },
   { to: '/policies', icon: FileText, label: 'Policies', module: 'policies' },
   { to: '/announcements', icon: Megaphone, label: 'Announcements', module: 'announcements' },
   { to: '/reports', icon: BarChart2, label: 'Reports', module: 'reports' },
