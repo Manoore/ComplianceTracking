@@ -25,8 +25,15 @@ class InspectionCreate(BaseModel):
 
 
 class ItemUpdate(BaseModel):
-    result: ItemResult
+    result: Optional[ItemResult] = None
     notes: Optional[str] = None
+    text_value: Optional[str] = None
+    numeric_value: Optional[float] = None
+    signature: Optional[str] = None   # base64 for signature type
+
+
+class SecondSignPayload(BaseModel):
+    signature: Optional[str] = None
 
 
 class CheckoutPayload(BaseModel):
@@ -61,9 +68,18 @@ def inspection_out(insp: Inspection) -> dict:
                 "question": i.checklist_item.question if i.checklist_item else None,
                 "category": i.checklist_item.category.value if i.checklist_item and i.checklist_item.category else None,
                 "is_critical": i.checklist_item.is_critical if i.checklist_item else False,
+                "item_type": i.checklist_item.item_type.value if i.checklist_item and i.checklist_item.item_type else "pass_fail_na",
+                "type_config": i.checklist_item.type_config if i.checklist_item else None,
                 "result": i.result.value if i.result else None,
                 "notes": i.notes,
+                "text_value": i.text_value,
+                "numeric_value": i.numeric_value,
+                "passes_range": i.passes_range,
+                "document_url": i.document_url,
                 "photo_urls": i.photo_urls or [],
+                "second_signer_id": i.second_signer_id,
+                "second_signed_at": str(i.second_signed_at) if i.second_signed_at else None,
+                "second_signer_name": i.second_signer.full_name if i.second_signer else None,
             }
             for i in (insp.items or [])
         ],
@@ -142,11 +158,37 @@ def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    item.result = payload.result
-    item.notes = payload.notes
+    ci = item.checklist_item
+    item_type = ci.item_type.value if ci and ci.item_type else "pass_fail_na"
+
+    if item_type == "numeric_range" and payload.numeric_value is not None:
+        item.numeric_value = payload.numeric_value
+        cfg = (ci.type_config or {}) if ci else {}
+        lo, hi = cfg.get("min"), cfg.get("max")
+        in_range = (lo is None or payload.numeric_value >= lo) and (hi is None or payload.numeric_value <= hi)
+        item.passes_range = in_range
+        item.result = ItemResult.pass_ if in_range else ItemResult.fail
+    elif item_type == "numeric" and payload.numeric_value is not None:
+        item.numeric_value = payload.numeric_value
+        item.result = ItemResult.pass_
+    elif item_type in ("text_input", "date_picker") and payload.text_value is not None:
+        item.text_value = payload.text_value
+        item.result = ItemResult.pass_ if payload.text_value.strip() else ItemResult.pending
+    elif item_type == "signature" and payload.signature is not None:
+        item.text_value = payload.signature
+        item.result = ItemResult.pass_
+    elif item_type == "dual_signoff" and payload.signature is not None:
+        item.text_value = payload.signature
+        # Result becomes pass only when second signer also signs
+        item.result = ItemResult.pending
+    elif payload.result is not None:
+        item.result = payload.result
+
+    if payload.notes is not None:
+        item.notes = payload.notes
     item.answered_at = datetime.utcnow()
     db.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "result": item.result.value, "passes_range": item.passes_range}
 
 
 @router.post("/{inspection_id}/items/{item_id}/photos")
@@ -184,6 +226,59 @@ async def upload_photo(inspection_id: int, item_id: int,
     item.photo_urls = urls
     db.commit()
     return {"url": urls[-1]}
+
+
+@router.post("/{inspection_id}/items/{item_id}/second-sign")
+def second_sign(inspection_id: int, item_id: int, payload: SecondSignPayload,
+                db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    if not insp or insp.status not in [InspectionStatus.draft, InspectionStatus.in_progress]:
+        raise HTTPException(status_code=400, detail="Inspection not editable")
+    item = db.query(InspectionItem).filter(
+        InspectionItem.id == item_id, InspectionItem.inspection_id == inspection_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if not item.text_value:
+        raise HTTPException(status_code=400, detail="First signature required before second sign-off")
+    if item.second_signer_id == current_user.id or insp.inspector_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Second signer must be a different user")
+    item.second_signer_id = current_user.id
+    item.second_signed_at = datetime.utcnow()
+    item.second_signature = payload.signature
+    item.result = ItemResult.pass_
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/{inspection_id}/items/{item_id}/document")
+async def upload_document(inspection_id: int, item_id: int,
+                          file: UploadFile = File(...),
+                          db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    if not insp or insp.inspector_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    item = db.query(InspectionItem).filter(
+        InspectionItem.id == item_id, InspectionItem.inspection_id == inspection_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"]:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    upload_dir = os.path.join(settings.upload_dir, "inspections", str(inspection_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f"doc_{item_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{ext}"
+    filepath = os.path.join(upload_dir, filename)
+    content = await file.read()
+    if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large")
+    with open(filepath, "wb") as f:
+        f.write(content)
+    item.document_url = f"/uploads/inspections/{inspection_id}/{filename}"
+    item.result = ItemResult.pass_
+    item.answered_at = datetime.utcnow()
+    db.commit()
+    return {"url": item.document_url}
 
 
 @router.post("/{inspection_id}/checkout")

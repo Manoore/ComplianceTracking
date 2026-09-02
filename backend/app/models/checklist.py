@@ -20,9 +20,12 @@ class ItemType(str, enum.Enum):
     pass_fail_na = "pass_fail_na"   # original default
     yes_no = "yes_no"
     text_input = "text_input"
-    numeric = "numeric"
-    photo = "photo"
-    signature = "signature"
+    numeric = "numeric"             # plain numeric entry
+    numeric_range = "numeric_range" # numeric with pass/fail min–max bounds
+    photo = "photo"                 # photo capture required
+    signature = "signature"         # single e-signature
+    dual_signoff = "dual_signoff"   # two independent signers required
+    document_upload = "document_upload"  # file attachment required
     date_picker = "date_picker"
     multiple_choice = "multiple_choice"
 

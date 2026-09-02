@@ -64,11 +64,19 @@ class InspectionItem(Base):
     inspection_id = Column(Integer, ForeignKey("inspections.id"), nullable=False)
     checklist_item_id = Column(Integer, ForeignKey("checklist_items.id"), nullable=False)
     result = Column(Enum(ItemResult), default=ItemResult.pending)
-    text_value = Column(Text, nullable=True)    # for text_input / numeric types
+    text_value = Column(Text, nullable=True)      # text_input / signature (base64)
+    numeric_value = Column(Float, nullable=True)   # numeric / numeric_range entry
+    passes_range = Column(Boolean, nullable=True)  # True/False for numeric_range; None otherwise
     notes = Column(Text, nullable=True)
     photo_urls = Column(JSON, default=list)
-    auditor_comment = Column(Text, nullable=True)  # auditor's per-item comment
+    document_url = Column(String, nullable=True)   # document_upload
+    auditor_comment = Column(Text, nullable=True)
     answered_at = Column(DateTime, nullable=True)
+    # Dual sign-off: second signer fills this after the first submits
+    second_signer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    second_signed_at = Column(DateTime, nullable=True)
+    second_signature = Column(Text, nullable=True)
 
     inspection = relationship("Inspection", back_populates="items")
     checklist_item = relationship("ChecklistItem")
+    second_signer = relationship("User", foreign_keys=[second_signer_id])

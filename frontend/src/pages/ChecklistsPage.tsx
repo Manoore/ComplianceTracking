@@ -6,6 +6,109 @@ import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Roc
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
+type ItemType = 'pass_fail_na' | 'yes_no' | 'text_input' | 'numeric' | 'numeric_range' | 'photo' | 'signature' | 'dual_signoff' | 'document_upload' | 'date_picker' | 'multiple_choice'
+
+const ITEM_TYPE_OPTIONS: { value: ItemType; label: string }[] = [
+  { value: 'pass_fail_na', label: 'Pass / Fail / N/A' },
+  { value: 'yes_no', label: 'Yes / No' },
+  { value: 'numeric_range', label: 'Numeric Range (auto pass/fail)' },
+  { value: 'numeric', label: 'Numeric Entry' },
+  { value: 'text_input', label: 'Text / Notes' },
+  { value: 'photo', label: 'Photo Required' },
+  { value: 'signature', label: 'E-Signature' },
+  { value: 'dual_signoff', label: 'Dual Sign-Off (2 signers)' },
+  { value: 'document_upload', label: 'Document Upload' },
+  { value: 'date_picker', label: 'Date' },
+  { value: 'multiple_choice', label: 'Multiple Choice' },
+]
+
+interface ItemDraft {
+  id?: number
+  question: string
+  category: ItemCategory
+  is_critical: boolean
+  is_required: boolean
+  item_type: ItemType
+  type_config: { min?: string; max?: string; unit?: string; options?: string }
+  order_index?: number
+}
+
+function ItemTypeConfigFields({ item, onChange }: {
+  item: ItemDraft
+  onChange: (field: string, value: any) => void
+}) {
+  const setCfg = (k: string, v: string) => onChange('type_config', { ...item.type_config, [k]: v })
+  if (item.item_type === 'numeric_range') {
+    return (
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Min value</label>
+          <input type="number" step="any" className="input text-sm py-1.5" placeholder="e.g. 35"
+            value={item.type_config.min ?? ''} onChange={e => setCfg('min', e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Max value</label>
+          <input type="number" step="any" className="input text-sm py-1.5" placeholder="e.g. 46"
+            value={item.type_config.max ?? ''} onChange={e => setCfg('max', e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Unit (optional)</label>
+          <input type="text" className="input text-sm py-1.5" placeholder="°F, mg/dL…"
+            value={item.type_config.unit ?? ''} onChange={e => setCfg('unit', e.target.value)} />
+        </div>
+        <p className="col-span-3 text-xs text-blue-600">Values outside this range will auto-fail and spawn a corrective action.</p>
+      </div>
+    )
+  }
+  if (item.item_type === 'numeric') {
+    return (
+      <div className="mt-2 w-40">
+        <label className="text-xs text-gray-500 mb-1 block">Unit label (optional)</label>
+        <input type="text" className="input text-sm py-1.5" placeholder="°F, kg, ppm…"
+          value={item.type_config.unit ?? ''} onChange={e => setCfg('unit', e.target.value)} />
+      </div>
+    )
+  }
+  if (item.item_type === 'multiple_choice') {
+    return (
+      <div className="mt-2">
+        <label className="text-xs text-gray-500 mb-1 block">Options (one per line)</label>
+        <textarea rows={3} className="input text-sm py-1.5 resize-none" placeholder={"Option A\nOption B\nOption C"}
+          value={item.type_config.options ?? ''} onChange={e => setCfg('options', e.target.value)} />
+      </div>
+    )
+  }
+  if (item.item_type === 'dual_signoff') {
+    return <p className="mt-2 text-xs text-amber-600">Two different users must independently sign this item before it's marked complete.</p>
+  }
+  return null
+}
+
+function buildItemPayload(item: ItemDraft) {
+  const cfg: Record<string, any> = {}
+  if (item.item_type === 'numeric_range') {
+    if (item.type_config.min !== undefined && item.type_config.min !== '') cfg.min = parseFloat(item.type_config.min)
+    if (item.type_config.max !== undefined && item.type_config.max !== '') cfg.max = parseFloat(item.type_config.max)
+    if (item.type_config.unit) cfg.unit = item.type_config.unit
+  } else if (item.item_type === 'numeric') {
+    if (item.type_config.unit) cfg.unit = item.type_config.unit
+  } else if (item.item_type === 'multiple_choice') {
+    cfg.options = (item.type_config.options ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+  }
+  return {
+    question: item.question,
+    category: item.category,
+    is_critical: item.is_critical,
+    is_required: item.is_required,
+    item_type: item.item_type,
+    type_config: Object.keys(cfg).length ? cfg : null,
+    order_index: item.order_index ?? 0,
+  }
+}
+
+function emptyItem(order_index = 0): ItemDraft {
+  return { question: '', category: 'safety', is_critical: false, is_required: true, item_type: 'pass_fail_na', type_config: {}, order_index }
+}
 
 const PRESET_LABELS: Record<string, string> = {
   osha: 'OSHA Workplace Safety',
@@ -84,11 +187,52 @@ function PresetLibraryModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function ItemRowEditor({ item, idx, onChange, onRemove }: {
+  item: ItemDraft; idx: number
+  onChange: (idx: number, field: string, value: any) => void
+  onRemove: (idx: number) => void
+}) {
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <input className="input" placeholder={`Item ${idx + 1}: describe what to check…`} value={item.question}
+            onChange={e => onChange(idx, 'question', e.target.value)} />
+        </div>
+        <button type="button" onClick={() => onRemove(idx)} className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg flex-shrink-0">
+          <Trash2 size={16} />
+        </button>
+      </div>
+      <div className="flex gap-3 items-center flex-wrap">
+        <select className="input w-auto text-sm py-1.5" value={item.item_type}
+          onChange={e => onChange(idx, 'item_type', e.target.value)}>
+          {ITEM_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <select className="input w-auto text-sm py-1.5" value={item.category}
+          onChange={e => onChange(idx, 'category', e.target.value)}>
+          {['safety', 'hygiene', 'equipment', 'documentation', 'staff', 'facility', 'regulatory', 'other'].map(c => (
+            <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+          <input type="checkbox" checked={item.is_critical} onChange={e => onChange(idx, 'is_critical', e.target.checked)} className="accent-red-600" />
+          <span className="flex items-center gap-1 text-red-600"><AlertTriangle size={13} /> Critical</span>
+        </label>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+          <input type="checkbox" checked={item.is_required} onChange={e => onChange(idx, 'is_required', e.target.checked)} className="accent-brand-600" />
+          Required
+        </label>
+      </div>
+      <ItemTypeConfigFields item={item} onChange={(field, value) => onChange(idx, field, value)} />
+    </div>
+  )
+}
+
 function NewTemplateModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [items, setItems] = useState([{ question: '', category: 'safety' as ItemCategory, is_critical: false, is_required: true, order_index: 0 }])
+  const [items, setItems] = useState<ItemDraft[]>([emptyItem(0)])
 
   const mutation = useMutation({
     mutationFn: (data: any) => api.post('/checklists', data),
@@ -96,9 +240,10 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
-  const addItem = () => setItems(i => [...i, { question: '', category: 'other', is_critical: false, is_required: true, order_index: i.length }])
+  const addItem = () => setItems(i => [...i, emptyItem(i.length)])
   const removeItem = (idx: number) => setItems(i => i.filter((_, j) => j !== idx))
-  const updateItem = (idx: number, field: string, value: any) => setItems(i => i.map((item, j) => j === idx ? { ...item, [field]: value } : item))
+  const updateItem = (idx: number, field: string, value: any) =>
+    setItems(i => i.map((item, j) => j === idx ? { ...item, [field]: value } : item))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -109,7 +254,7 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-5">
           <div>
             <label className="label">Template Name *</label>
-            <input required className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Monthly Safety Inspection" />
+            <input required className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Daily Refrigerator Temperature Log" />
           </div>
           <div>
             <label className="label">Description</label>
@@ -125,43 +270,14 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
             </div>
             <div className="space-y-3">
               {items.map((item, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <input className="input" placeholder={`Item ${idx + 1} question…`} value={item.question}
-                        onChange={e => updateItem(idx, 'question', e.target.value)} />
-                    </div>
-                    <button type="button" onClick={() => removeItem(idx)} className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  <div className="flex gap-3 items-center flex-wrap">
-                    <select className="input w-auto text-sm py-1.5" value={item.category}
-                      onChange={e => updateItem(idx, 'category', e.target.value)}>
-                      {['safety', 'hygiene', 'equipment', 'documentation', 'staff', 'facility', 'regulatory', 'other'].map(c => (
-                        <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={item.is_critical} onChange={e => updateItem(idx, 'is_critical', e.target.checked)} className="accent-red-600" />
-                      <span className="flex items-center gap-1 text-red-600"><AlertTriangle size={13} /> Critical</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={item.is_required} onChange={e => updateItem(idx, 'is_required', e.target.checked)} className="accent-brand-600" />
-                      Required
-                    </label>
-                  </div>
-                </div>
+                <ItemRowEditor key={idx} item={item} idx={idx} onChange={updateItem} onRemove={removeItem} />
               ))}
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              className="btn-primary"
-              disabled={!name || mutation.isPending}
-              onClick={() => mutation.mutate({ name, description, items: items.filter(i => i.question) })}
-            >
+            <button className="btn-primary" disabled={!name || mutation.isPending}
+              onClick={() => mutation.mutate({ name, description, items: items.filter(i => i.question).map(buildItemPayload) })}>
               {mutation.isPending ? 'Creating…' : 'Create Template'}
             </button>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
@@ -176,8 +292,21 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
   const qc = useQueryClient()
   const [name, setName] = useState(template.name)
   const [description, setDescription] = useState(template.description ?? '')
-  const [items, setItems] = useState(
-    template.items.map(i => ({ id: i.id, question: i.question, category: i.category, is_critical: i.is_critical, is_required: i.is_required }))
+  const [items, setItems] = useState<ItemDraft[]>(
+    template.items.map(i => ({
+      id: i.id,
+      question: i.question,
+      category: (i.category as ItemCategory) || 'other',
+      is_critical: i.is_critical,
+      is_required: i.is_required,
+      item_type: ((i as any).item_type as ItemType) || 'pass_fail_na',
+      type_config: {
+        min: (i as any).type_config?.min?.toString(),
+        max: (i as any).type_config?.max?.toString(),
+        unit: (i as any).type_config?.unit,
+        options: ((i as any).type_config?.options as string[] | undefined)?.join('\n'),
+      },
+    }))
   )
 
   const mutation = useMutation({
@@ -186,7 +315,7 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
     onError: (e: any) => toast.error(apiError(e)),
   })
 
-  const addItem = () => setItems(i => [...i, { id: 0, question: '', category: 'other', is_critical: false, is_required: true }])
+  const addItem = () => setItems(i => [...i, emptyItem(i.length)])
   const removeItem = (idx: number) => setItems(i => i.filter((_, j) => j !== idx))
   const updateItem = (idx: number, field: string, value: any) =>
     setItems(i => i.map((item, j) => j === idx ? { ...item, [field]: value } : item))
@@ -216,50 +345,14 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
             </div>
             <div className="space-y-3">
               {items.map((item, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <input className="input" placeholder={`Item ${idx + 1} question…`} value={item.question}
-                        onChange={e => updateItem(idx, 'question', e.target.value)} />
-                    </div>
-                    <button type="button" onClick={() => removeItem(idx)} className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  <div className="flex gap-3 items-center flex-wrap">
-                    <select className="input w-auto text-sm py-1.5" value={item.category}
-                      onChange={e => updateItem(idx, 'category', e.target.value)}>
-                      {['safety', 'hygiene', 'equipment', 'documentation', 'staff', 'facility', 'regulatory', 'other'].map(c => (
-                        <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={item.is_critical} onChange={e => updateItem(idx, 'is_critical', e.target.checked)} className="accent-red-600" />
-                      <span className="flex items-center gap-1 text-red-600"><AlertTriangle size={13} /> Critical</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={item.is_required} onChange={e => updateItem(idx, 'is_required', e.target.checked)} className="accent-brand-600" />
-                      Required
-                    </label>
-                  </div>
-                </div>
+                <ItemRowEditor key={idx} item={item} idx={idx} onChange={updateItem} onRemove={removeItem} />
               ))}
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              className="btn-primary"
-              disabled={!name || mutation.isPending}
-              onClick={() => mutation.mutate({
-                name,
-                description,
-                items: items.filter(i => i.question).map((i, idx) => ({
-                  question: i.question, category: i.category,
-                  is_critical: i.is_critical, is_required: i.is_required, order_index: idx
-                }))
-              })}
-            >
+            <button className="btn-primary" disabled={!name || mutation.isPending}
+              onClick={() => mutation.mutate({ name, description, items: items.filter(i => i.question).map(buildItemPayload) })}>
               {mutation.isPending ? 'Saving…' : 'Save Changes'}
             </button>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>

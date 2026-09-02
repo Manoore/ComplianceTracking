@@ -47,6 +47,12 @@ def _apply_migrations():
         "ALTER TABLE roles ADD COLUMN tenant_id INTEGER",
         "ALTER TABLE org_settings ADD COLUMN tenant_id INTEGER",
         "ALTER TABLE courses ADD COLUMN target_roles JSONB",
+        "ALTER TABLE inspection_items ADD COLUMN numeric_value FLOAT",
+        "ALTER TABLE inspection_items ADD COLUMN passes_range BOOLEAN",
+        "ALTER TABLE inspection_items ADD COLUMN document_url VARCHAR",
+        "ALTER TABLE inspection_items ADD COLUMN second_signer_id INTEGER",
+        "ALTER TABLE inspection_items ADD COLUMN second_signed_at TIMESTAMP",
+        "ALTER TABLE inspection_items ADD COLUMN second_signature TEXT",
     ]
     for stmt in stmts:
         with engine.connect() as conn:
@@ -55,6 +61,16 @@ def _apply_migrations():
                 conn.commit()
             except Exception:
                 conn.rollback()
+    # Add new ItemType enum values (Postgres ALTER TYPE is idempotent via exception handling)
+    new_item_types = ["numeric_range", "dual_signoff", "document_upload"]
+    for val in new_item_types:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text(f"ALTER TYPE itemtype ADD VALUE '{val}'"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
     # Drop old unique constraint on roles.name if it exists (Postgres)
     with engine.connect() as conn:
         try:

@@ -71,15 +71,36 @@ export interface ChecklistTemplate {
   created_at?: string
 }
 
+export type ItemType =
+  | 'pass_fail_na' | 'yes_no' | 'text_input' | 'numeric' | 'numeric_range'
+  | 'photo' | 'signature' | 'dual_signoff' | 'document_upload'
+  | 'date_picker' | 'multiple_choice'
+
+export interface TypeConfig {
+  min?: number
+  max?: number
+  unit?: string
+  options?: string[]
+}
+
 export interface InspectionItem {
   id: number
   checklist_item_id: number
   question: string
   category: string
   is_critical: boolean
+  item_type: ItemType
+  type_config?: TypeConfig
   result: 'pass' | 'fail' | 'na' | 'pending' | null
   notes?: string
+  text_value?: string
+  numeric_value?: number | null
+  passes_range?: boolean | null
+  document_url?: string | null
   photo_urls: string[]
+  second_signer_id?: number | null
+  second_signed_at?: string | null
+  second_signer_name?: string | null
 }
 
 export interface Inspection {
