@@ -5,7 +5,7 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
-  Users, LogOut, Menu, X, Megaphone, Settings, Shield
+  Users, LogOut, Menu, X, Megaphone, Settings, Shield, FileText
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -21,6 +21,7 @@ const allNavItems = [
   { to: '/audits', icon: ShieldCheck, label: 'Audits', module: 'audits' },
   { to: '/certifications', icon: CheckSquare, label: 'Certifications', module: 'certifications' },
   { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', module: 'corrective_actions' },
+  { to: '/policies', icon: FileText, label: 'Policies', module: 'policies' },
   { to: '/announcements', icon: Megaphone, label: 'Announcements', module: 'announcements' },
   { to: '/reports', icon: BarChart2, label: 'Reports', module: 'reports' },
   { to: '/users', icon: Users, label: 'Users', module: 'users' },

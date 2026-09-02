@@ -4,10 +4,10 @@ import { useAuth } from './useAuth'
 
 const FALLBACK: Record<string, string[]> = {
   admin: ['dashboard', 'clinics', 'checklists', 'inspections', 'audits', 'certifications',
-          'corrective_actions', 'announcements', 'reports', 'users', 'roles', 'settings'],
-  manager: ['dashboard', 'clinics', 'inspections', 'audits', 'certifications', 'corrective_actions', 'announcements'],
-  auditor: ['dashboard', 'clinics', 'inspections', 'audits', 'certifications', 'corrective_actions', 'announcements', 'reports'],
-  team_member: ['dashboard', 'inspections', 'certifications', 'corrective_actions', 'announcements'],
+          'corrective_actions', 'policies', 'announcements', 'reports', 'users', 'roles', 'settings'],
+  manager: ['dashboard', 'clinics', 'inspections', 'audits', 'certifications', 'corrective_actions', 'policies', 'announcements'],
+  auditor: ['dashboard', 'clinics', 'inspections', 'audits', 'certifications', 'corrective_actions', 'policies', 'announcements', 'reports'],
+  team_member: ['dashboard', 'inspections', 'certifications', 'corrective_actions', 'policies', 'announcements'],
 }
 
 export function usePermissions() {

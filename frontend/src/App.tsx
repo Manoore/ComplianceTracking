@@ -26,6 +26,7 @@ import { SuperAdminDashboardPage } from './pages/SuperAdminDashboardPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { PoliciesPage } from './pages/PoliciesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']}><ReportsPage /></PrivateRoute>} />
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
+        <Route path="policies" element={<PoliciesPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="settings" element={<PrivateRoute roles={['admin']}><SettingsPage /></PrivateRoute>} />
         <Route path="notifications" element={<NotificationsPage />} />

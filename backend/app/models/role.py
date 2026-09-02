@@ -4,13 +4,13 @@ from ..database import Base
 
 ALL_MODULES = [
     "clinics", "checklists", "inspections", "audits",
-    "certifications", "corrective_actions", "announcements", "reports",
+    "certifications", "corrective_actions", "policies", "announcements", "reports",
 ]
 
 DEFAULT_PERMISSIONS = {
-    "manager": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "announcements"],
-    "auditor": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "announcements", "reports"],
-    "team_member": ["inspections", "certifications", "corrective_actions", "announcements"],
+    "manager": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "policies", "announcements"],
+    "auditor": ["clinics", "inspections", "audits", "certifications", "corrective_actions", "policies", "announcements", "reports"],
+    "team_member": ["inspections", "certifications", "corrective_actions", "policies", "announcements"],
 }
 
 SYSTEM_ROLES = {

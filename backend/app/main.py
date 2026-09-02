@@ -8,12 +8,14 @@ from fastapi.responses import JSONResponse
 from .database import engine, Base
 from .config import settings
 from .models import platform_setting as _ps_model  # noqa: ensure table registered
+from .models import policy as _policy_model  # noqa: ensure table registered
 from .routers import (auth, users, clinics, checklists, inspections, audits,
                        certifications, corrective_actions, reports,
                        notifications, announcements, settings as settings_router)
 from .routers import roles as roles_router
 from .routers import tenants as tenants_router
 from .routers import superadmin as superadmin_router
+from .routers import policies as policies_router
 
 
 @asynccontextmanager
@@ -53,6 +55,7 @@ def _apply_migrations():
         "ALTER TABLE inspection_items ADD COLUMN second_signer_id INTEGER",
         "ALTER TABLE inspection_items ADD COLUMN second_signed_at TIMESTAMP",
         "ALTER TABLE inspection_items ADD COLUMN second_signature TEXT",
+        "ALTER TABLE inspection_items ADD COLUMN answered_at TIMESTAMP",
     ]
     for stmt in stmts:
         with engine.connect() as conn:
@@ -182,6 +185,7 @@ app.include_router(settings_router.router, prefix="/api")
 app.include_router(roles_router.router, prefix="/api")
 app.include_router(tenants_router.router, prefix="/api")
 app.include_router(superadmin_router.router, prefix="/api")
+app.include_router(policies_router.router, prefix="/api")
 
 if os.path.exists(settings.upload_dir):
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

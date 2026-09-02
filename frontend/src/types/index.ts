@@ -203,6 +203,54 @@ export interface ActionEvidence {
   uploaded_at?: string
 }
 
+export interface PolicyDocument {
+  id: number
+  title: string
+  description?: string
+  content: string
+  version: string
+  category?: string
+  target_roles: string[]
+  is_published: boolean
+  requires_quiz: boolean
+  quiz_questions?: QuizQuestion[]
+  pass_threshold: number
+  effective_date?: string
+  published_by?: number
+  publisher_name?: string
+  published_at?: string
+  is_active: boolean
+  created_at?: string
+  total_assigned: number
+  signed_count: number
+  my_attestation?: {
+    status: 'pending' | 'read' | 'signed' | 'quiz_failed'
+    read_at?: string
+    signed_at?: string
+    quiz_score?: number
+    quiz_passed?: boolean
+  } | null
+}
+
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  answer_index: number
+}
+
+export interface PolicyAttestation {
+  id: number
+  user_id: number
+  user_name?: string
+  user_email?: string
+  user_role?: string
+  status: 'pending' | 'read' | 'signed' | 'quiz_failed'
+  read_at?: string
+  signed_at?: string
+  quiz_score?: number
+  quiz_passed?: boolean
+}
+
 export interface DashboardData {
   summary: {
     total_inspections: number
