@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { ChecklistTemplate, AccreditationStandard } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
@@ -400,10 +400,129 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
   )
 }
 
+function ImportPdfModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const [file, setFile] = useState<File | null>(null)
+  const [result, setResult] = useState<any>(null)
+  const [name, setName] = useState('')
+  const [items, setItems] = useState<ItemDraft[]>([])
+  const [uploading, setUploading] = useState(false)
+
+  const extract = async () => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await api.post('/checklists/import-pdf', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setResult(r.data)
+      setName(r.data.suggested_name || '')
+      setItems(r.data.items.map((i: any, idx: number) => ({
+        question: i.question,
+        category: i.category || 'other',
+        is_critical: i.is_critical || false,
+        is_required: true,
+        item_type: i.item_type || 'pass_fail_na',
+        type_config: {},
+        standard_tags: [],
+        order_index: idx,
+      })))
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Could not extract PDF')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const save = useMutation({
+    mutationFn: () => api.post('/checklists', {
+      name,
+      description: `Imported from ${file?.name}`,
+      items: items.filter(i => i.question).map(buildItemPayload),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template created from PDF'); onClose() },
+    onError: (e: any) => toast.error(apiError(e)),
+  })
+
+  const updateItem = (idx: number, field: string, value: any) =>
+    setItems(prev => prev.map((item, j) => j === idx ? { ...item, [field]: value } : item))
+  const removeItem = (idx: number) => setItems(prev => prev.filter((_, j) => j !== idx))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileUp size={18} className="text-brand-600" />
+            <h2 className="text-lg font-semibold">Import Checklist from PDF</h2>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+        </div>
+        <div className="p-6 space-y-5">
+          {!result ? (
+            <>
+              <p className="text-sm text-gray-500">Upload a structured PDF checklist (text-based, not scanned). The system will extract items automatically for you to review and edit.</p>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+                <FileUp size={32} className="mx-auto text-gray-300 mb-3" />
+                {file ? (
+                  <p className="text-sm font-medium text-gray-700">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
+                ) : (
+                  <p className="text-sm text-gray-400">Select a PDF file to extract checklist items</p>
+                )}
+                <label className="btn-secondary mt-3 cursor-pointer inline-flex">
+                  {file ? 'Change File' : 'Choose PDF'}
+                  <input type="file" accept=".pdf" className="hidden" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+              <div className="flex gap-3">
+                <button className="btn-primary" disabled={!file || uploading} onClick={extract}>
+                  {uploading ? 'Extracting…' : 'Extract Items'}
+                </button>
+                <button className="btn-secondary" onClick={onClose}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+                Found <strong>{result.item_count}</strong> checklist item{result.item_count !== 1 ? 's' : ''} from <strong>{file?.name}</strong>. Review and edit below before saving.
+              </div>
+              <div>
+                <label className="label">Template Name *</label>
+                <input className="input" value={name} onChange={e => setName(e.target.value)} />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="label mb-0">Extracted Items ({items.length})</label>
+                  <button type="button" className="btn-secondary py-1.5 text-xs" onClick={() => setItems(i => [...i, emptyItem(i.length)])}>
+                    <Plus size={13} /> Add Item
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {items.map((item, idx) => (
+                    <ItemRowEditor key={idx} item={item} idx={idx} onChange={updateItem} onRemove={removeItem} />
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button className="btn-primary" disabled={!name || save.isPending || items.filter(i => i.question).length === 0} onClick={() => save.mutate()}>
+                  {save.isPending ? 'Saving…' : 'Save as Template'}
+                </button>
+                <button className="btn-secondary" onClick={() => { setResult(null); setFile(null) }}>Try Another PDF</button>
+                <button className="btn-secondary" onClick={onClose}>Cancel</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChecklistsPage() {
   const qc = useQueryClient()
   const [showNew, setShowNew] = useState(false)
   const [showPresets, setShowPresets] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [editTemplate, setEditTemplate] = useState<ChecklistTemplate | null>(null)
   const { data: templates, isLoading } = useQuery<ChecklistTemplate[]>({
@@ -424,6 +543,9 @@ export function ChecklistsPage() {
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={() => setShowPresets(true)}>
             <Library size={15} /> Preset Library
+          </button>
+          <button className="btn-secondary" onClick={() => setShowImport(true)}>
+            <FileUp size={15} /> Import PDF
           </button>
           <button className="btn-primary" onClick={() => setShowNew(true)}>
             <Plus size={16} /> New Template
@@ -512,6 +634,7 @@ export function ChecklistsPage() {
 
       {showNew && <NewTemplateModal onClose={() => setShowNew(false)} />}
       {showPresets && <PresetLibraryModal onClose={() => setShowPresets(false)} />}
+      {showImport && <ImportPdfModal onClose={() => setShowImport(false)} />}
       {editTemplate && <EditTemplateModal template={editTemplate} onClose={() => setEditTemplate(null)} />}
     </div>
   )

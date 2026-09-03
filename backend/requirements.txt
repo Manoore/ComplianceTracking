@@ -20,3 +20,4 @@ python-dotenv==1.0.1
 authlib==1.6.0
 itsdangerous==2.2.0
 psycopg2-binary==2.9.10
+pdfplumber==0.11.4

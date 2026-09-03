@@ -1,5 +1,7 @@
+import re
+import io
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -326,3 +328,125 @@ def delete_item(template_id: int, item_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Item not found")
     db.delete(item)
     db.commit()
+
+
+def _extract_items_from_text(text: str) -> list[dict]:
+    """Parse checklist items from extracted PDF text using common patterns."""
+    items = []
+    seen = set()
+
+    # Patterns that indicate a checklist item:
+    # ___ Item text   (blank line prefix — most common in these forms)
+    # [ ] Item text
+    # • Item text
+    # - Item text (only if looks like a checklist)
+    patterns = [
+        r'_{2,}\s+(.+)',           # ___ Item text
+        r'\[[\s_xX]\]\s+(.+)',     # [ ] or [x] Item text
+        r'(?:^|\n)\s*[•·]\s+(.+)', # bullet points
+    ]
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or len(line) < 5:
+            continue
+        for pat in patterns:
+            m = re.search(pat, line)
+            if m:
+                q = m.group(1).strip()
+                # Clean up trailing junk
+                q = re.sub(r'\s{2,}', ' ', q).strip()
+                if len(q) > 5 and q.lower() not in seen:
+                    seen.add(q.lower())
+                    # Guess criticality from keywords
+                    is_critical = any(kw in q.lower() for kw in [
+                        'emergency', 'fire', 'locked', 'expired', 'critical',
+                        'biohazard', 'sharps', 'epinephrine', 'aed', 'oxygen',
+                        'prescription', 'controlled', 'radiation', 'incident'
+                    ])
+                    # Guess category
+                    cat = 'other'
+                    if any(k in q.lower() for k in ['fire', 'exit', 'emergency', 'extinguisher', 'smoke', 'lock']):
+                        cat = 'safety'
+                    elif any(k in q.lower() for k in ['document', 'record', 'scan', 'report', 'chart', 'log', 'form']):
+                        cat = 'documentation'
+                    elif any(k in q.lower() for k in ['equipment', 'autoclave', 'machine', 'device', 'calibr']):
+                        cat = 'equipment'
+                    elif any(k in q.lower() for k in ['staff', 'training', 'education', 'meeting', 'drill']):
+                        cat = 'staff'
+                    elif any(k in q.lower() for k in ['clean', 'hygiene', 'sterile', 'disinfect', 'biohazard']):
+                        cat = 'hygiene'
+                    elif any(k in q.lower() for k in ['medication', 'drug', 'rx', 'prescription', 'vial', 'inject']):
+                        cat = 'regulatory'
+                    items.append({
+                        "question": q,
+                        "category": cat,
+                        "is_critical": is_critical,
+                        "is_required": True,
+                        "item_type": "pass_fail_na",
+                    })
+                break
+
+    return items
+
+
+def _detect_sections_from_text(text: str) -> list[str]:
+    """Detect section headings (bold/ALL-CAPS lines that aren't checklist items)."""
+    sections = []
+    seen = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        # Section heading heuristics: short, no ___ prefix, ends with : or is all-caps words
+        if not stripped or len(stripped) > 80 or len(stripped) < 3:
+            continue
+        if re.search(r'_{2,}', stripped):
+            continue
+        if stripped.endswith(':') or (stripped == stripped.upper() and len(stripped) > 4):
+            if stripped.lower() not in seen:
+                seen.add(stripped.lower())
+                sections.append(stripped.rstrip(':'))
+    return sections
+
+
+@router.post("/import-pdf", status_code=200)
+async def import_pdf(
+    file: UploadFile = File(...),
+    _: User = Depends(require_admin),
+):
+    """Extract checklist items from an uploaded PDF and return a draft template."""
+    if not file.filename or not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="PDF too large (max 10MB)")
+
+    try:
+        import pdfplumber
+        full_text = ""
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                full_text += page_text + "\n"
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PDF parsing library not available")
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Could not read PDF: {str(e)}")
+
+    if not full_text.strip():
+        raise HTTPException(status_code=422, detail="No text could be extracted from this PDF. It may be a scanned image — please use a text-based PDF.")
+
+    items = _extract_items_from_text(full_text)
+    sections = _detect_sections_from_text(full_text)
+
+    # Derive template name from filename
+    name = file.filename.replace('.pdf', '').replace('_', ' ').replace('-', ' ').title()
+
+    return {
+        "suggested_name": name,
+        "raw_text_preview": full_text[:500],
+        "detected_sections": sections[:10],
+        "items": items,
+        "item_count": len(items),
+        "pages_processed": len(full_text.split('\n\n')),
+    }
