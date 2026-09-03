@@ -5,6 +5,7 @@ import '../main.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/offline_banner.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -40,7 +41,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => context.push('/notifications')),
       ]),
       drawer: const AppDrawer(),
-      body: RefreshIndicator(
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: RefreshIndicator(
         onRefresh: _load,
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -62,6 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Center(child: Text('Could not load stats', style: TextStyle(color: Colors.grey))),
                 ],
               ),
+          )),
+        ],
       ),
     );
   }

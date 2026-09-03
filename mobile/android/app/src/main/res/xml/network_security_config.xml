@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network security config:
+  - Only allows HTTPS connections (no cleartext HTTP)
+  - Trusts system CA bundle only (no user-installed certs in production)
+  - HIPAA best practice: no cleartext traffic to backend
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>CompliNow</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>complinow</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+
+	<!-- ── Permission usage descriptions (App Store required) ── -->
+
+	<!-- Camera: used to photograph inspection evidence and checklist items -->
+	<key>NSCameraUsageDescription</key>
+	<string>CompliNow uses your camera to capture photos as evidence during compliance inspections.</string>
+
+	<!-- Photo Library: used to attach existing photos to inspection reports -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CompliNow can attach photos from your library to compliance inspection reports.</string>
+
+	<!-- Photo Library Add: used to save generated compliance reports to your photo library -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CompliNow may save compliance report images to your photo library.</string>
+
+	<!-- Location: used to record GPS coordinates when conducting on-site inspections -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>CompliNow uses your location to record where an inspection was conducted.</string>
+
+	<!-- Location Always (not requested at launch; here to satisfy geolocator plugin) -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>CompliNow uses your location to record where an inspection was conducted.</string>
+
+	<!-- ── App Transport Security ── -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- ── URL schemes for deep linking ── -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>complinow</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- ── Background modes ── -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- ── Flutter engine ── -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+</dict>
+</plist>

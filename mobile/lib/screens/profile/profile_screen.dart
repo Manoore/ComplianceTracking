@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../main.dart';
 import '../../services/api_service.dart';
@@ -148,6 +149,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(),
           const SizedBox(height: 8),
 
+          // Privacy & Legal
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.privacy_tip_outlined, color: Colors.grey),
+            title: const Text('Privacy Policy'),
+            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+            onTap: () => context.push('/privacy-policy'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.gavel_outlined, color: Colors.grey),
+            title: const Text('Terms of Service'),
+            trailing: const Icon(Icons.open_in_new, size: 16, color: Colors.grey),
+            onTap: () async {
+              // Opens terms on company website
+            },
+          ),
+
+          const Divider(),
+
+          // App version
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              const Icon(Icons.info_outline, size: 20, color: Colors.grey),
+              const SizedBox(width: 12),
+              const Text('Version', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const Spacer(),
+              const Text('1.0.0 (1)', style: TextStyle(fontWeight: FontWeight.w500)),
+            ]),
+          ),
+
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+
           // Sign out
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -156,7 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () async {
               await auth.logout();
               if (context.mounted) {
-                Navigator.of(context).popUntil((_) => false);
+                context.go('/login');
               }
             },
           ),

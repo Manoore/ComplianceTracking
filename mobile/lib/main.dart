@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'services/permissions_service.dart';
+import 'services/session_service.dart';
+import 'screens/profile/privacy_policy_screen.dart';
 import 'theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -114,13 +116,22 @@ class CompliNowApp extends StatelessWidget {
                   GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
                   GoRoute(path: '/admin/roles', builder: (_, __) => const RolesScreen()),
                   GoRoute(path: '/admin/executive', builder: (_, __) => const ExecutiveDashboardScreen()),
+                  GoRoute(path: '/privacy-policy', builder: (_, __) => const PrivacyPolicyScreen()),
                 ],
               );
-              return MaterialApp.router(
-                title: 'CompliNow',
-                theme: appTheme(),
-                routerConfig: router,
-                debugShowCheckedModeBanner: false,
+              return SessionActivityDetector(
+                onTimeout: () async {
+                  if (auth.loggedIn) {
+                    await auth.logout();
+                    router.go('/login');
+                  }
+                },
+                child: MaterialApp.router(
+                  title: 'CompliNow',
+                  theme: appTheme(),
+                  routerConfig: router,
+                  debugShowCheckedModeBanner: false,
+                ),
               );
             }),
           );

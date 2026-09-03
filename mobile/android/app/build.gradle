@@ -1,0 +1,80 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.complinow.compliance_track_mobile"
+
+    // Target the latest stable Android SDK
+    compileSdk = flutter.compileSdkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    defaultConfig {
+        // Google Play: must be unique, reverse-DNS format
+        applicationId "com.complinow.app"
+
+        // Minimum Android 6.0 (Marshmallow) — covers 99%+ of active devices
+        // Needed for runtime permissions (camera, location)
+        minSdkVersion 23
+
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+
+        // Enable multidex for large dependency tree
+        multiDexEnabled true
+    }
+
+    signingConfigs {
+        release {
+            // ── Production signing ──
+            // Set these via environment variables in CI/CD pipeline:
+            //   KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+            // Never commit the actual keystore or credentials to git.
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "keystore.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias System.getenv("KEY_ALIAS") ?: "complinow"
+            keyPassword System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+
+        release {
+            // Use production signing for release builds
+            signingConfig signingConfigs.release
+
+            // Enable code shrinking and obfuscation (Play Store recommended)
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+
+        profile {
+            initWith debug
+        }
+    }
+}
+
+flutter {
+    source "../.."
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "androidx.multidex:multidex:2.0.1"
+}
