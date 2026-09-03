@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
-import '../../services/api_service.dart';
+import '../../services/api_service.dart' show ApiService, kBaseUrl;
 import '../../theme.dart';
 import '../../widgets/app_drawer.dart';
 
@@ -131,7 +131,7 @@ class _CertificationsScreenState extends State<CertificationsScreen> with Single
             trailing: cert.certificatePath != null
                 ? IconButton(
                     icon: const Icon(Icons.download_outlined, color: kSuccess),
-                    onPressed: () => launchUrl(Uri.parse('${ApiService().toString()}${cert.certificatePath}')),
+                    onPressed: () => launchUrl(Uri.parse('$kBaseUrl${cert.certificatePath}'), mode: LaunchMode.externalApplication),
                   )
                 : null,
           ),

@@ -73,12 +73,15 @@ class Audit {
 class CorrectiveAction {
   final int id;
   final String title, status, priority;
-  final String? clinicName, assigneeName, dueDate, description;
-  CorrectiveAction({required this.id, required this.title, required this.status, required this.priority, this.clinicName, this.assigneeName, this.dueDate, this.description});
+  final String? clinicName, assigneeName, assignedTo, dueDate, description;
+  final bool? requiresReinspection;
+  CorrectiveAction({required this.id, required this.title, required this.status, required this.priority, this.clinicName, this.assigneeName, this.assignedTo, this.dueDate, this.description, this.requiresReinspection});
   factory CorrectiveAction.fromJson(Map<String, dynamic> j) => CorrectiveAction(
         id: j['id'], title: j['title'] ?? '', status: j['status'] ?? 'open',
         priority: j['priority'] ?? 'medium', clinicName: j['clinic_name'],
-        assigneeName: j['assignee_name'], dueDate: j['due_date'], description: j['description'],
+        assigneeName: j['assignee_name'], assignedTo: j['assigned_to_name'] ?? j['assignee_name'],
+        dueDate: j['due_date'], description: j['description'],
+        requiresReinspection: j['requires_reinspection'] as bool?,
       );
 }
 

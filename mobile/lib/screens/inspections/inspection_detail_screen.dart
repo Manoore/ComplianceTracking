@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
@@ -65,11 +66,21 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
     if (img == null) return;
     try {
       final bytes = await img.readAsBytes();
-      final uri = Uri.parse('${ApiService().toString()}/inspections/${widget.id}/items/$itemId/photo');
-      // Upload via multipart
-      final req = await ApiService().get('/inspections/${widget.id}'); // refresh
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Photo captured')));
-    } catch (_) {}
+      final token = await ApiService().getToken();
+      final uri = Uri.parse('$kBaseUrl/inspections/${widget.id}/items/$itemId/photo');
+      final req = http.MultipartRequest('POST', uri);
+      req.headers['Authorization'] = 'Bearer $token';
+      req.files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'photo_$itemId.jpg'));
+      final resp = await req.send();
+      if (resp.statusCode < 300) {
+        await _load();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Photo uploaded'), backgroundColor: kSuccess));
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed'), backgroundColor: kDanger));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
   }
 
   @override

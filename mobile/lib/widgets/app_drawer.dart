@@ -37,10 +37,13 @@ class _AppDrawerState extends State<AppDrawer> {
     final user = auth.user;
 
     final displayRole = user?.customRole?.replaceAll('_', ' ') ?? user?.role.replaceAll('_', ' ') ?? '';
+    final isAdmin = user?.role == 'admin';
+    final canManage = user?.canManage ?? false;
 
     return Drawer(
       child: Column(
         children: [
+          // Header
           Container(
             width: double.infinity,
             color: kBrand,
@@ -80,6 +83,7 @@ class _AppDrawerState extends State<AppDrawer> {
               ],
             ),
           ),
+
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
@@ -93,17 +97,23 @@ class _AppDrawerState extends State<AppDrawer> {
                   _tile(context, Icons.shield_outlined, 'Audits', '/audits'),
                 if (perms.canView('certifications'))
                   _tile(context, Icons.workspace_premium_outlined, 'Certifications', '/certifications'),
+                _tile(context, Icons.policy_outlined, 'Policies', '/policies'),
+                _tile(context, Icons.badge_outlined, 'Credentials', '/credentials'),
                 if (perms.canView('corrective_actions'))
                   _tile(context, Icons.warning_amber_outlined, 'Corrective Actions', '/corrective-actions'),
                 if (perms.canView('announcements'))
                   _tile(context, Icons.campaign_outlined, 'Announcements', '/announcements'),
                 _tile(context, Icons.notifications_outlined, 'Notifications', '/notifications'),
-                if (perms.canView('reports') || perms.canView('users') || perms.canView('roles')) ...[
+
+                // Admin section
+                if (perms.canView('reports') || perms.canView('users') || perms.canView('roles') || canManage) ...[
                   const Divider(),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: Text('ADMIN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey)),
                   ),
+                  if (isAdmin || canManage)
+                    _tile(context, Icons.insights_outlined, 'Executive Dashboard', '/admin/executive'),
                   if (perms.canView('reports'))
                     _tile(context, Icons.bar_chart_outlined, 'Reports', '/admin/reports'),
                   if (perms.canView('users'))
@@ -111,9 +121,13 @@ class _AppDrawerState extends State<AppDrawer> {
                   if (perms.canView('roles'))
                     _tile(context, Icons.admin_panel_settings_outlined, 'Roles & Permissions', '/admin/roles'),
                 ],
+
+                const Divider(),
+                _tile(context, Icons.person_outline, 'My Profile', '/profile'),
               ],
             ),
           ),
+
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),

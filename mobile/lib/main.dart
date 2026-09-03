@@ -16,10 +16,15 @@ import 'screens/certifications/take_quiz_screen.dart';
 import 'screens/corrective_actions/corrective_actions_screen.dart';
 import 'screens/announcements/announcements_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
+import 'screens/policies/policies_screen.dart';
+import 'screens/policies/policy_detail_screen.dart';
+import 'screens/credentials/credentials_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'screens/admin/users_screen.dart';
 import 'screens/admin/clinics_screen.dart';
 import 'screens/admin/reports_screen.dart';
 import 'screens/admin/roles_screen.dart';
+import 'screens/admin/executive_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -100,10 +105,15 @@ class CompliNowApp extends StatelessWidget {
                   GoRoute(path: '/corrective-actions', builder: (_, __) => const CorrectiveActionsScreen()),
                   GoRoute(path: '/announcements', builder: (_, __) => const AnnouncementsScreen()),
                   GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+                  GoRoute(path: '/policies', builder: (_, __) => const PoliciesScreen()),
+                  GoRoute(path: '/policies/:id', builder: (_, s) => PolicyDetailScreen(id: int.parse(s.pathParameters['id']!))),
+                  GoRoute(path: '/credentials', builder: (_, __) => const CredentialsScreen()),
+                  GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
                   GoRoute(path: '/admin/users', builder: (_, __) => const UsersScreen()),
                   GoRoute(path: '/admin/clinics', builder: (_, __) => const ClinicsScreen()),
                   GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
                   GoRoute(path: '/admin/roles', builder: (_, __) => const RolesScreen()),
+                  GoRoute(path: '/admin/executive', builder: (_, __) => const ExecutiveDashboardScreen()),
                 ],
               );
               return MaterialApp.router(
