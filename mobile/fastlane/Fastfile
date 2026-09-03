@@ -1,0 +1,131 @@
+default_platform(:ios)
+
+# ─────────────────────────────────────────
+# Shared helpers
+# ─────────────────────────────────────────
+def flutter_build_number
+  # Auto-increment: use GitHub run number in CI, local timestamp otherwise
+  ENV["GITHUB_RUN_NUMBER"] || Time.now.strftime("%Y%m%d%H%M")
+end
+
+# ─────────────────────────────────────────
+# iOS lanes
+# ─────────────────────────────────────────
+platform :ios do
+
+  desc "Sync certificates and provisioning profiles (read-only)"
+  lane :certs do
+    match(
+      type: "appstore",
+      app_identifier: "com.complinow.app",
+      readonly: is_ci,
+      git_url: ENV["MATCH_GIT_URL"],          # private repo storing encrypted certs
+      git_basic_authorization: ENV["MATCH_GIT_BASIC_AUTH"],
+      password: ENV["MATCH_PASSWORD"],
+    )
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    certs
+
+    build_number = flutter_build_number
+    # Bump build number in Xcode project
+    increment_build_number(
+      build_number: build_number,
+      xcodeproj: "Runner.xcodeproj"
+    )
+
+    # Build Flutter IPA
+    sh("cd ../.. && flutter build ipa --release --build-number=#{build_number} --no-codesign")
+
+    # Sign and package
+    gym(
+      project: "Runner.xcodeproj",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/ios/ipa",
+      output_name: "CompliNow.ipa",
+      clean: true,
+    )
+
+    # Upload to TestFlight
+    pilot(
+      ipa: "build/ios/ipa/CompliNow.ipa",
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,           # upload to TestFlight only, manual promote to App Store
+      distribute_external: false,
+      notify_external_testers: false,
+      changelog: ENV["RELEASE_NOTES"] || "Latest build from CI",
+    )
+  end
+
+  desc "Submit to App Store for review"
+  lane :release do
+    certs
+
+    build_number = flutter_build_number
+    increment_build_number(build_number: build_number, xcodeproj: "Runner.xcodeproj")
+    sh("cd ../.. && flutter build ipa --release --build-number=#{build_number} --no-codesign")
+
+    gym(
+      project: "Runner.xcodeproj",
+      scheme: "Runner",
+      configuration: "Release",
+      export_method: "app-store",
+    )
+
+    deliver(
+      ipa: "build/ios/ipa/CompliNow.ipa",
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      skip_screenshots: true,          # upload screenshots manually first time
+      skip_metadata: false,
+      metadata_path: "fastlane/metadata/ios",
+    )
+  end
+end
+
+# ─────────────────────────────────────────
+# Android lanes
+# ─────────────────────────────────────────
+platform :android do
+
+  desc "Build signed AAB"
+  lane :build do
+    build_number = flutter_build_number
+    sh("cd ../.. && flutter build appbundle --release --build-number=#{build_number}")
+  end
+
+  desc "Upload to Play Store internal testing track"
+  lane :beta do
+    build_number = flutter_build_number
+    sh("cd ../.. && flutter build appbundle --release --build-number=#{build_number}")
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "../../build/app/outputs/bundle/release/app-release.aab",
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY_PATH"],
+      package_name: "com.complinow.app",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+    )
+  end
+
+  desc "Promote internal → production"
+  lane :release do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      json_key: ENV["GOOGLE_PLAY_JSON_KEY_PATH"],
+      package_name: "com.complinow.app",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+    )
+  end
+end

@@ -1,0 +1,40 @@
+CompliNow is a healthcare compliance management platform built for medical clinics, urgent care centers, and multi-site health organizations.
+
+COMPLIANCE INSPECTIONS
+• Conduct detailed checklists on-site with pass/fail/N/A responses
+• Capture photo evidence directly from the app
+• GPS-stamp inspections to your exact location
+• Submit reports instantly — no paperwork
+
+CORRECTIVE ACTIONS
+• Track open issues with priority levels and due dates
+• Assign actions to staff members
+• Schedule re-inspections when required
+• Full audit trail of all resolutions
+
+POLICY MANAGEMENT
+• Read and acknowledge compliance policies on your device
+• Complete knowledge-check quizzes to confirm understanding
+• Track sign-off status across your entire team
+
+CREDENTIAL TRACKING
+• Monitor professional license and certification expiry dates
+• Receive alerts before credentials expire
+• Color-coded status: valid, expiring soon, expired
+
+CERTIFICATIONS & TRAINING
+• Complete online training courses with built-in quizzes
+• Download certificates upon completion
+• Track your team's certification status
+
+EXECUTIVE DASHBOARD
+• Real-time compliance scores by clinic
+• Risk distribution charts
+• Corrective action trends
+
+ROLE-BASED ACCESS
+• Custom roles for admins, managers, auditors, and staff
+• Granular module-level permissions
+• Multi-location support
+
+Built for urgent care, primary care, and multi-specialty clinic networks. CompliNow helps your team stay inspection-ready every day.

@@ -1,0 +1,110 @@
+name: iOS — Build & Deploy to TestFlight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+  workflow_dispatch:
+    inputs:
+      submit_to_review:
+        description: 'Submit to App Store review (not just TestFlight)?'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  build-and-deploy:
+    name: Build IPA & Upload to TestFlight
+    runs-on: macos-14   # Apple Silicon runner — fastest available
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Set up Ruby (for Fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: mobile
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import distribution certificate
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -P "$CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Install provisioning profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > \
+            ~/Library/MobileDevice/Provisioning\ Profiles/complinow.mobileprovision
+
+      - name: Build Flutter IPA
+        run: |
+          flutter build ipa --release \
+            --build-number=${{ github.run_number }} \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: complinow-ios-${{ github.run_number }}
+          path: mobile/build/ios/ipa/*.ipa
+          retention-days: 30
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          # Decode API key
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > \
+            ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+
+          # Upload via xcrun altool (no Xcode account login needed)
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$(ls mobile/build/ios/ipa/*.ipa | head -1)" \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Clean up keychain and certs
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          rm -f certificate.p12
+          rm -f ~/.appstoreconnect/private_keys/*.p8

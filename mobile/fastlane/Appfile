@@ -1,0 +1,10 @@
+app_identifier("com.complinow.app")
+
+# Apple Developer
+apple_id(ENV["APPLE_ID"])               # e.g. dev@yourcompany.com
+team_id(ENV["APPLE_TEAM_ID"])           # 10-char team ID from developer.apple.com
+itc_team_id(ENV["APPLE_ITC_TEAM_ID"])  # App Store Connect team ID (numeric)
+
+# Android
+json_key_file(ENV["GOOGLE_PLAY_JSON_KEY_PATH"])
+package_name("com.complinow.app")
