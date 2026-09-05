@@ -126,6 +126,36 @@ async def logout(request: Request, db: Session = Depends(get_db), current_user: 
     return {"message": "Logged out successfully"}
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
+@router.delete("/me", status_code=200)
+def delete_my_account(
+    req: DeleteAccountRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Allow a user to permanently delete their own account. Requires password confirmation."""
+    from ..services.auth import verify_password
+    if current_user.hashed_password and not verify_password(req.password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    log_action(db, "user.delete_account", user_id=current_user.id,
+               resource_type="user", resource_id=current_user.id)
+
+    # Anonymize PII so other records (audit logs) remain intact but the account is gone
+    current_user.email = f"deleted_{current_user.id}@deleted.invalid"
+    current_user.full_name = "Deleted User"
+    current_user.hashed_password = None
+    current_user.sso_subject = None
+    current_user.avatar_url = None
+    current_user.is_active = False
+
+    db.commit()
+    return {"message": "Account deleted successfully"}
+
+
 @router.post("/firebase")
 def firebase_login(req: FirebaseLoginRequest, db: Session = Depends(get_db)):
     from ..services.firebase_service import verify_firebase_token

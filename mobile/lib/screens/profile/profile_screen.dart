@@ -21,6 +21,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _saving = false;
   String? _error;
 
+  Future<void> _confirmDeleteAccount() async {
+    // Step 1 — warn the user
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This will permanently delete your account and all associated data. '
+          'This action cannot be undone.\n\nAre you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue', style: TextStyle(color: kDanger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    // Step 2 — require password
+    final pwCtrl = TextEditingController();
+    final deleteConfirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Enter your password to permanently delete your account:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: pwCtrl,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete My Account', style: TextStyle(color: kDanger, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (deleteConfirmed != true || !mounted) return;
+
+    try {
+      await ApiService().delete('/auth/me', body: {'password': pwCtrl.text});
+      final auth = context.read<AuthState>();
+      await auth.logout();
+      if (mounted) context.go('/login');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: kDanger,
+        ));
+      }
+    }
+  }
+
   @override
   void dispose() {
     _oldPwCtrl.dispose();
@@ -197,6 +264,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             },
           ),
+
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+
+          // Delete account (required for App Store approval)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.delete_forever_outlined, color: kDanger),
+            title: const Text('Delete Account', style: TextStyle(color: kDanger)),
+            subtitle: const Text('Permanently remove your account and data', style: TextStyle(fontSize: 12)),
+            onTap: _confirmDeleteAccount,
+          ),
+
+          const SizedBox(height: 24),
         ],
       ),
     );

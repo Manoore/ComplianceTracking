@@ -97,9 +97,13 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  Future<void> delete(String path) async {
+  Future<void> delete(String path, {Map<String, dynamic>? body}) async {
     final headers = await _headers();
-    final res = await _withRefresh(() => http.delete(Uri.parse('$kBaseUrl$path'), headers: headers));
+    final res = await _withRefresh(() => http.delete(
+      Uri.parse('$kBaseUrl$path'),
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    ));
     if (res.statusCode >= 400) _checkStatus(res);
   }
 
