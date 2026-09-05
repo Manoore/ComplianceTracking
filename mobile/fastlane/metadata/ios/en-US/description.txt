@@ -38,3 +38,9 @@ ROLE-BASED ACCESS
 • Multi-location support
 
 Built for urgent care, primary care, and multi-specialty clinic networks. CompliNow helps your team stay inspection-ready every day.
+
+SUBSCRIPTION
+CompliNow is a B2B SaaS platform. Subscriptions are purchased at complinow.com. The app provides access to services included with your organization's plan.
+
+DISCLAIMER
+CompliNow is a compliance management and workflow tool. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Always consult a licensed healthcare professional for medical advice, diagnosis, or treatment.
