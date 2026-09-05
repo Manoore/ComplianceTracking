@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 from .database import engine, Base
 from .config import settings
@@ -229,6 +229,79 @@ if os.path.exists(settings.upload_dir):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy():
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CompliNow Privacy Policy</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.7; }
+    h1 { color: #1A3C74; } h2 { color: #1A3C74; margin-top: 32px; }
+    p, ul { margin: 12px 0; } ul { padding-left: 24px; }
+    .updated { color: #888; font-size: 14px; }
+    a { color: #1A3C74; }
+  </style>
+</head>
+<body>
+  <h1>CompliNow Privacy Policy</h1>
+  <p class="updated">Last updated: January 1, 2025</p>
+
+  <h2>1. Information We Collect</h2>
+  <p>CompliNow collects information necessary to provide compliance management services to healthcare organizations:</p>
+  <ul>
+    <li>Account information: name, email address, role within your organization</li>
+    <li>Inspection data: checklist responses, photos, GPS coordinates of inspection sites</li>
+    <li>Credential data: professional license numbers and expiry dates</li>
+    <li>Usage data: app interactions and session timestamps for audit trail purposes</li>
+  </ul>
+
+  <h2>2. How We Use Your Information</h2>
+  <ul>
+    <li>Provide compliance tracking and reporting services</li>
+    <li>Generate inspection reports and corrective action workflows</li>
+    <li>Send compliance alerts and policy acknowledgment reminders</li>
+    <li>Maintain audit logs as required by applicable regulations</li>
+  </ul>
+
+  <h2>3. HIPAA Compliance</h2>
+  <p>CompliNow is designed to support HIPAA-compliant workflows. We do not store Protected Health Information (PHI) as defined by HIPAA. All data is encrypted in transit (TLS 1.2+) and at rest. We sign Business Associate Agreements (BAAs) with covered entities upon request.</p>
+
+  <h2>4. Data Security</h2>
+  <ul>
+    <li>All data transmitted between the app and our servers uses HTTPS/TLS encryption</li>
+    <li>Authentication tokens are stored in the device's secure keystore (iOS Keychain / Android Keystore)</li>
+    <li>Sessions automatically expire after 15 minutes of inactivity</li>
+    <li>No sensitive compliance data is included in device backups</li>
+  </ul>
+
+  <h2>5. Data Sharing</h2>
+  <p>We do not sell your personal information. We may share data with:</p>
+  <ul>
+    <li>Your organization's administrators (as required to provide the service)</li>
+    <li>Cloud infrastructure providers (AWS/GCP) under data processing agreements</li>
+    <li>Regulatory authorities if required by law</li>
+  </ul>
+
+  <h2>6. Camera and Location</h2>
+  <p>The app requests access to your camera and location only during compliance inspections to capture photo evidence and GPS-stamp inspection locations. This data is associated with inspection records in your organization's account and is not used for advertising or analytics.</p>
+
+  <h2>7. Data Retention and Deletion</h2>
+  <p>Compliance records are retained for the duration of your organization's subscription plus any legally required retention period. You may request deletion of your personal account at any time from within the app (Profile → Delete Account). Organization data deletion requests should be submitted to support@complinow.com.</p>
+
+  <h2>8. Your Rights</h2>
+  <p>Depending on your jurisdiction, you may have the right to access, correct, port, or delete your personal data. To exercise these rights, contact us at privacy@complinow.com.</p>
+
+  <h2>9. Contact</h2>
+  <p>Privacy Officer: privacy@complinow.com<br>Support: support@complinow.com<br>Website: <a href="https://complinow.com">complinow.com</a></p>
+
+  <p><em>CompliNow is a compliance management and workflow tool. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition.</em></p>
+</body>
+</html>"""
 
 
 @app.exception_handler(Exception)

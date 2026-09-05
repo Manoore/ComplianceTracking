@@ -44,6 +44,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         children: [
           const OfflineBanner(),
+          Container(
+            width: double.infinity,
+            color: Colors.grey.shade100,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: const Text(
+              'CompliNow is a compliance management tool, not a medical device.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ),
           Expanded(child: RefreshIndicator(
         onRefresh: _load,
         child: _loading

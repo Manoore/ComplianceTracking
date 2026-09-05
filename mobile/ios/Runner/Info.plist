@@ -93,6 +93,14 @@
 		<string>remote-notification</string>
 	</array>
 
+	<!-- ── Export compliance: app only uses standard HTTPS encryption ── -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- ── Biometrics (Face ID) ── -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>CompliNow uses Face ID to quickly and securely verify your identity.</string>
+
 	<!-- ── Flutter engine ── -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>

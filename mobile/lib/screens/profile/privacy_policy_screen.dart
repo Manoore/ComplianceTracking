@@ -14,7 +14,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         children: [
           const Text('CompliNow Privacy Policy', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('Last updated: ${DateTime.now().year}-01-01', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          const Text('Last updated: 2025-01-01', style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 20),
           _section('1. Information We Collect',
             'CompliNow collects information necessary to provide compliance management services to healthcare organizations:\n\n'

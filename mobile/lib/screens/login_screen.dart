@@ -104,6 +104,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                 : const Text('Sign In', style: TextStyle(fontSize: 16)),
                           ),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: _loading ? null : () {
+                              _email.text = 'demo@complinow.com';
+                              _password.text = 'Demo2024!';
+                              _login();
+                            },
+                            child: const Text('Use Demo Account'),
+                          ),
                         ],
                       ),
                     ),

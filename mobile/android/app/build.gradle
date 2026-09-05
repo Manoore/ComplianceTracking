@@ -41,10 +41,22 @@ android {
             // Set these via environment variables in CI/CD pipeline:
             //   KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
             // Never commit the actual keystore or credentials to git.
-            storeFile file(System.getenv("KEYSTORE_PATH") ?: "keystore.jks")
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias System.getenv("KEY_ALIAS") ?: "complinow"
-            keyPassword System.getenv("KEY_PASSWORD") ?: ""
+            def keystorePath = System.getenv("KEYSTORE_PATH")
+            def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+            def keyAlias = System.getenv("KEY_ALIAS")
+            def keyPassword = System.getenv("KEY_PASSWORD")
+
+            if (keystorePath == null || keystorePassword == null || keyAlias == null || keyPassword == null) {
+                throw new GradleException(
+                    "Release signing requires KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD env vars. " +
+                    "Set them before running a release build."
+                )
+            }
+
+            storeFile file(keystorePath)
+            storePassword keystorePassword
+            keyAlias keyAlias
+            keyPassword keyPassword
         }
     }
 
