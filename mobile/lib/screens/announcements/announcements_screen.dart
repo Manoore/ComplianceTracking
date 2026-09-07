@@ -105,7 +105,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             TextField(controller: bodyCtrl, decoration: const InputDecoration(labelText: 'Content *'), maxLines: 3),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: priority,
+              initialValue: priority,
               decoration: const InputDecoration(labelText: 'Priority'),
               items: ['normal', 'high', 'urgent'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
               onChanged: (v) => setSheet(() => priority = v!),

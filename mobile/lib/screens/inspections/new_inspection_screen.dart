@@ -84,7 +84,7 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             decoration: const InputDecoration(hintText: 'Choose a clinic…'),
-            value: _clinicId,
+            initialValue: _clinicId,
             items: _clinics.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
             onChanged: (v) => setState(() => _clinicId = v),
           ),
@@ -93,7 +93,7 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             decoration: const InputDecoration(hintText: 'Choose a template…'),
-            value: _templateId,
+            initialValue: _templateId,
             items: _templates.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
             onChanged: (v) => setState(() => _templateId = v),
           ),

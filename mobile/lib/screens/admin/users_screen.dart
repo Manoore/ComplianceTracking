@@ -21,8 +21,8 @@ class _UsersScreenState extends State<UsersScreen> {
   Future<void> _load() async {
     try {
       final results = await Future.wait([
-        ApiService().get('/users') as Future,
-        ApiService().get('/roles') as Future,
+        ApiService().get('/users'),
+        ApiService().get('/roles'),
       ]);
       if (mounted) setState(() {
         _users = (results[0] as List).map((e) => AppUser.fromJson(e)).toList();
