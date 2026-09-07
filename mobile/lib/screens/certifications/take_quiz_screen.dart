@@ -98,7 +98,7 @@ class _TakeQuizScreenState extends State<TakeQuizScreen> {
                         margin: const EdgeInsets.only(bottom: 6),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: selected ? kBrand.withOpacity(0.1) : Colors.grey.shade50,
+                          color: selected ? kBrand.withValues(alpha: 0.1) : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: selected ? kBrand : Colors.grey.shade200, width: 1.5),
                         ),

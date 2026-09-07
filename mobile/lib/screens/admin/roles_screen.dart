@@ -186,7 +186,7 @@ class _RolesScreenState extends State<RolesScreen> {
                         return SwitchListTile(
                           title: Text(mod.$2),
                           value: has,
-                          activeColor: kBrand,
+                          activeThumbColor: kBrand,
                           onChanged: (_) => _toggleModule(selected, mod.$1),
                         );
                       }).toList(),

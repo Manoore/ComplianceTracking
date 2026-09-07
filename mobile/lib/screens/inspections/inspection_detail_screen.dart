@@ -125,7 +125,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                         Expanded(child: Text('Q${i + 1}. ${item.question}', style: const TextStyle(fontWeight: FontWeight.w500))),
                         if (item.isRequired) Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: kDanger.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                          decoration: BoxDecoration(color: kDanger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
                           child: const Text('Required', style: TextStyle(color: kDanger, fontSize: 10)),
                         ),
                       ]),
@@ -186,7 +186,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.15) : Colors.grey.shade100,
+          color: selected ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: selected ? color : Colors.transparent, width: 1.5),
         ),

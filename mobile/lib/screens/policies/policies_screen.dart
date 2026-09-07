@@ -125,7 +125,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
                                     Row(children: [
                                       Container(
                                         padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(color: kBrand.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+                                        decoration: BoxDecoration(color: kBrand.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
                                         child: const Icon(Icons.policy_outlined, color: kBrand, size: 22),
                                       ),
                                       const SizedBox(width: 12),
@@ -136,7 +136,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
                                       ])),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                                        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
                                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                                           Icon(_attIcon(att), color: color, size: 13),
                                           const SizedBox(width: 4),

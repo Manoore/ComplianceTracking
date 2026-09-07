@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(children: [
               CircleAvatar(
                 radius: 40,
-                backgroundColor: kBrand.withOpacity(0.15),
+                backgroundColor: kBrand.withValues(alpha: 0.15),
                 child: Text(
                   (user?.fullName ?? 'U').isNotEmpty ? user!.fullName[0].toUpperCase() : 'U',
                   style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: kBrand),
@@ -155,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                decoration: BoxDecoration(color: kBrand.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: kBrand.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                 child: Text(
                   (user?.customRole ?? user?.role ?? '').replaceAll('_', ' '),
                   style: const TextStyle(color: kBrand, fontWeight: FontWeight.w600),
@@ -199,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: kDanger.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: kDanger.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                 child: Text(_error!, style: const TextStyle(color: kDanger, fontSize: 13)),
               ),
             ],

@@ -68,7 +68,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: kBrand.withOpacity(0.1),
+                        backgroundColor: kBrand.withValues(alpha: 0.1),
                         child: Text(u.fullName.isNotEmpty ? u.fullName[0].toUpperCase() : 'U',
                             style: const TextStyle(color: kBrand, fontWeight: FontWeight.bold)),
                       ),
@@ -115,7 +115,7 @@ class _UsersScreenState extends State<UsersScreen> {
             TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email *')),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _roles.any((r) => r.name == selectedRole) ? selectedRole : _roles.firstOrNull?.name,
+              initialValue: _roles.any((r) => r.name == selectedRole) ? selectedRole : _roles.firstOrNull?.name,
               decoration: const InputDecoration(labelText: 'Role'),
               items: _roles.map((r) => DropdownMenuItem(value: r.name, child: Text(r.displayName))).toList(),
               onChanged: (v) => setSheet(() => selectedRole = v!),

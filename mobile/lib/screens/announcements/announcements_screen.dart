@@ -73,7 +73,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             Row(children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: priorityColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                decoration: BoxDecoration(color: priorityColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                                 child: Text(ann.priority, style: TextStyle(color: priorityColor, fontSize: 11, fontWeight: FontWeight.w600)),
                               ),
                               const Spacer(),

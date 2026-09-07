@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart' show ApiService, kBaseUrl;
@@ -119,7 +118,7 @@ class _CertificationsScreenState extends State<CertificationsScreen> with Single
         return Card(
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: statusColor(cert.status).withOpacity(0.15),
+              backgroundColor: statusColor(cert.status).withValues(alpha: 0.15),
               child: Icon(Icons.workspace_premium, color: statusColor(cert.status)),
             ),
             title: Text(cert.courseTitle ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -142,7 +141,7 @@ class _CertificationsScreenState extends State<CertificationsScreen> with Single
 
   Widget _pill(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
     child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
   );
 }

@@ -21,8 +21,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _load() async {
     try {
       final results = await Future.wait([
-        ApiService().get('/reports/dashboard') as Future<dynamic>,
-        ApiService().get('/clinics').catchError((_) => <dynamic>[]) as Future<dynamic>,
+        ApiService().get('/reports/dashboard'),
+        ApiService().get('/clinics').catchError((_) => <dynamic>[]),
       ]);
       if (mounted) setState(() {
         _data = results[0] as Map<String, dynamic>;
@@ -168,7 +168,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _statRow(String label, String value, IconData icon, Color color) => Card(
     margin: const EdgeInsets.only(bottom: 8),
     child: ListTile(
-      leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color, size: 20)),
+      leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.1), child: Icon(icon, color: color, size: 20)),
       title: Text(label),
       trailing: Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
     ),

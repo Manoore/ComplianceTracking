@@ -63,10 +63,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     itemBuilder: (_, i) {
                       final n = _notifications[i];
                       return Container(
-                        color: n.isRead ? null : kBrand.withOpacity(0.04),
+                        color: n.isRead ? null : kBrand.withValues(alpha: 0.04),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: kBrand.withOpacity(0.1),
+                            backgroundColor: kBrand.withValues(alpha: 0.1),
                             child: Icon(_icon(n.type), color: kBrand, size: 20),
                           ),
                           title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.normal : FontWeight.w600)),

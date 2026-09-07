@@ -44,7 +44,7 @@ class _AuditsScreenState extends State<AuditsScreen> {
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           leading: CircleAvatar(
-                            backgroundColor: kBrand.withOpacity(0.1),
+                            backgroundColor: kBrand.withValues(alpha: 0.1),
                             child: const Icon(Icons.shield_outlined, color: kBrand),
                           ),
                           title: Text(audit.clinicName, style: const TextStyle(fontWeight: FontWeight.w600)),

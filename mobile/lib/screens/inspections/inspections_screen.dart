@@ -105,7 +105,7 @@ class _ScoreCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = score >= 80 ? kSuccess : score >= 60 ? kWarning : kDanger;
     return CircleAvatar(
-      backgroundColor: color.withOpacity(0.15),
+      backgroundColor: color.withValues(alpha: 0.15),
       child: Text('${score.toInt()}', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
     );
   }

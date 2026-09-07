@@ -41,7 +41,7 @@ ThemeData appTheme() => ThemeData(
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -56,7 +56,7 @@ ThemeData appTheme() => ThemeData(
           (states) => states.contains(WidgetState.selected) ? kTeal : null,
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected) ? kTeal.withOpacity(0.4) : null,
+          (states) => states.contains(WidgetState.selected) ? kTeal.withValues(alpha: 0.4) : null,
         ),
       ),
     );
@@ -86,9 +86,9 @@ Widget statusBadge(String? status) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.12),
+      color: color.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withOpacity(0.3)),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
     ),
     child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
   );

@@ -21,8 +21,8 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
   Future<void> _load() async {
     try {
       final results = await Future.wait([
-        ApiService().get('/reports/dashboard') as Future<dynamic>,
-        ApiService().get('/clinics').catchError((_) => <dynamic>[]) as Future<dynamic>,
+        ApiService().get('/reports/dashboard'),
+        ApiService().get('/clinics').catchError((_) => <dynamic>[]),
       ]);
       if (mounted) setState(() {
         _dash = results[0] as Map<String, dynamic>;
@@ -240,7 +240,7 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
         Container(height: 20, decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4))),
         FractionallySizedBox(
           widthFactor: frac,
-          child: Container(height: 20, decoration: BoxDecoration(color: color.withOpacity(0.7), borderRadius: BorderRadius.circular(4))),
+          child: Container(height: 20, decoration: BoxDecoration(color: color.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(4))),
         ),
       ])),
       const SizedBox(width: 8),

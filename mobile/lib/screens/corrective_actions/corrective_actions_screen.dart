@@ -77,7 +77,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
               Expanded(child: Text(action.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: priorityColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: priorityColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                 child: Text(action.priority.toUpperCase(), style: TextStyle(color: priorityColor, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ]),
@@ -228,7 +228,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
                                       Expanded(child: Text(action.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: priorityColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                        decoration: BoxDecoration(color: priorityColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                                         child: Text(action.priority.toUpperCase(), style: TextStyle(color: priorityColor, fontSize: 10, fontWeight: FontWeight.bold)),
                                       ),
                                     ]),
@@ -283,7 +283,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
 
   Widget _summaryPill(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
     child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
   );
 }

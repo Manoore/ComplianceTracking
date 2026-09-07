@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/api_service.dart';
 import '../services/permissions_service.dart';
-import '../theme.dart' show kBrand, kBrand100, kDeepNavy, kTeal;
+import '../theme.dart' show kBrand, kBrand100, kTeal;
 import 'complinow_mark.dart';
 
 class AppDrawer extends StatefulWidget {

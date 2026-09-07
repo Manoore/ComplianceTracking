@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 12),
                             Container(
                               padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: kDanger.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(color: kDanger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                               child: Text(_error!, style: const TextStyle(color: kDanger, fontSize: 13)),
                             ),
                           ],

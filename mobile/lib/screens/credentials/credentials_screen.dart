@@ -31,8 +31,8 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
   Future<void> _load() async {
     try {
       final results = await Future.wait([
-        ApiService().get('/credentials/') as Future<dynamic>,
-        ApiService().get('/users').catchError((_) => <dynamic>[]) as Future<dynamic>,
+        ApiService().get('/credentials/'),
+        ApiService().get('/users').catchError((_) => <dynamic>[]),
       ]);
       final creds = (results[0] as List).cast<Map<String, dynamic>>();
       final users = (results[1] as List).cast<Map<String, dynamic>>();
@@ -158,7 +158,7 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
                                 Row(children: [
                                   Container(
                                     padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                                    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                                     child: Icon(Icons.badge_outlined, color: color, size: 20),
                                   ),
                                   const SizedBox(width: 12),
@@ -171,7 +171,7 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
                                   ])),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
                                     child: Text(_statusLabel(status), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
                                   ),
                                 ]),
@@ -253,9 +253,9 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: kDanger.withOpacity(0.06),
+                color: kDanger.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: kDanger.withOpacity(0.2)),
+                border: Border.all(color: kDanger.withValues(alpha: 0.2)),
               ),
               child: Row(children: [
                 const Icon(Icons.warning_amber_outlined, color: kDanger),
@@ -277,7 +277,7 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
   Widget _summaryCard(String label, String value, IconData icon, Color color) => Card(
     margin: const EdgeInsets.only(bottom: 10),
     child: ListTile(
-      leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color, size: 20)),
+      leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.1), child: Icon(icon, color: color, size: 20)),
       title: Text(label),
       trailing: Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 18)),
     ),
@@ -307,7 +307,7 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
             const SizedBox(height: 12),
             if (_users.isNotEmpty) ...[
               DropdownButtonFormField<String>(
-                value: selectedUserId,
+              initialValue: selectedUserId,
                 decoration: const InputDecoration(labelText: 'Staff Member'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('— Select staff —')),

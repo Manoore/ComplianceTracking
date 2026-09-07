@@ -88,7 +88,7 @@ class _ClinicsScreenState extends State<ClinicsScreen> {
                                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                     Row(children: [
                                       CircleAvatar(
-                                        backgroundColor: kBrand.withOpacity(0.1),
+                                        backgroundColor: kBrand.withValues(alpha: 0.1),
                                         child: const Icon(Icons.local_hospital_outlined, color: kBrand),
                                       ),
                                       const SizedBox(width: 12),

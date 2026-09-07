@@ -101,7 +101,7 @@ class _PolicyDetailScreenState extends State<PolicyDetailScreen> {
         children: [
           if (isSigned)
             Container(
-              color: kSuccess.withOpacity(0.1),
+              color: kSuccess.withValues(alpha: 0.1),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(children: [
                 const Icon(Icons.check_circle, color: kSuccess, size: 18),
@@ -163,7 +163,7 @@ class _PolicyDetailScreenState extends State<PolicyDetailScreen> {
                   if (_quizResult != null && _quizResult!['status'] == 'quiz_failed')
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: kDanger.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: kDanger.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
                       child: Row(children: [
                         const Icon(Icons.cancel_outlined, color: kDanger),
                         const SizedBox(width: 8),
@@ -212,7 +212,7 @@ class _PolicyDetailScreenState extends State<PolicyDetailScreen> {
 
   Widget _chip(String label, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
     child: Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500)),
   );
 }
