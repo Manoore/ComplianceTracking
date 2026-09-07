@@ -57,11 +57,20 @@ class ApiService {
     return res;
   }
 
+  dynamic _decode(http.Response res) {
+    if (res.body.isEmpty) return null;
+    try {
+      return jsonDecode(res.body);
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<dynamic> get(String path) async {
     final headers = await _headers();
     final res = await _withRefresh(() => http.get(Uri.parse('$kBaseUrl$path'), headers: headers));
     _checkStatus(res);
-    return jsonDecode(res.body);
+    return _decode(res);
   }
 
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
@@ -72,7 +81,7 @@ class ApiService {
           body: jsonEncode(body),
         ));
     _checkStatus(res);
-    return jsonDecode(res.body);
+    return _decode(res);
   }
 
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
@@ -83,7 +92,7 @@ class ApiService {
           body: jsonEncode(body),
         ));
     _checkStatus(res);
-    return jsonDecode(res.body);
+    return _decode(res);
   }
 
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
@@ -94,7 +103,7 @@ class ApiService {
           body: jsonEncode(body),
         ));
     _checkStatus(res);
-    return jsonDecode(res.body);
+    return _decode(res);
   }
 
   Future<void> delete(String path, {Map<String, dynamic>? body}) async {

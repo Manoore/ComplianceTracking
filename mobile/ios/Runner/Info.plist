@@ -62,10 +62,6 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CompliNow uses your location to record where an inspection was conducted.</string>
 
-	<!-- Location Always (not requested at launch; here to satisfy geolocator plugin) -->
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>CompliNow uses your location to record where an inspection was conducted.</string>
-
 	<!-- ── App Transport Security ── -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

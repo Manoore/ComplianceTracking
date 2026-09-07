@@ -69,6 +69,7 @@ class _SessionActivityDetectorState extends State<SessionActivityDetector> {
       behavior: HitTestBehavior.translucent,
       onTap: () => SessionService().activity(),
       onPanDown: (_) => SessionService().activity(),
+      onPanUpdate: (_) => SessionService().activity(),
       onScaleStart: (_) => SessionService().activity(),
       child: widget.child,
     );

@@ -44,7 +44,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Step 2 — require password
     final pwCtrl = TextEditingController();
-    final deleteConfirmed = await showDialog<bool>(
+    final bool? deleteConfirmed;
+    try {
+    deleteConfirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm Deletion'),
@@ -71,6 +73,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
+    } finally {
+      pwCtrl.dispose();
+    }
     if (deleteConfirmed != true || !mounted) return;
 
     try {

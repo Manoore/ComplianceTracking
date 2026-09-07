@@ -8,7 +8,7 @@ class Clinic {
   final double? complianceScore;
   Clinic({required this.id, required this.name, this.address, this.phone, this.email, this.licenseNumber, required this.isActive, this.complianceScore});
   factory Clinic.fromJson(Map<String, dynamic> j) => Clinic(
-        id: j['id'], name: j['name'], address: j['address'], phone: j['phone'],
+        id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '', address: j['address'], phone: j['phone'],
         email: j['email'], licenseNumber: j['license_number'],
         isActive: j['is_active'] ?? true, complianceScore: (j['compliance_score'] as num?)?.toDouble(),
       );
@@ -21,7 +21,7 @@ class Inspection {
   final String? riskLevel, submittedAt, createdAt;
   Inspection({required this.id, required this.clinicName, required this.inspectorName, required this.status, this.complianceScore, this.riskLevel, this.submittedAt, this.createdAt});
   factory Inspection.fromJson(Map<String, dynamic> j) => Inspection(
-        id: j['id'], clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
+        id: (j['id'] as num).toInt(), clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
         status: j['status'] ?? 'draft', complianceScore: (j['compliance_score'] as num?)?.toDouble(),
         riskLevel: j['risk_level'], submittedAt: j['submitted_at'], createdAt: j['created_at'],
       );
@@ -31,7 +31,7 @@ class InspectionDetail extends Inspection {
   final List<ChecklistItem> items;
   InspectionDetail({required super.id, required super.clinicName, required super.inspectorName, required super.status, super.complianceScore, super.riskLevel, super.submittedAt, super.createdAt, required this.items});
   factory InspectionDetail.fromJson(Map<String, dynamic> j) => InspectionDetail(
-        id: j['id'], clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
+        id: (j['id'] as num).toInt(), clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
         status: j['status'] ?? 'draft', complianceScore: (j['compliance_score'] as num?)?.toDouble(),
         riskLevel: j['risk_level'], submittedAt: j['submitted_at'], createdAt: j['created_at'],
         items: (j['items'] as List? ?? []).map((i) => ChecklistItem.fromJson(i)).toList(),
@@ -45,7 +45,7 @@ class ChecklistItem {
   final bool isRequired;
   ChecklistItem({required this.id, required this.question, this.answer, this.notes, required this.isRequired});
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
-        id: j['id'], question: j['question'] ?? '', answer: j['answer'],
+        id: (j['id'] as num).toInt(), question: j['question'] ?? '', answer: j['answer'],
         notes: j['notes'], isRequired: j['is_required'] ?? false,
       );
 }
@@ -54,7 +54,7 @@ class ChecklistTemplate {
   final int id;
   final String name;
   ChecklistTemplate({required this.id, required this.name});
-  factory ChecklistTemplate.fromJson(Map<String, dynamic> j) => ChecklistTemplate(id: j['id'], name: j['name']);
+  factory ChecklistTemplate.fromJson(Map<String, dynamic> j) => ChecklistTemplate(id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '');
 }
 
 class Audit {

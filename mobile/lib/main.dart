@@ -80,62 +80,88 @@ class CompliNowApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AuthState(),
-      child: Consumer<AuthState>(
-        builder: (context, auth, _) {
-          return ChangeNotifierProvider.value(
-            value: auth.permissions,
-            child: Builder(builder: (context) {
-              final router = GoRouter(
-                refreshListenable: auth,
-                redirect: (context, state) {
-                  if (auth.loading) return null;
-                  final loggedIn = auth.loggedIn;
-                  if (!loggedIn && state.matchedLocation != '/login') return '/login';
-                  if (loggedIn && state.matchedLocation == '/login') return '/';
-                  return null;
-                },
-                routes: [
-                  GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-                  GoRoute(path: '/', builder: (_, __) => const DashboardScreen()),
-                  GoRoute(path: '/inspections', builder: (_, __) => const InspectionsScreen()),
-                  GoRoute(path: '/inspections/new', builder: (_, __) => const NewInspectionScreen()),
-                  GoRoute(path: '/inspections/:id', builder: (_, s) => InspectionDetailScreen(id: int.parse(s.pathParameters['id']!))),
-                  GoRoute(path: '/audits', builder: (_, __) => const AuditsScreen()),
-                  GoRoute(path: '/audits/:id', builder: (_, s) => AuditDetailScreen(id: int.parse(s.pathParameters['id']!))),
-                  GoRoute(path: '/certifications', builder: (_, __) => const CertificationsScreen()),
-                  GoRoute(path: '/certifications/quiz/:token', builder: (_, s) => TakeQuizScreen(token: s.pathParameters['token']!)),
-                  GoRoute(path: '/corrective-actions', builder: (_, __) => const CorrectiveActionsScreen()),
-                  GoRoute(path: '/announcements', builder: (_, __) => const AnnouncementsScreen()),
-                  GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
-                  GoRoute(path: '/policies', builder: (_, __) => const PoliciesScreen()),
-                  GoRoute(path: '/policies/:id', builder: (_, s) => PolicyDetailScreen(id: int.parse(s.pathParameters['id']!))),
-                  GoRoute(path: '/credentials', builder: (_, __) => const CredentialsScreen()),
-                  GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-                  GoRoute(path: '/admin/users', builder: (_, __) => const UsersScreen()),
-                  GoRoute(path: '/admin/clinics', builder: (_, __) => const ClinicsScreen()),
-                  GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
-                  GoRoute(path: '/admin/roles', builder: (_, __) => const RolesScreen()),
-                  GoRoute(path: '/admin/executive', builder: (_, __) => const ExecutiveDashboardScreen()),
-                  GoRoute(path: '/privacy-policy', builder: (_, __) => const PrivacyPolicyScreen()),
-                ],
-              );
-              return SessionActivityDetector(
-                onTimeout: () async {
-                  if (auth.loggedIn) {
-                    await auth.logout();
-                    router.go('/login');
-                  }
-                },
-                child: MaterialApp.router(
-                  title: 'CompliNow',
-                  theme: appTheme(),
-                  routerConfig: router,
-                  debugShowCheckedModeBanner: false,
-                ),
-              );
-            }),
-          );
+      child: const _AppShell(),
+    );
+  }
+}
+
+// Separate StatefulWidget so GoRouter is created exactly once and never
+// recreated on auth state changes (which would leak listeners).
+class _AppShell extends StatefulWidget {
+  const _AppShell();
+
+  @override
+  State<_AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<_AppShell> {
+  late final GoRouter _router;
+  late final AuthState _auth;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth = context.read<AuthState>();
+    _router = GoRouter(
+      refreshListenable: _auth,
+      redirect: (context, state) {
+        if (_auth.loading) return null;
+        final loggedIn = _auth.loggedIn;
+        if (!loggedIn && state.matchedLocation != '/login') return '/login';
+        if (loggedIn && state.matchedLocation == '/login') return '/';
+        return null;
+      },
+      routes: [
+        GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+        GoRoute(path: '/', builder: (_, __) => const DashboardScreen()),
+        GoRoute(path: '/inspections', builder: (_, __) => const InspectionsScreen()),
+        GoRoute(path: '/inspections/new', builder: (_, __) => const NewInspectionScreen()),
+        GoRoute(path: '/inspections/:id', builder: (_, s) => InspectionDetailScreen(id: int.parse(s.pathParameters['id']!))),
+        GoRoute(path: '/audits', builder: (_, __) => const AuditsScreen()),
+        GoRoute(path: '/audits/:id', builder: (_, s) => AuditDetailScreen(id: int.parse(s.pathParameters['id']!))),
+        GoRoute(path: '/certifications', builder: (_, __) => const CertificationsScreen()),
+        GoRoute(path: '/certifications/quiz/:token', builder: (_, s) => TakeQuizScreen(token: s.pathParameters['token']!)),
+        GoRoute(path: '/corrective-actions', builder: (_, __) => const CorrectiveActionsScreen()),
+        GoRoute(path: '/announcements', builder: (_, __) => const AnnouncementsScreen()),
+        GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+        GoRoute(path: '/policies', builder: (_, __) => const PoliciesScreen()),
+        GoRoute(path: '/policies/:id', builder: (_, s) => PolicyDetailScreen(id: int.parse(s.pathParameters['id']!))),
+        GoRoute(path: '/credentials', builder: (_, __) => const CredentialsScreen()),
+        GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+        GoRoute(path: '/admin/users', builder: (_, __) => const UsersScreen()),
+        GoRoute(path: '/admin/clinics', builder: (_, __) => const ClinicsScreen()),
+        GoRoute(path: '/admin/reports', builder: (_, __) => const ReportsScreen()),
+        GoRoute(path: '/admin/roles', builder: (_, __) => const RolesScreen()),
+        GoRoute(path: '/admin/executive', builder: (_, __) => const ExecutiveDashboardScreen()),
+        GoRoute(path: '/privacy-policy', builder: (_, __) => const PrivacyPolicyScreen()),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthState>();
+    return ChangeNotifierProvider.value(
+      value: auth.permissions,
+      child: SessionActivityDetector(
+        onTimeout: () async {
+          if (_auth.loggedIn) {
+            await _auth.logout();
+            _router.go('/login');
+          }
         },
+        child: MaterialApp.router(
+          title: 'CompliNow',
+          theme: appTheme(),
+          routerConfig: _router,
+          debugShowCheckedModeBanner: false,
+        ),
       ),
     );
   }
