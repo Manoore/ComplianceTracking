@@ -148,16 +148,16 @@ class _PolicyDetailScreenState extends State<PolicyDetailScreen> {
                     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('${qi + 1}. ${q['question']}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                       const SizedBox(height: 8),
-                      RadioGroup<int>(
+                      ...List.generate(opts.length, (oi) => RadioListTile<int>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: oi,
+                        // ignore: deprecated_member_use
                         groupValue: _selectedAnswers[qi],
+                        title: Text(opts[oi].toString(), style: const TextStyle(fontSize: 14)),
+                        // ignore: deprecated_member_use
                         onChanged: isSigned ? null : (v) => setState(() => _selectedAnswers[qi] = v),
-                        children: List.generate(opts.length, (oi) => RadioListTile<int>(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          value: oi,
-                          title: Text(opts[oi].toString(), style: const TextStyle(fontSize: 14)),
-                        )),
-                      ),
+                      )),
                       const SizedBox(height: 12),
                     ]);
                   }),
