@@ -186,12 +186,6 @@ export function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <p className="text-xs text-gray-500 font-medium mb-2">Default admin credentials</p>
-            <p className="text-xs text-gray-600 font-mono">admin@compliance.local</p>
-            <p className="text-xs text-gray-600 font-mono">admin123</p>
-          </div>
-
           <p className="mt-6 text-sm text-gray-500 text-center">
             New organization?{' '}
             <Link to="/register" className="text-teal-500 font-medium hover:underline">
