@@ -3,15 +3,31 @@
 class Clinic {
   final int id;
   final String name;
-  final String? address, phone, email, licenseNumber;
+  final String? address, city, state, zipCode, region, phone, email, website, notes, licenseNumber, clinicType;
+  final List<String> services;
   final bool isActive;
   final double? complianceScore;
-  Clinic({required this.id, required this.name, this.address, this.phone, this.email, this.licenseNumber, required this.isActive, this.complianceScore});
+  Clinic({
+    required this.id, required this.name, this.address, this.city, this.state, this.zipCode,
+    this.region, this.phone, this.email, this.website, this.notes, this.licenseNumber,
+    this.clinicType, this.services = const [], required this.isActive, this.complianceScore,
+  });
   factory Clinic.fromJson(Map<String, dynamic> j) => Clinic(
-        id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '', address: j['address'], phone: j['phone'],
-        email: j['email'], licenseNumber: j['license_number'],
+        id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '',
+        address: j['address'], city: j['city'], state: j['state'], zipCode: j['zip_code'],
+        region: j['region'], phone: j['phone'], email: j['email'], website: j['website'],
+        notes: j['notes'], licenseNumber: j['license_number'], clinicType: j['clinic_type'],
+        services: (j['services'] as List?)?.map((e) => e.toString()).toList() ?? const [],
         isActive: j['is_active'] ?? true, complianceScore: (j['compliance_score'] as num?)?.toDouble(),
       );
+
+  /// "205 W Bagley Rd, Berea, OH 44017"
+  String get fullAddress {
+    bool has(String? s) => s != null && s.isNotEmpty;
+    final cityState = [city, state].where(has).join(', ');
+    final locality = [cityState, zipCode].where(has).join(' ');
+    return [address, locality].where(has).join(', ');
+  }
 }
 
 class Inspection {

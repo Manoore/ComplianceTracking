@@ -1,11 +1,22 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { Clinic, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Link } from 'react-router-dom'
-import { Plus, Edit2, Building2, ExternalLink, Upload, Layers } from 'lucide-react'
+import { Plus, Edit2, Building2, ExternalLink, Upload, Layers, ChevronDown, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const SERVICE_OPTIONS = ['Urgent Care', 'Primary Care', 'Clinical Research', 'Wellness']
+
+const UNASSIGNED = 'Unassigned'
+
+const SERVICE_STYLES: Record<string, string> = {
+  'Urgent Care': 'bg-red-50 text-red-700 border-red-200',
+  'Primary Care': 'bg-teal-50 text-teal-700 border-teal-200',
+  'Clinical Research': 'bg-brand-50 text-brand-700 border-brand-200',
+  'Wellness': 'bg-amber-50 text-amber-700 border-amber-200',
+}
 
 const CLINIC_TYPES = [
   { value: 'general_practice', label: 'General Practice' },
@@ -20,21 +31,25 @@ const CLINIC_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void }) {
+function ClinicForm({ clinic, regions, onClose }: { clinic?: Clinic; regions: string[]; onClose: () => void }) {
   const qc = useQueryClient()
   const [form, setForm] = useState({
     name: clinic?.name ?? '',
-    clinic_type: (clinic as any)?.clinic_type ?? '',
+    clinic_type: clinic?.clinic_type ?? '',
     address: clinic?.address ?? '',
     city: clinic?.city ?? '',
     state: clinic?.state ?? '',
     zip_code: clinic?.zip_code ?? '',
+    region: clinic?.region ?? '',
     phone: clinic?.phone ?? '',
     email: clinic?.email ?? '',
-    website: (clinic as any)?.website ?? '',
-    license_number: (clinic as any)?.license_number ?? '',
+    website: clinic?.website ?? '',
+    license_number: clinic?.license_number ?? '',
     notes: clinic?.notes ?? '',
   })
+  const [services, setServices] = useState<string[]>(clinic?.services ?? [])
+  const toggleService = (s: string) =>
+    setServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
   const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api.get('/users').then(r => r.data) })
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
   const [manager_id, setManagerId] = useState<string>(clinic?.manager_id?.toString() ?? '')
@@ -54,7 +69,7 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    mutation.mutate({ ...form, manager_id: manager_id ? parseInt(manager_id) : null, department_id: department_id ? parseInt(department_id) : null })
+    mutation.mutate({ ...form, services, manager_id: manager_id ? parseInt(manager_id) : null, department_id: department_id ? parseInt(department_id) : null })
   }
 
   return (
@@ -69,11 +84,45 @@ function ClinicForm({ clinic, onClose }: { clinic?: Clinic; onClose: () => void 
             <input required className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
           <div>
+            <label className="label">Region</label>
+            <input
+              className="input"
+              list="clinic-regions"
+              placeholder="e.g. Cleveland — pick one or type a new region"
+              value={form.region}
+              onChange={e => setForm(f => ({ ...f, region: e.target.value }))}
+            />
+            <datalist id="clinic-regions">
+              {regions.map(r => <option key={r} value={r} />)}
+            </datalist>
+          </div>
+          <div>
             <label className="label">Clinic Type</label>
             <select className="input" value={form.clinic_type} onChange={e => setForm(f => ({ ...f, clinic_type: e.target.value }))}>
               <option value="">— Select type —</option>
               {CLINIC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="label">Services</label>
+            <div className="flex flex-wrap gap-2">
+              {[...new Set([...SERVICE_OPTIONS, ...services])].map(s => {
+                const on = services.includes(s)
+                return (
+                  <button
+                    type="button"
+                    key={s}
+                    onClick={() => toggleService(s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      on ? (SERVICE_STYLES[s] ?? 'bg-brand-50 text-brand-700 border-brand-200')
+                         : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -170,11 +219,77 @@ function CsvImportButton() {
   )
 }
 
+function ClinicCard({ clinic, canEdit, onEdit }: { clinic: Clinic; canEdit: boolean; onEdit: () => void }) {
+  return (
+    <div className="card hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-brand-50 rounded-lg">
+            <Building2 className="text-brand-600" size={20} />
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{clinic.name}</p>
+            {clinic.clinic_type && (
+              <p className="text-xs text-gray-400 capitalize">{clinic.clinic_type.replace(/_/g, ' ')}</p>
+            )}
+            {!clinic.is_active && <span className="text-xs text-red-500">Inactive</span>}
+          </div>
+        </div>
+        {canEdit && (
+          <button className="p-1.5 text-gray-400 hover:text-brand-600 rounded" onClick={onEdit}>
+            <Edit2 size={15} />
+          </button>
+        )}
+      </div>
+
+      {(clinic.services ?? []).length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {(clinic.services ?? []).map(s => (
+            <span
+              key={s}
+              className={`px-2 py-0.5 rounded-full text-[11px] font-medium border ${
+                SERVICE_STYLES[s] ?? 'bg-gray-50 text-gray-600 border-gray-200'
+              }`}
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="text-sm text-gray-500 space-y-1">
+        {clinic.address && <p>{clinic.address}</p>}
+        {(clinic.city || clinic.state) && (
+          <p>{[[clinic.city, clinic.state].filter(Boolean).join(', '), clinic.zip_code].filter(Boolean).join(' ')}</p>
+        )}
+        {clinic.phone && <p>{clinic.phone}</p>}
+        {clinic.department_name && (
+          <p className="flex items-center gap-1 text-gray-500">
+            <Layers size={11} /> {clinic.department_name}
+          </p>
+        )}
+        {clinic.manager_name && <p className="text-brand-600 font-medium">Manager: {clinic.manager_name}</p>}
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <Link
+          to={`/clinics/${clinic.id}/profile`}
+          className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-800 font-medium"
+        >
+          <ExternalLink size={12} /> View Profile
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export function ClinicsPage() {
   const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Clinic | undefined>()
   const [filterDept, setFilterDept] = useState('')
+  const [filterRegion, setFilterRegion] = useState('')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
     queryKey: ['clinics'],
     queryFn: () => api.get('/clinics').then(r => r.data),
@@ -184,23 +299,69 @@ export function ClinicsPage() {
     queryFn: () => api.get('/departments').then(r => r.data),
   })
 
-  const visible = filterDept
-    ? (clinics ?? []).filter(c => (c as any).department_id?.toString() === filterDept)
-    : (clinics ?? [])
+  const all = clinics ?? []
+  const isAdmin = user?.role === 'admin'
+
+  // Named regions first (alphabetical), "Unassigned" always last.
+  const sortRegions = (a: string, b: string) =>
+    a === UNASSIGNED ? 1 : b === UNASSIGNED ? -1 : a.localeCompare(b)
+
+  const regions = useMemo(
+    () => [...new Set(all.map(c => c.region || UNASSIGNED))].sort(sortRegions),
+    [all],
+  )
+  const namedRegions = useMemo(() => regions.filter(r => r !== UNASSIGNED), [regions])
+
+  const visible = useMemo(() => all.filter(c =>
+    (!filterDept || c.department_id?.toString() === filterDept) &&
+    (!filterRegion || (c.region || UNASSIGNED) === filterRegion)
+  ), [all, filterDept, filterRegion])
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, Clinic[]>()
+    for (const c of visible) {
+      const r = c.region || UNASSIGNED
+      if (!m.has(r)) m.set(r, [])
+      m.get(r)!.push(c)
+    }
+    for (const list of m.values()) list.sort((a, b) => a.name.localeCompare(b.name))
+    return [...m.entries()].sort(([a], [b]) => sortRegions(a, b))
+  }, [visible])
+
+  const toggleRegion = (r: string) => setCollapsed(prev => {
+    const next = new Set(prev)
+    if (next.has(r)) next.delete(r); else next.add(r)
+    return next
+  })
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Clinics</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Clinics</h1>
+          <p className="text-sm text-gray-500">
+            {visible.length} of {all.length} across {namedRegions.length} region{namedRegions.length === 1 ? '' : 's'}
+          </p>
+        </div>
         <div className="flex gap-2 items-center">
+          {regions.length > 1 && (
+            <select className="input w-auto text-sm py-1.5" value={filterRegion} onChange={e => setFilterRegion(e.target.value)}>
+              <option value="">All Regions</option>
+              {regions.map(r => (
+                <option key={r} value={r}>
+                  {r} ({all.filter(c => (c.region || UNASSIGNED) === r).length})
+                </option>
+              ))}
+            </select>
+          )}
           {(departments ?? []).length > 0 && (
             <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
               <option value="">All Departments</option>
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
-          {user?.role === 'admin' && <CsvImportButton />}
-          {user?.role === 'admin' && (
+          {isAdmin && <CsvImportButton />}
+          {isAdmin && (
             <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true) }}>
               <Plus size={16} /> Add Clinic
             </button>
@@ -212,69 +373,54 @@ export function ClinicsPage() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
         </div>
+      ) : grouped.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          {filterDept || filterRegion ? 'No clinics match these filters' : 'No clinics registered yet'}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visible.map((clinic) => (
-            <div key={clinic.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-brand-50 rounded-lg">
-                    <Building2 className="text-brand-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{clinic.name}</p>
-                    {(clinic as any).clinic_type && (
-                      <p className="text-xs text-gray-400 capitalize">{(clinic as any).clinic_type.replace('_', ' ')}</p>
-                    )}
-                    {!clinic.is_active && (
-                      <span className="text-xs text-red-500">Inactive</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  {user?.role === 'admin' && (
-                    <button
-                      className="p-1.5 text-gray-400 hover:text-brand-600 rounded"
-                      onClick={() => { setEditing(clinic); setShowForm(true) }}
-                    >
-                      <Edit2 size={15} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm text-gray-500 space-y-1">
-                {clinic.address && <p>{clinic.address}</p>}
-                {(clinic.city || clinic.state) && <p>{[clinic.city, clinic.state, clinic.zip_code].filter(Boolean).join(', ')}</p>}
-                {clinic.phone && <p>{clinic.phone}</p>}
-                {(clinic as any).department_name && (
-                  <p className="flex items-center gap-1 text-gray-500">
-                    <Layers size={11} /> {(clinic as any).department_name}
-                  </p>
-                )}
-                {clinic.manager_name && (
-                  <p className="text-brand-600 font-medium">Manager: {clinic.manager_name}</p>
-                )}
-              </div>
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <Link
-                  to={`/clinics/${clinic.id}/profile`}
-                  className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-800 font-medium"
+        <div className="space-y-6">
+          {grouped.map(([region, list]) => {
+            const isCollapsed = collapsed.has(region)
+            return (
+              <section key={region}>
+                <button
+                  onClick={() => toggleRegion(region)}
+                  className="flex items-center gap-2 mb-3 group"
                 >
-                  <ExternalLink size={12} /> View Profile
-                </Link>
-              </div>
-            </div>
-          ))}
-          {visible.length === 0 && (
-            <div className="col-span-3 text-center py-16 text-gray-400">
-              {filterDept ? 'No clinics in this department' : 'No clinics registered yet'}
-            </div>
-          )}
+                  {isCollapsed
+                    ? <ChevronRight size={20} className="text-brand-600" />
+                    : <ChevronDown size={20} className="text-brand-600" />}
+                  <h2 className="text-lg font-bold text-gray-900 group-hover:text-brand-600 transition-colors">
+                    {region}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-xs font-semibold">
+                    {list.length} {list.length === 1 ? 'clinic' : 'clinics'}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {list.map(clinic => (
+                      <ClinicCard
+                        key={clinic.id}
+                        clinic={clinic}
+                        canEdit={!!isAdmin}
+                        onEdit={() => { setEditing(clinic); setShowForm(true) }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )
+          })}
         </div>
       )}
 
       {showForm && (
-        <ClinicForm clinic={editing} onClose={() => { setShowForm(false); setEditing(undefined) }} />
+        <ClinicForm
+          clinic={editing}
+          regions={namedRegions}
+          onClose={() => { setShowForm(false); setEditing(undefined) }}
+        />
       )}
     </div>
   )

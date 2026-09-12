@@ -69,6 +69,9 @@ def _apply_migrations():
         "ALTER TABLE inspection_items ADD COLUMN answered_at TIMESTAMP",
         "ALTER TABLE clinics ADD COLUMN department_id INTEGER REFERENCES departments(id)",
         "ALTER TABLE checklist_items ADD COLUMN standard_tags JSONB",
+        "ALTER TABLE clinics ADD COLUMN region VARCHAR",
+        "ALTER TABLE clinics ADD COLUMN services JSONB",
+        "CREATE INDEX ix_clinics_region ON clinics (region)",
     ]
     for stmt in stmts:
         with engine.connect() as conn:

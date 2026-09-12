@@ -37,14 +37,21 @@ export interface AuthState {
 export interface Clinic {
   id: number
   name: string
+  clinic_type?: string
+  services?: string[]
   address?: string
   city?: string
   state?: string
   zip_code?: string
+  region?: string
   phone?: string
   email?: string
+  website?: string
+  license_number?: string
   manager_id?: number
   manager_name?: string
+  department_id?: number
+  department_name?: string
   is_active: boolean
   notes?: string
   created_at?: string

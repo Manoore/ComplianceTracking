@@ -25,10 +25,14 @@ class Clinic(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     clinic_type = Column(Enum(ClinicType), default=ClinicType.general_practice, nullable=True)
+    # Services offered, e.g. ["Urgent Care", "Primary Care", "Clinical Research"]
+    services = Column(JSON, nullable=True)
     address = Column(String, nullable=True)
     city = Column(String, nullable=True)
     state = Column(String, nullable=True)
     zip_code = Column(String, nullable=True)
+    # Geographic grouping, e.g. "Cleveland", "Akron"
+    region = Column(String, nullable=True, index=True)
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     website = Column(String, nullable=True)

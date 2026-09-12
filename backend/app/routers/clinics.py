@@ -20,10 +20,12 @@ router = APIRouter(prefix="/clinics", tags=["clinics"])
 class ClinicCreate(BaseModel):
     name: str
     clinic_type: Optional[ClinicType] = ClinicType.general_practice
+    services: Optional[List[str]] = None
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     zip_code: Optional[str] = None
+    region: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     website: Optional[str] = None
@@ -40,10 +42,12 @@ class ClinicCreate(BaseModel):
 class ClinicUpdate(BaseModel):
     name: Optional[str] = None
     clinic_type: Optional[ClinicType] = None
+    services: Optional[List[str]] = None
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     zip_code: Optional[str] = None
+    region: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
     website: Optional[str] = None
@@ -63,10 +67,12 @@ def clinic_out(c: Clinic) -> dict:
         "id": c.id,
         "name": c.name,
         "clinic_type": c.clinic_type.value if c.clinic_type else None,
+        "services": c.services or [],
         "address": c.address,
         "city": c.city,
         "state": c.state,
         "zip_code": c.zip_code,
+        "region": c.region,
         "phone": c.phone,
         "email": c.email,
         "website": c.website,
@@ -94,7 +100,18 @@ def list_clinics(db: Session = Depends(get_db), current_user: User = Depends(get
         # team members can see clinics they are staff of
         staff_clinic_ids = db.query(ClinicStaff.clinic_id).filter(ClinicStaff.user_id == current_user.id).subquery()
         q = q.filter(Clinic.id.in_(staff_clinic_ids))
-    return [clinic_out(c) for c in q.order_by(Clinic.name).all()]
+    return [clinic_out(c) for c in q.order_by(Clinic.region, Clinic.name).all()]
+
+
+@router.get("/regions")
+def list_regions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Distinct regions in use, with clinic counts — powers region filters and pickers."""
+    rows = (db.query(Clinic.region, func.count(Clinic.id))
+            .filter(Clinic.tenant_id == current_user.tenant_id)
+            .group_by(Clinic.region)
+            .order_by(Clinic.region)
+            .all())
+    return [{"region": r, "clinic_count": n} for r, n in rows if r]
 
 
 @router.post("/", status_code=201)
@@ -238,7 +255,8 @@ async def import_csv(file: UploadFile = File(...),
                      current_user: User = Depends(require_admin)):
     """
     Bulk import clinics from CSV.
-    Expected columns: name, clinic_type, address, city, state, zip_code, phone, email, notes
+    Expected columns: name, clinic_type, services, address, city, state, zip_code,
+    region, phone, email, notes. `services` is pipe-separated, e.g. "Urgent Care|Primary Care".
     """
     content = await file.read()
     text = content.decode("utf-8-sig")
@@ -254,16 +272,20 @@ async def import_csv(file: UploadFile = File(...),
             c_type = ClinicType(row.get("clinic_type", "other").strip().lower()) if row.get("clinic_type") else ClinicType.general_practice
         except ValueError:
             c_type = ClinicType.general_practice
+        services = [s.strip() for s in (row.get("services") or "").split("|") if s.strip()]
         clinic = Clinic(
             name=name,
             clinic_type=c_type,
+            services=services or None,
             address=row.get("address", "").strip() or None,
             city=row.get("city", "").strip() or None,
             state=row.get("state", "").strip() or None,
             zip_code=row.get("zip_code", "").strip() or None,
+            region=row.get("region", "").strip() or None,
             phone=row.get("phone", "").strip() or None,
             email=row.get("email", "").strip() or None,
             notes=row.get("notes", "").strip() or None,
+            tenant_id=current_user.tenant_id,
         )
         db.add(clinic)
         created += 1
