@@ -18,6 +18,12 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
+
+# Clinic.department is a string-based relationship, so every mapper it references
+# must be imported before the Clinic mapper is configured.
+import app.models  # noqa: F401
+import app.models.department  # noqa: F401  (not re-exported from app.models)
+
 from app.models.clinic import Clinic, ClinicType
 from app.models.tenant import Tenant
 from app.models.user import User

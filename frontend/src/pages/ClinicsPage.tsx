@@ -13,7 +13,7 @@ const UNASSIGNED = 'Unassigned'
 
 const SERVICE_STYLES: Record<string, string> = {
   'Urgent Care': 'bg-red-50 text-red-700 border-red-200',
-  'Primary Care': 'bg-teal-50 text-teal-700 border-teal-200',
+  'Primary Care': 'bg-teal-50 text-teal-600 border-teal-200',
   'Clinical Research': 'bg-brand-50 text-brand-700 border-brand-200',
   'Wellness': 'bg-amber-50 text-amber-700 border-amber-200',
 }
