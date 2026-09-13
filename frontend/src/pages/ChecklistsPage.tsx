@@ -539,7 +539,7 @@ export function ChecklistsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Checklist Templates</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Templates</h1>
         <div className="flex gap-2">
           <button className="btn-secondary" onClick={() => setShowPresets(true)}>
             <Library size={15} /> Preset Library

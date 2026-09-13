@@ -153,7 +153,7 @@ export function InspectionsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Inspections</h1>
+            <h1 className="text-2xl font-bold text-gray-900">My Checklists</h1>
             <p className="text-sm text-gray-500 mt-0.5">Select a clinic and complete your checklist</p>
           </div>
           <button className="btn-primary" onClick={() => setShowNew(true)}>
@@ -241,7 +241,7 @@ export function InspectionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Inspections</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
         <div className="flex gap-2 items-center">
           {(departments ?? []).length > 0 && (
             <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>

@@ -17,8 +17,8 @@ import api from '../../services/api'
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
   { to: '/clinics', icon: Building2, label: 'Clinics', module: 'clinics' },
-  { to: '/checklists', icon: ClipboardList, label: 'Checklists', module: 'checklists' },
-  { to: '/inspections', icon: Search, label: 'Inspections', module: 'inspections' },
+  { to: '/checklists', icon: ClipboardList, label: 'Templates', module: 'checklists' },
+  { to: '/inspections', icon: Search, label: 'Checklists', module: 'inspections' },
   { to: '/audits', icon: ShieldCheck, label: 'Audits', module: 'audits' },
   { to: '/certifications', icon: CheckSquare, label: 'Certifications', module: 'certifications' },
   { to: '/corrective-actions', icon: AlertTriangle, label: 'Corrective Actions', module: 'corrective_actions' },
