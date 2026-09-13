@@ -10,6 +10,7 @@ from ..database import get_db
 from ..models.clinic import Clinic, ClinicStaff, ClinicType
 from ..models.inspection import Inspection, InspectionStatus
 from ..models.corrective_action import CorrectiveAction, ActionStatus
+from ..models.audit import AuditAssignment
 from ..models.user import User, UserRole
 from ..utils.audit_trail import log_action
 from .deps import get_current_user, require_admin
@@ -214,14 +215,49 @@ def update_clinic(clinic_id: int, payload: ClinicUpdate, db: Session = Depends(g
     return clinic_out(clinic)
 
 
-@router.delete("/{clinic_id}", status_code=204)
-def delete_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+@router.post("/{clinic_id}/deactivate", status_code=200)
+def deactivate_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Soft delete: hide the clinic from active views while keeping its compliance history."""
     clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
     clinic.is_active = False
     db.commit()
     log_action(db, "clinic.deactivate", user_id=current_user.id, resource_type="clinic", resource_id=clinic_id)
+    db.commit()
+    return clinic_out(clinic)
+
+
+@router.delete("/{clinic_id}", status_code=204)
+def delete_clinic(clinic_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Permanently remove a clinic. Blocked if it has any inspection, corrective action, or
+    audit history — deactivate those clinics instead so compliance records are preserved."""
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id, Clinic.tenant_id == current_user.tenant_id).first()
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    inspection_count = db.query(Inspection).filter(Inspection.clinic_id == clinic_id).count()
+    action_count = db.query(CorrectiveAction).filter(CorrectiveAction.clinic_id == clinic_id).count()
+    audit_count = db.query(AuditAssignment).filter(AuditAssignment.clinic_id == clinic_id).count()
+    if inspection_count or action_count or audit_count:
+        parts = []
+        if inspection_count:
+            parts.append(f"{inspection_count} inspection(s)")
+        if action_count:
+            parts.append(f"{action_count} corrective action(s)")
+        if audit_count:
+            parts.append(f"{audit_count} audit assignment(s)")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete {clinic.name}: it has {', '.join(parts)} on record. "
+                   f"Deactivate it instead to preserve compliance history.",
+        )
+
+    name = clinic.name
+    db.delete(clinic)
+    db.commit()
+    log_action(db, "clinic.delete", user_id=current_user.id, resource_type="clinic", resource_id=clinic_id,
+               details={"name": name})
     db.commit()
 
 

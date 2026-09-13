@@ -4,7 +4,7 @@ import api, { apiError } from '../services/api'
 import type { Clinic, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Link } from 'react-router-dom'
-import { Plus, Edit2, Building2, ExternalLink, Upload, Layers, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Edit2, Trash2, Building2, ExternalLink, Upload, Layers, ChevronDown, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const SERVICE_OPTIONS = ['Urgent Care', 'Primary Care', 'Clinical Research', 'Wellness']
@@ -219,7 +219,9 @@ function CsvImportButton() {
   )
 }
 
-function ClinicCard({ clinic, canEdit, onEdit }: { clinic: Clinic; canEdit: boolean; onEdit: () => void }) {
+function ClinicCard({ clinic, canEdit, onEdit, onDelete }: {
+  clinic: Clinic; canEdit: boolean; onEdit: () => void; onDelete: () => void
+}) {
   return (
     <div className="card hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
@@ -236,9 +238,14 @@ function ClinicCard({ clinic, canEdit, onEdit }: { clinic: Clinic; canEdit: bool
           </div>
         </div>
         {canEdit && (
-          <button className="p-1.5 text-gray-400 hover:text-brand-600 rounded" onClick={onEdit}>
-            <Edit2 size={15} />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button className="p-1.5 text-gray-400 hover:text-brand-600 rounded" onClick={onEdit}>
+              <Edit2 size={15} />
+            </button>
+            <button className="p-1.5 text-gray-400 hover:text-red-600 rounded" onClick={onDelete}>
+              <Trash2 size={15} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -285,6 +292,7 @@ function ClinicCard({ clinic, canEdit, onEdit }: { clinic: Clinic; canEdit: bool
 
 export function ClinicsPage() {
   const { user } = useAuth()
+  const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Clinic | undefined>()
   const [filterDept, setFilterDept] = useState('')
@@ -298,6 +306,21 @@ export function ClinicsPage() {
     queryKey: ['departments'],
     queryFn: () => api.get('/departments').then(r => r.data),
   })
+
+  const deleteClinic = useMutation({
+    mutationFn: (id: number) => api.delete(`/clinics/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clinics'] })
+      toast.success('Clinic deleted')
+    },
+    onError: (e: any) => toast.error(apiError(e, 'Could not delete clinic')),
+  })
+
+  const handleDelete = (clinic: Clinic) => {
+    if (confirm(`Permanently delete ${clinic.name}? This cannot be undone.`)) {
+      deleteClinic.mutate(clinic.id)
+    }
+  }
 
   const all = clinics ?? []
   const isAdmin = user?.role === 'admin'
@@ -405,6 +428,7 @@ export function ClinicsPage() {
                         clinic={clinic}
                         canEdit={!!isAdmin}
                         onEdit={() => { setEditing(clinic); setShowForm(true) }}
+                        onDelete={() => handleDelete(clinic)}
                       />
                     ))}
                   </div>

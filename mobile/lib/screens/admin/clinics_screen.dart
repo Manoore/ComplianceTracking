@@ -263,14 +263,13 @@ class _ClinicsScreenState extends State<ClinicsScreen> {
             ],
             if (canManage) ...[
               const SizedBox(height: 10),
-              Row(children: [
+              Wrap(spacing: 8, runSpacing: 8, children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit_outlined, size: 14),
                   label: const Text('Edit'),
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
                   onPressed: () => _openForm(c),
                 ),
-                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   icon: Icon(c.isActive ? Icons.block_outlined : Icons.check_circle_outline, size: 14, color: c.isActive ? kDanger : kSuccess),
                   label: Text(c.isActive ? 'Deactivate' : 'Activate', style: TextStyle(color: c.isActive ? kDanger : kSuccess)),
@@ -280,6 +279,16 @@ class _ClinicsScreenState extends State<ClinicsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   ),
                   onPressed: () => _toggleActive(c),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 14, color: kDanger),
+                  label: const Text('Delete', style: TextStyle(color: kDanger)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kDanger),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  ),
+                  onPressed: () => _deleteClinic(c),
                 ),
               ]),
             ],
@@ -329,6 +338,31 @@ class _ClinicsScreenState extends State<ClinicsScreen> {
       _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(c.isActive ? '${c.name} deactivated' : '${c.name} activated'), backgroundColor: kSuccess));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
+  }
+
+  Future<void> _deleteClinic(Clinic c) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Clinic?'),
+        content: Text('Permanently delete ${c.name}? This cannot be undone. '
+            'Clinics with inspection or audit history can\'t be deleted — deactivate those instead.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: kDanger))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().delete('/clinics/${c.id}');
+      _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${c.name} deleted'), backgroundColor: kSuccess));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
     }
