@@ -7,10 +7,13 @@ class Clinic {
   final List<String> services;
   final bool isActive;
   final double? complianceScore;
+  final int? departmentId;
+  final String? departmentName;
   Clinic({
     required this.id, required this.name, this.address, this.city, this.state, this.zipCode,
     this.region, this.phone, this.email, this.website, this.notes, this.licenseNumber,
     this.clinicType, this.services = const [], required this.isActive, this.complianceScore,
+    this.departmentId, this.departmentName,
   });
   factory Clinic.fromJson(Map<String, dynamic> j) => Clinic(
         id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '',
@@ -19,6 +22,7 @@ class Clinic {
         notes: j['notes'], licenseNumber: j['license_number'], clinicType: j['clinic_type'],
         services: (j['services'] as List?)?.map((e) => e.toString()).toList() ?? const [],
         isActive: j['is_active'] ?? true, complianceScore: (j['compliance_score'] as num?)?.toDouble(),
+        departmentId: (j['department_id'] as num?)?.toInt(), departmentName: j['department_name'],
       );
 
   /// "205 W Bagley Rd, Berea, OH 44017"
@@ -69,8 +73,13 @@ class ChecklistItem {
 class ChecklistTemplate {
   final int id;
   final String name;
-  ChecklistTemplate({required this.id, required this.name});
-  factory ChecklistTemplate.fromJson(Map<String, dynamic> j) => ChecklistTemplate(id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '');
+  final int? departmentId;
+  final String? departmentName;
+  ChecklistTemplate({required this.id, required this.name, this.departmentId, this.departmentName});
+  factory ChecklistTemplate.fromJson(Map<String, dynamic> j) => ChecklistTemplate(
+        id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '',
+        departmentId: (j['department_id'] as num?)?.toInt(), departmentName: j['department_name'],
+      );
 }
 
 class Audit {

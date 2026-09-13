@@ -35,6 +35,7 @@ class ChecklistTemplate(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -47,6 +48,7 @@ class ChecklistTemplate(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     creator = relationship("User", foreign_keys=[created_by])
+    department = relationship("Department", foreign_keys=[department_id])
     sections = relationship("ChecklistSection", back_populates="template",
                             cascade="all, delete-orphan", order_by="ChecklistSection.order_index")
     items = relationship("ChecklistItem", back_populates="template",

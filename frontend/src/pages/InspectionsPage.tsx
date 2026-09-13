@@ -19,6 +19,13 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
   const [templateId, setTemplateId] = useState('')
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null)
 
+  const selectedClinic = (clinics ?? []).find(c => c.id.toString() === clinicId)
+  // A clinic's own department's templates, plus department-less templates that apply everywhere.
+  // A clinic with no department assigned sees every template.
+  const availableTemplates = (templates ?? []).filter(t =>
+    !selectedClinic?.department_id || !t.department_id || t.department_id === selectedClinic.department_id
+  )
+
   const [gpsLoading, setGpsLoading] = useState(false)
 
   const captureGPS = () => {
@@ -74,7 +81,8 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 space-y-4">
           <div>
             <label className="label">Clinic *</label>
-            <select required className="input" value={clinicId} onChange={e => setClinicId(e.target.value)}>
+            <select required className="input" value={clinicId}
+              onChange={e => { setClinicId(e.target.value); setTemplateId('') }}>
               <option value="">Select clinic…</option>
               {(clinics ?? []).filter(c => c.is_active).map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -83,12 +91,18 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <label className="label">Checklist Template *</label>
-            <select required className="input" value={templateId} onChange={e => setTemplateId(e.target.value)}>
-              <option value="">Select template…</option>
-              {(templates ?? []).map(t => (
+            <select required className="input" value={templateId} onChange={e => setTemplateId(e.target.value)}
+              disabled={!clinicId}>
+              <option value="">{clinicId ? 'Select template…' : 'Select a clinic first…'}</option>
+              {availableTemplates.map(t => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
+            {clinicId && availableTemplates.length === 0 && (
+              <p className="text-xs text-red-500 mt-1">
+                No templates available for this clinic's department yet.
+              </p>
+            )}
           </div>
           <button type="button" className="btn-secondary w-full justify-center" onClick={captureGPS} disabled={gpsLoading}>
             <MapPin size={15} />

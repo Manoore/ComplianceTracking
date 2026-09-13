@@ -56,6 +56,22 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
 
   void _showErr(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: kDanger));
 
+  Clinic? get _selectedClinic {
+    if (_clinicId == null) return null;
+    for (final c in _clinics) {
+      if (c.id == _clinicId) return c;
+    }
+    return null;
+  }
+
+  /// Templates for the clinic's own department, plus department-less templates
+  /// that apply everywhere. A clinic with no department sees every template.
+  List<ChecklistTemplate> get _availableTemplates {
+    final deptId = _selectedClinic?.departmentId;
+    if (deptId == null) return _templates;
+    return _templates.where((t) => t.departmentId == null || t.departmentId == deptId).toList();
+  }
+
   Future<void> _submit() async {
     if (_clinicId == null || _templateId == null) return;
     setState(() => _submitting = true);
@@ -86,17 +102,24 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
             decoration: const InputDecoration(hintText: 'Choose a clinic…'),
             initialValue: _clinicId,
             items: _clinics.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-            onChanged: (v) => setState(() => _clinicId = v),
+            onChanged: (v) => setState(() { _clinicId = v; _templateId = null; }),
           ),
           const SizedBox(height: 20),
           const Text('Checklist Template', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            decoration: const InputDecoration(hintText: 'Choose a template…'),
+            key: ValueKey(_clinicId),
+            decoration: InputDecoration(hintText: _clinicId == null ? 'Choose a clinic first…' : 'Choose a template…'),
             initialValue: _templateId,
-            items: _templates.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
-            onChanged: (v) => setState(() => _templateId = v),
+            items: _availableTemplates.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
+            onChanged: _clinicId == null ? null : (v) => setState(() => _templateId = v),
           ),
+          if (_clinicId != null && _availableTemplates.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('No templates available for this clinic\'s department yet.',
+                  style: TextStyle(color: kDanger, fontSize: 12)),
+            ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             icon: _gpsLoading

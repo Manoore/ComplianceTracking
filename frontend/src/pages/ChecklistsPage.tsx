@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
-import type { ChecklistTemplate, AccreditationStandard } from '../types'
+import type { ChecklistTemplate, AccreditationStandard, Department } from '../types'
 import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
@@ -269,7 +269,9 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([emptyItem(0)])
+  const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
 
   const mutation = useMutation({
     mutationFn: (data: any) => api.post('/checklists', data),
@@ -297,6 +299,13 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
             <label className="label">Description</label>
             <textarea rows={2} className="input" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
+          <div>
+            <label className="label">Department</label>
+            <select className="input" value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
+              <option value="">— None (applies to all departments) —</option>
+              {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -314,7 +323,11 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
 
           <div className="flex gap-3 pt-2">
             <button className="btn-primary" disabled={!name || mutation.isPending}
-              onClick={() => mutation.mutate({ name, description, items: items.filter(i => i.question).map(buildItemPayload) })}>
+              onClick={() => mutation.mutate({
+                name, description,
+                department_id: departmentId ? parseInt(departmentId) : null,
+                items: items.filter(i => i.question).map(buildItemPayload),
+              })}>
               {mutation.isPending ? 'Creating…' : 'Create Template'}
             </button>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
@@ -329,6 +342,8 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
   const qc = useQueryClient()
   const [name, setName] = useState(template.name)
   const [description, setDescription] = useState(template.description ?? '')
+  const [departmentId, setDepartmentId] = useState(template.department_id?.toString() ?? '')
+  const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
   const [items, setItems] = useState<ItemDraft[]>(
     template.items.map(i => ({
       id: i.id,
@@ -373,6 +388,13 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
             <label className="label">Description</label>
             <textarea rows={2} className="input" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
+          <div>
+            <label className="label">Department</label>
+            <select className="input" value={departmentId} onChange={e => setDepartmentId(e.target.value)}>
+              <option value="">— None (applies to all departments) —</option>
+              {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -390,7 +412,11 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
 
           <div className="flex gap-3 pt-2">
             <button className="btn-primary" disabled={!name || mutation.isPending}
-              onClick={() => mutation.mutate({ name, description, items: items.filter(i => i.question).map(buildItemPayload) })}>
+              onClick={() => mutation.mutate({
+                name, description,
+                department_id: departmentId ? parseInt(departmentId) : null,
+                items: items.filter(i => i.question).map(buildItemPayload),
+              })}>
               {mutation.isPending ? 'Saving…' : 'Save Changes'}
             </button>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
@@ -527,10 +553,16 @@ export function ChecklistsPage() {
   const [showImport, setShowImport] = useState(false)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [editTemplate, setEditTemplate] = useState<ChecklistTemplate | null>(null)
+  const [filterDept, setFilterDept] = useState('')
   const { data: templates, isLoading } = useQuery<ChecklistTemplate[]>({
     queryKey: ['checklists'],
     queryFn: () => api.get('/checklists').then(r => r.data),
   })
+  const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
+
+  const visibleTemplates = filterDept
+    ? (templates ?? []).filter(t => t.department_id?.toString() === filterDept)
+    : (templates ?? [])
 
   const cloneTemplate = useMutation({
     mutationFn: (id: number) => api.post(`/checklists/${id}/clone`),
@@ -555,6 +587,12 @@ export function ChecklistsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Templates</h1>
         <div className="flex gap-2">
+          {(departments ?? []).length > 0 && (
+            <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
+              <option value="">All Departments</option>
+              {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          )}
           <button className="btn-secondary" onClick={() => setShowPresets(true)}>
             <Library size={15} /> Preset Library
           </button>
@@ -573,7 +611,7 @@ export function ChecklistsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {(templates ?? []).map(t => (
+          {visibleTemplates.map(t => (
             <div key={t.id} className="card p-0 overflow-hidden">
               <div className="flex items-center">
                 <button
@@ -585,6 +623,9 @@ export function ChecklistsPage() {
                       <p className="font-semibold text-gray-900">{t.name}</p>
                       {(t as any).is_preset && (
                         <span className="badge bg-brand-100 text-brand-700 text-xs">Preset</span>
+                      )}
+                      {t.department_name && (
+                        <span className="badge bg-gray-100 text-gray-600 text-xs">{t.department_name}</span>
                       )}
                     </div>
                     {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}
@@ -651,8 +692,10 @@ export function ChecklistsPage() {
               )}
             </div>
           ))}
-          {(templates?.length ?? 0) === 0 && (
-            <p className="text-center py-16 text-gray-400">No templates yet. Create your first checklist or deploy a preset.</p>
+          {visibleTemplates.length === 0 && (
+            <p className="text-center py-16 text-gray-400">
+              {filterDept ? 'No templates in this department' : 'No templates yet. Create your first checklist or deploy a preset.'}
+            </p>
           )}
         </div>
       )}

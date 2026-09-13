@@ -72,6 +72,8 @@ def _apply_migrations():
         "ALTER TABLE clinics ADD COLUMN region VARCHAR",
         "ALTER TABLE clinics ADD COLUMN services JSONB",
         "CREATE INDEX ix_clinics_region ON clinics (region)",
+        "ALTER TABLE checklist_templates ADD COLUMN department_id INTEGER REFERENCES departments(id)",
+        "CREATE INDEX ix_checklist_templates_department_id ON checklist_templates (department_id)",
     ]
     for stmt in stmts:
         with engine.connect() as conn:
