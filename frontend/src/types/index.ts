@@ -335,6 +335,16 @@ export interface DashboardData {
     last_inspection?: string
   }>
   trend: Array<{ month: string; avg_score: number }>
+  risk_breakdown: { low: number; medium: number; high: number; critical: number; unknown: number }
+  audit_summary: {
+    pending: number
+    in_review: number
+    approved: number
+    rejected: number
+    escalated: number
+    total: number
+    approval_rate: number | null
+  }
   recent_inspections: Array<{
     id: number
     clinic_name?: string

@@ -3,8 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
   Building2, BarChart2, Award, ShieldAlert, Layers,
-  ChevronDown, ChevronUp, ClipboardCheck, Eye, X
+  ChevronDown, ChevronUp, ClipboardCheck, Eye, X, ShieldCheck, Users
 } from 'lucide-react'
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell, BarChart, Bar,
+} from 'recharts'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -34,6 +38,14 @@ interface HierarchyRegion {
   missing: number
 }
 
+interface IndividualRollup {
+  name: string
+  total_clinics: number
+  submitted_today: number
+  missing_today: number
+  open_corrective_actions: number
+}
+
 interface HierarchyData {
   scope_label: string
   viewing_as: { id: number; full_name: string; custom_role: string | null; managed_region: string | null } | null
@@ -43,6 +55,30 @@ interface HierarchyData {
   summary: { total_clinics: number; submitted_today: number; missing_today: number }
   missing_clinics: HierarchyClinicRow[]
   regions: HierarchyRegion[]
+  by_individual: IndividualRollup[]
+}
+
+function IndividualCard({ p }: { p: IndividualRollup }) {
+  const allDone = p.missing_today === 0
+  return (
+    <div className={`rounded-xl border p-4 ${allDone ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="font-semibold text-gray-900 text-sm truncate" title={p.name}>{p.name}</p>
+        {allDone
+          ? <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+          : <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />}
+      </div>
+      <p className="text-2xl font-bold text-gray-900 leading-none">
+        {p.submitted_today}<span className="text-sm font-normal text-gray-400">/{p.total_clinics}</span>
+      </p>
+      <p className="text-xs text-gray-400 mt-1 mb-2">clinics submitted today</p>
+      {p.open_corrective_actions > 0 && (
+        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+          {p.open_corrective_actions} open action{p.open_corrective_actions !== 1 ? 's' : ''}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function DailyStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
@@ -159,6 +195,17 @@ function HierarchyDashboard() {
         {data.scope_label} · {summary.submitted_today} of {summary.total_clinics} clinics submitted today's checklist ({pct}%)
       </p>
 
+      {data.by_individual.length > 1 && (
+        <div className="mb-4">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <Users size={12} /> By Clinic Lead
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {data.by_individual.map(p => <IndividualCard key={p.name} p={p} />)}
+          </div>
+        </div>
+      )}
+
       {summary.missing_today > 0 && (
         <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
           <p className="text-sm font-medium text-red-700 mb-2">
@@ -262,31 +309,6 @@ function ScoreBar({ score, label, sub }: { score: number; label: string; sub?: s
   )
 }
 
-function MiniTrendChart({ trend }: { trend: Array<{ month: string; avg_score: number }> }) {
-  if (!trend.length) return null
-  const max = 100
-  const w = 320
-  const h = 80
-  const padX = 8
-  const padY = 8
-  const points = trend.map((t, i) => {
-    const x = padX + (i / (trend.length - 1 || 1)) * (w - padX * 2)
-    const y = padY + (1 - t.avg_score / max) * (h - padY * 2)
-    return [x, y]
-  })
-  const polyline = points.map(([x, y]) => `${x},${y}`).join(' ')
-  const area = `${points[0][0]},${h} ${polyline} ${points[points.length - 1][0]},${h}`
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-20" preserveAspectRatio="none">
-      <polygon points={area} fill="#3b82f620" />
-      <polyline points={polyline} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
-      {points.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={3} fill="#3b82f6" />
-      ))}
-    </svg>
-  )
-}
-
 function StatCard({ label, value, sub, icon: Icon, color = 'text-brand-600', bg = 'bg-brand-50' }: {
   label: string; value: string | number; sub?: string;
   icon: React.ElementType; color?: string; bg?: string
@@ -331,6 +353,17 @@ export function ExecutiveDashboardPage() {
   const s = data?.summary
   const clinics = data?.clinic_scores ?? []
   const trend = data?.trend ?? []
+  const riskBreakdown = data?.risk_breakdown
+  const auditSummary = data?.audit_summary
+  const riskChartData = riskBreakdown
+    ? (['low', 'medium', 'high', 'critical', 'unknown'] as const)
+      .map(k => ({ name: k, value: riskBreakdown[k] }))
+      .filter(d => d.value > 0)
+    : []
+  const auditChartData = auditSummary
+    ? (['pending', 'in_review', 'approved', 'rejected', 'escalated'] as const)
+      .map(k => ({ name: k.replace('_', ' '), value: auditSummary[k as keyof typeof auditSummary] as number }))
+    : []
 
   const highRisk = clinics.filter(c => c.risk_level === 'high' || c.risk_level === 'critical')
 
@@ -384,12 +417,26 @@ export function ExecutiveDashboardPage() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-1">6-Month Compliance Trend</h2>
           <p className="text-xs text-gray-400 mb-3">Average score across all submitted inspections</p>
-          <MiniTrendChart trend={trend} />
-          <div className="flex justify-between mt-1">
-            {trend.map(t => (
-              <span key={t.month} className="text-xs text-gray-400">{t.month}</span>
-            ))}
-          </div>
+          {trend.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-16">No inspection data yet</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={trend} margin={{ left: -20, right: 10 }}>
+                <defs>
+                  <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => [`${v}%`, 'Avg score']} />
+                <Area type="monotone" dataKey="avg_score" stroke="#2563eb" strokeWidth={2}
+                      fill="url(#trendFill)" dot={{ r: 3 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* High risk clinics */}
@@ -418,6 +465,74 @@ export function ExecutiveDashboardPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Risk breakdown */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <ShieldAlert size={16} className="text-brand-600" /> Clinics by Risk Level
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">Based on each clinic's most recent inspection</p>
+          {riskChartData.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-16">No inspection data yet</p>
+          ) : (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width="55%" height={180}>
+                <PieChart>
+                  <Pie data={riskChartData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                    {riskChartData.map(d => <Cell key={d.name} fill={RISK_COLOR[d.name] ?? RISK_COLOR.unknown} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number, n: string) => [`${v} clinic${v !== 1 ? 's' : ''}`, n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 flex-1">
+                {riskChartData.map(d => (
+                  <div key={d.name} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 capitalize text-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: RISK_COLOR[d.name] ?? RISK_COLOR.unknown }} />
+                      {d.name}
+                    </span>
+                    <span className="font-semibold text-gray-800">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Audit pipeline */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <ShieldCheck size={16} className="text-brand-600" /> Audit Pipeline
+            </h2>
+            {auditSummary?.approval_rate != null && (
+              <span className="text-xs font-medium text-gray-500">{auditSummary.approval_rate}% approval rate</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mb-3">Every audit review, by current status</p>
+          {!auditSummary || auditSummary.total === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-16">No audits submitted yet</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={auditChartData} layout="vertical" margin={{ left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} className="capitalize" />
+                <Tooltip formatter={(v: number) => [`${v}`, 'Reviews']} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {auditChartData.map(d => (
+                    <Cell key={d.name} fill={
+                      d.name === 'approved' ? '#22c55e' : d.name === 'rejected' ? '#ef4444'
+                      : d.name === 'escalated' ? '#f97316' : '#94a3b8'
+                    } />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
       </div>

@@ -9,6 +9,7 @@ from ..database import get_db
 from ..models.inspection import Inspection, InspectionStatus
 from ..models.corrective_action import CorrectiveAction, ActionStatus
 from ..models.certification import TeamCertification, CertStatus
+from ..models.audit import AuditReview, AuditStatus
 from ..models.clinic import Clinic
 from ..models.user import User, UserRole
 from .deps import get_current_user, require_admin_or_auditor
@@ -143,6 +144,23 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
         for r, rows in sorted(regions.items(), key=lambda kv: (kv[0] == "Unassigned", kv[0]))
     ]
 
+    # One card per Clinic Lead (grouped from the same rows above — no extra queries),
+    # so it's obvious at a glance whose clinics are behind, not just which clinics.
+    leads: dict = {}
+    for row in clinic_rows:
+        key = row["manager_name"] or "Unassigned"
+        entry = leads.setdefault(key, {
+            "name": key, "total_clinics": 0, "submitted_today": 0,
+            "missing_today": 0, "open_corrective_actions": 0,
+        })
+        entry["total_clinics"] += 1
+        if row["status"] == "submitted":
+            entry["submitted_today"] += 1
+        elif row["status"] == "missing":
+            entry["missing_today"] += 1
+        entry["open_corrective_actions"] += row["open_corrective_actions"]
+    by_individual = sorted(leads.values(), key=lambda x: (-x["missing_today"], x["name"]))
+
     return {
         "scope_label": scope_label,
         "viewing_as": viewing_as,
@@ -156,6 +174,7 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
         },
         "missing_clinics": missing,
         "regions": region_summaries,
+        "by_individual": by_individual,
     }
 
 
@@ -192,6 +211,21 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         TeamCertification.expires_at <= now + timedelta(days=30),
         TeamCertification.expires_at > now,
     ).count()
+
+    q_audits = db.query(AuditReview)
+    if current_user.role == UserRole.manager:
+        managed_ids = db.query(Clinic.id).filter(Clinic.manager_id == current_user.id).subquery()
+        q_audits = q_audits.join(Inspection, AuditReview.inspection_id == Inspection.id).filter(
+            Inspection.clinic_id.in_(managed_ids))
+    elif current_user.role == UserRole.auditor:
+        q_audits = q_audits.filter(AuditReview.auditor_id == current_user.id)
+    audit_counts = {s.value: q_audits.filter(AuditReview.status == s).count() for s in AuditStatus}
+    audit_decided = audit_counts["approved"] + audit_counts["rejected"]
+    audit_summary = {
+        **audit_counts,
+        "total": sum(audit_counts.values()),
+        "approval_rate": round(audit_counts["approved"] / audit_decided * 100, 1) if audit_decided else None,
+    }
 
     # Clinics by risk level
     clinics = db.query(Clinic).filter(Clinic.is_active == True).all()
@@ -240,6 +274,7 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         "risk_breakdown": risk_breakdown,
         "clinic_scores": clinic_scores,
         "trend": trend,
+        "audit_summary": audit_summary,
         "recent_inspections": [
             {
                 "id": i.id,
