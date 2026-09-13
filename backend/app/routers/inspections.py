@@ -63,7 +63,8 @@ def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
     return False
 
 
-def inspection_out(insp: Inspection) -> dict:
+def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dict:
+    can_review = current_user is not None and _can_countersign(current_user, insp.clinic)
     return {
         "id": insp.id,
         "clinic_id": insp.clinic_id,
@@ -92,6 +93,8 @@ def inspection_out(insp: Inspection) -> dict:
                 "is_critical": i.checklist_item.is_critical if i.checklist_item else False,
                 "item_type": i.checklist_item.item_type.value if i.checklist_item and i.checklist_item.item_type else "pass_fail_na",
                 "type_config": i.checklist_item.type_config if i.checklist_item else None,
+                "reviewer_only": bool(i.checklist_item.reviewer_only) if i.checklist_item else False,
+                "can_reviewer_sign": can_review,
                 "result": i.result.value if i.result else None,
                 "notes": i.notes,
                 "text_value": i.text_value,
@@ -140,7 +143,7 @@ def list_inspections(db: Session = Depends(get_db), current_user: User = Depends
             ChecklistTemplate.frequency == frequency,
         ).subquery()
         q = q.filter(Inspection.template_id.in_(template_ids))
-    return [inspection_out(i) for i in q.order_by(Inspection.created_at.desc()).limit(200).all()]
+    return [inspection_out(i, current_user) for i in q.order_by(Inspection.created_at.desc()).limit(200).all()]
 
 
 @router.post("/", status_code=201)
@@ -171,7 +174,7 @@ def create_inspection(payload: InspectionCreate, db: Session = Depends(get_db),
     db.refresh(insp)
     log_action(db, "inspection.create", user_id=current_user.id, resource_type="inspection", resource_id=insp.id)
     db.commit()
-    return inspection_out(insp)
+    return inspection_out(insp, current_user)
 
 
 @router.get("/{inspection_id}")
@@ -179,7 +182,7 @@ def get_inspection(inspection_id: int, db: Session = Depends(get_db), current_us
     insp = db.query(Inspection).filter(Inspection.tenant_id == current_user.tenant_id,Inspection.id == inspection_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
-    return inspection_out(insp)
+    return inspection_out(insp, current_user)
 
 
 @router.delete("/{inspection_id}", status_code=204)
@@ -223,6 +226,9 @@ def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
         raise HTTPException(status_code=404, detail="Item not found")
 
     ci = item.checklist_item
+    if ci and ci.reviewer_only:
+        raise HTTPException(status_code=403, detail="This item is completed by your Clinic Lead or "
+                                                     "Regional Manager after you submit the checklist")
     item_type = ci.item_type.value if ci and ci.item_type else "pass_fail_na"
 
     if item_type == "numeric_range" and payload.numeric_value is not None:
@@ -296,19 +302,36 @@ async def upload_photo(inspection_id: int, item_id: int,
 def second_sign(inspection_id: int, item_id: int, payload: SecondSignPayload,
                 db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
-    if not insp or insp.status not in [InspectionStatus.draft, InspectionStatus.in_progress]:
-        raise HTTPException(status_code=400, detail="Inspection not editable")
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspection not found")
     item = db.query(InspectionItem).filter(
         InspectionItem.id == item_id, InspectionItem.inspection_id == inspection_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if not item.text_value:
-        raise HTTPException(status_code=400, detail="First signature required before second sign-off")
+
+    ci = item.checklist_item
+    is_reviewer_only = bool(ci and ci.reviewer_only)
+
+    if is_reviewer_only:
+        # This is the reviewer's own, only signature -- the MA never signs it (update_item
+        # blocks that), so it only makes sense once the MA has actually submitted.
+        if insp.status in (InspectionStatus.draft, InspectionStatus.in_progress):
+            raise HTTPException(status_code=400, detail="The MA/PCT must submit this checklist first")
+    else:
+        # Original dual_signoff behavior: a first signature (by the inspector) must
+        # already exist, and this all happens before submission.
+        if insp.status not in (InspectionStatus.draft, InspectionStatus.in_progress):
+            raise HTTPException(status_code=400, detail="Inspection not editable")
+        if not item.text_value:
+            raise HTTPException(status_code=400, detail="First signature required before second sign-off")
+
     if item.second_signer_id == current_user.id or insp.inspector_id == current_user.id:
         raise HTTPException(status_code=400, detail="Second signer must be a different user")
     if not _can_countersign(current_user, insp.clinic):
         raise HTTPException(status_code=403, detail="Only this clinic's Lead, Regional Manager, "
                                                      "Director of Operations, or an Admin can countersign")
+    if is_reviewer_only:
+        item.text_value = payload.signature
     item.second_signer_id = current_user.id
     item.second_signed_at = datetime.utcnow()
     item.second_signature = payload.signature
@@ -418,4 +441,4 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks,
     except Exception:
         pass
 
-    return inspection_out(insp)
+    return inspection_out(insp, current_user)

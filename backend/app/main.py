@@ -76,6 +76,7 @@ def _apply_migrations():
         "CREATE INDEX ix_checklist_templates_department_id ON checklist_templates (department_id)",
         "ALTER TABLE checklist_templates ADD COLUMN frequency VARCHAR",
         "ALTER TABLE users ADD COLUMN managed_region VARCHAR",
+        "ALTER TABLE checklist_items ADD COLUMN reviewer_only BOOLEAN DEFAULT FALSE",
     ]
     for stmt in stmts:
         with engine.connect() as conn:

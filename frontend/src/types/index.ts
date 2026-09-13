@@ -104,6 +104,8 @@ export interface InspectionItem {
   is_critical: boolean
   item_type: ItemType
   type_config?: TypeConfig
+  reviewer_only?: boolean
+  can_reviewer_sign?: boolean
   result: 'pass' | 'fail' | 'na' | 'pending' | null
   notes?: string
   text_value?: string

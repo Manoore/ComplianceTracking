@@ -62,7 +62,7 @@ function ItemInput({ item, inspId, isEditable }: { item: InspectionItem; inspId:
 
   const secondSign = useMutation({
     mutationFn: (body: object) => api.post(`/inspections/${inspId}/items/${item.id}/second-sign`, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['inspection', inspId] }); toast.success('Second sign-off recorded') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['inspection', inspId] }); toast.success(item.reviewer_only ? 'Review recorded' : 'Second sign-off recorded') },
     onError: (e: any) => toast.error(apiError(e)),
   })
 
@@ -86,6 +86,32 @@ function ItemInput({ item, inspId, isEditable }: { item: InspectionItem; inspId:
 
   const cfg = item.type_config ?? {}
   const type = item.item_type ?? 'pass_fail_na'
+
+  // Reviewer-only item: the MA never fills this in (regardless of isEditable, which is
+  // about the MA's own fill-out window) -- it's the assigned Clinic Lead / Regional
+  // Manager's action, and only once the checklist has been submitted.
+  if (item.reviewer_only) {
+    if (item.second_signer_id) {
+      return (
+        <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+          <Users size={14} /> Reviewed by {item.second_signer_name}
+        </div>
+      )
+    }
+    if (item.can_reviewer_sign) {
+      return (
+        <button onClick={() => secondSign.mutate({ signature: `signed:${user?.id}:${new Date().toISOString()}` })}
+          className="mt-2 flex items-center gap-2 btn-primary text-sm" disabled={secondSign.isPending}>
+          <PenLine size={14} /> Tap to Sign
+        </button>
+      )
+    }
+    return (
+      <p className="mt-2 text-xs text-gray-400 italic flex items-center gap-1.5">
+        <Users size={12} /> Reviewed by your Clinic Lead or Regional Manager after you submit
+      </p>
+    )
+  }
 
   if (!isEditable) {
     // Read-only display
@@ -394,8 +420,11 @@ export function InspectionDetailPage() {
   const isEditable = (insp.status === 'in_progress' || insp.status === 'draft') &&
     (insp.inspector_id === user?.id || user?.role === 'admin')
 
-  const answered = insp.items.filter(i => i.result && i.result !== 'pending').length
-  const total = insp.items.length
+  // Reviewer-only items aren't the MA's to answer -- they shouldn't count against
+  // "items not yet answered" or the progress bar the MA sees.
+  const answerableItems = insp.items.filter(i => !i.reviewer_only)
+  const answered = answerableItems.filter(i => i.result && i.result !== 'pending').length
+  const total = answerableItems.length
   const failedCount = insp.items.filter(i => i.result === 'fail').length
 
   const grouped = insp.items.reduce((acc, item) => {
@@ -479,7 +508,7 @@ export function InspectionDetailPage() {
                       )}
 
                       {/* Notes */}
-                      {isEditable && (
+                      {isEditable && !item.reviewer_only && (
                         <div className="mt-2">
                           <input className="input text-xs" placeholder="Add notes…"
                             value={notes[item.id] ?? item.notes ?? ''}

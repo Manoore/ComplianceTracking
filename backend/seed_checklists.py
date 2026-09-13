@@ -33,10 +33,9 @@ from app.models.inspection import InspectionItem
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 
-# (question, item_type, category, is_critical, description, type_config)
+# (question, item_type, category, is_critical, description, type_config[, reviewer_only])
 _P = ItemType.pass_fail_na
 _SIG = ItemType.signature
-_DUAL = ItemType.dual_signoff  # requires the MA's signature, then a second sign-off by the reviewer
 _NUM = ItemType.numeric_range
 
 DAILY = [
@@ -60,8 +59,9 @@ DAILY = [
     ("Oxygen Tanks and AED Checked", _P, ItemCategory.equipment, True, None, None),
     ("Eye Wash Station Checked", _P, ItemCategory.safety, False,
      "Required weekly rather than daily.", None),
-    ("Regional Manager / Clinic Lead Review", _DUAL, ItemCategory.staff, False,
-     "MA/PCT signs first; the Regional Manager or Clinic Lead must review and countersign before this checklist counts as complete.", None),
+    ("Regional Manager / Clinic Lead Review", _SIG, ItemCategory.staff, False,
+     "Completed by the assigned Clinic Lead or Regional Manager after the MA/PCT submits this checklist -- not something the MA fills in.",
+     None, True),  # reviewer_only
 ]
 
 MONTHLY = [
@@ -88,8 +88,9 @@ MONTHLY = [
      "To be completed each week.", None),
     ("Sharps and Biohazard Bins Checked for Overflow", _P, ItemCategory.safety, True, None, None),
     ("Mock Emergency Response Check List", _P, ItemCategory.safety, False, None, None),
-    ("Regional Manager / Clinic Lead Review", _DUAL, ItemCategory.staff, False,
-     "MA/PCT signs first; the Regional Manager or Clinic Lead must review and countersign before this checklist counts as complete.", None),
+    ("Regional Manager / Clinic Lead Review", _SIG, ItemCategory.staff, False,
+     "Completed by the assigned Clinic Lead or Regional Manager after the MA/PCT submits this checklist -- not something the MA fills in.",
+     None, True),  # reviewer_only
 ]
 
 TEMPLATES = [
@@ -127,18 +128,18 @@ def build_items(template_id, rows):
     return [
         ChecklistItem(
             template_id=template_id,
-            question=question,
-            item_type=item_type,
-            category=category,
-            is_critical=is_critical,
-            description=description,
-            type_config=type_config,
+            question=row[0],
+            item_type=row[1],
+            category=row[2],
+            is_critical=row[3],
+            description=row[4],
+            type_config=row[5],
+            reviewer_only=row[6] if len(row) > 6 else False,
             is_required=True,
             weight=1.0,
             order_index=i,
         )
-        for i, (question, item_type, category, is_critical, description, type_config)
-        in enumerate(rows)
+        for i, row in enumerate(rows)
     ]
 
 

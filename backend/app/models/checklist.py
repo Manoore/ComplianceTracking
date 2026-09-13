@@ -95,6 +95,11 @@ class ChecklistItem(Base):
     # Accreditation standard tags: ["OSHA", "HIPAA", "AAAHC"]
     standard_tags = Column(JSON, nullable=True)
     order_index = Column(Integer, default=0)
+    # True for an item only the assigned Clinic Lead / Regional Manager / Director of
+    # Operations / Admin may complete -- the inspector never sees an editable control for
+    # it, and it can only be signed once the inspection has been submitted, not during
+    # fill-out.
+    reviewer_only = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     template = relationship("ChecklistTemplate", back_populates="items")
