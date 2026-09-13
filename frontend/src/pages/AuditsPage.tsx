@@ -5,7 +5,7 @@ import type { AuditReview, Inspection } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
-import { FileText, CheckCircle, XCircle, Download } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, Download, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => void }) {
@@ -125,6 +125,22 @@ export function AuditsPage() {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
+  const deleteReview = useMutation({
+    mutationFn: (id: number) => api.delete(`/audits/reviews/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['audit-reviews'] })
+      qc.invalidateQueries({ queryKey: ['submitted-inspections'] })
+      toast.success('Review cancelled')
+    },
+    onError: (e: any) => toast.error(apiError(e, 'Could not cancel review')),
+  })
+
+  const handleDeleteReview = (r: AuditReview) => {
+    if (confirm('Cancel this review? The inspection will go back to "submitted", awaiting review.')) {
+      deleteReview.mutate(r.id)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Audits</h1>
@@ -188,10 +204,19 @@ export function AuditsPage() {
                       {r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString() : '—'}
                     </td>
                     <td className="py-3 px-4">
-                      <button className="p-1.5 hover:bg-brand-50 rounded text-brand-600"
-                        onClick={() => setSelected(r)}>
-                        <FileText size={16} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button className="p-1.5 hover:bg-brand-50 rounded text-brand-600"
+                          onClick={() => setSelected(r)}>
+                          <FileText size={16} />
+                        </button>
+                        {r.status === 'pending' && (
+                          <button className="p-1.5 hover:bg-red-50 rounded text-red-500"
+                            title="Cancel review"
+                            onClick={() => handleDeleteReview(r)}>
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

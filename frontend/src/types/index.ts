@@ -70,9 +70,11 @@ export interface ChecklistItem {
 
 export interface ChecklistTemplate {
   id: number
+  tenant_id?: number | null
   name: string
   description?: string
   is_active: boolean
+  is_preset?: boolean
   created_by: number
   items: ChecklistItem[]
   created_at?: string

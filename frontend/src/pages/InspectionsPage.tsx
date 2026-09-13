@@ -6,7 +6,7 @@ import type { Inspection, Clinic, ChecklistTemplate, Department } from '../types
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
-import { Plus, ChevronRight, MapPin } from 'lucide-react'
+import { Plus, ChevronRight, MapPin, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function NewInspectionModal({ onClose }: { onClose: () => void }) {
@@ -123,6 +123,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
 
 export function InspectionsPage() {
   const { user } = useAuth()
+  const qc = useQueryClient()
   const [showNew, setShowNew] = useState(false)
   const [filterDept, setFilterDept] = useState('')
   const navigate = useNavigate()
@@ -147,6 +148,19 @@ export function InspectionsPage() {
 
   const pending = visible.filter(i => i.status === 'in_progress' || i.status === 'draft')
   const completed = visible.filter(i => i.status === 'submitted' || i.status === 'reviewed')
+
+  const deleteInspection = useMutation({
+    mutationFn: (id: number) => api.delete(`/inspections/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['inspections'] }); toast.success('Inspection deleted') },
+    onError: (e: any) => toast.error(apiError(e, 'Could not delete inspection')),
+  })
+
+  const handleDelete = (e: React.MouseEvent, insp: Inspection) => {
+    e.stopPropagation()
+    if (confirm(`Delete this inspection at ${insp.clinic_name}? This cannot be undone.`)) {
+      deleteInspection.mutate(insp.id)
+    }
+  }
 
   if (isInspector) {
     return (
@@ -181,6 +195,13 @@ export function InspectionsPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {statusBadge(insp.status)}
+                        <button
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                          title="Delete inspection"
+                          onClick={(e) => handleDelete(e, insp)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                         <ChevronRight size={18} className="text-gray-400" />
                       </div>
                     </div>
@@ -293,7 +314,17 @@ export function InspectionsPage() {
                       ? new Date(insp.submitted_at).toLocaleDateString()
                       : new Date(insp.created_at!).toLocaleDateString()}
                   </td>
-                  <td className="py-3 px-4 text-gray-400"><ChevronRight size={16} /></td>
+                  <td className="py-3 px-4 text-gray-400" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      {(insp.status === 'in_progress' || insp.status === 'draft') && (
+                        <button className="hover:text-red-600" title="Delete inspection"
+                          onClick={(e) => handleDelete(e, insp)}>
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      <ChevronRight size={16} />
+                    </div>
+                  </td>
                 </tr>
               ))}
               {visible.length === 0 && (

@@ -536,6 +536,18 @@ export function ChecklistsPage() {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
+  const deleteTemplate = useMutation({
+    mutationFn: (id: number) => api.delete(`/checklists/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template deleted') },
+    onError: (e: any) => toast.error(apiError(e, 'Could not delete template')),
+  })
+
+  const handleDelete = (t: ChecklistTemplate) => {
+    if (confirm(`Permanently delete "${t.name}"? This cannot be undone.`)) {
+      deleteTemplate.mutate(t.id)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -578,13 +590,15 @@ export function ChecklistsPage() {
                   </div>
                   {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                 </button>
-                <button
-                  className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
-                  title="Edit template"
-                  onClick={() => setEditTemplate(t)}
-                >
-                  <Pencil size={16} />
-                </button>
+                {t.tenant_id != null && (
+                  <button
+                    className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
+                    title="Edit template"
+                    onClick={() => setEditTemplate(t)}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                )}
                 <button
                   className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
                   title="Clone template"
@@ -593,6 +607,15 @@ export function ChecklistsPage() {
                 >
                   <Copy size={16} />
                 </button>
+                {t.tenant_id != null && (
+                  <button
+                    className="p-4 text-gray-400 hover:text-red-600 hover:bg-gray-50 transition-colors"
+                    title="Delete template"
+                    onClick={() => handleDelete(t)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
 
               {expanded === t.id && (

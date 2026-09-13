@@ -4,7 +4,7 @@ import api, { apiError } from '../services/api'
 import type { CorrectiveAction } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge, priorityBadge } from '../components/ui/Badge'
-import { Upload, CheckSquare, X, RefreshCw } from 'lucide-react'
+import { Upload, CheckSquare, X, RefreshCw, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
@@ -150,12 +150,26 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
 }
 
 export function CorrectiveActionsPage() {
+  const qc = useQueryClient()
   const [selected, setSelected] = useState<CorrectiveAction | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const { data: actions, isLoading } = useQuery<CorrectiveAction[]>({
     queryKey: ['corrective-actions', filterStatus],
     queryFn: () => api.get(`/corrective-actions${filterStatus ? `?status=${filterStatus}` : ''}`).then(r => r.data),
   })
+
+  const deleteAction = useMutation({
+    mutationFn: (id: number) => api.delete(`/corrective-actions/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['corrective-actions'] }); toast.success('Action deleted') },
+    onError: (e: any) => toast.error(apiError(e, 'Could not delete action')),
+  })
+
+  const handleDelete = (e: React.MouseEvent, action: CorrectiveAction) => {
+    e.stopPropagation()
+    if (confirm(`Delete "${action.title}"? This cannot be undone.`)) {
+      deleteAction.mutate(action.id)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -187,7 +201,18 @@ export function CorrectiveActionsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-4">
                   <p className="font-medium text-gray-900 leading-snug">{action.title}</p>
-                  <div className="flex gap-2 flex-shrink-0">{statusBadge(action.status)}</div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {statusBadge(action.status)}
+                    {action.status === 'open' && action.evidence.length === 0 && (
+                      <button
+                        className="p-1 text-gray-400 hover:text-red-600 rounded"
+                        title="Delete action"
+                        onClick={(e) => handleDelete(e, action)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">{action.clinic_name}</p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">

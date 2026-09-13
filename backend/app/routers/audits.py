@@ -146,6 +146,32 @@ def update_review(review_id: int, payload: ReviewPayload,
     return review_out(review)
 
 
+@router.delete("/reviews/{review_id}", status_code=204)
+def delete_review(review_id: int, db: Session = Depends(get_db),
+                  current_user: User = Depends(require_reviewer)):
+    """Cancel a review that hasn't actually been reviewed yet. Once findings are recorded,
+    it's the compliance record for that inspection and must be preserved."""
+    review = db.query(AuditReview).filter(AuditReview.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if current_user.role == UserRole.auditor and review.auditor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if review.status != AuditStatus.pending or review.reviewed_at is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="This review has already recorded findings and is part of the compliance "
+                   "record — it can no longer be deleted.",
+        )
+    insp = review.inspection
+    if insp and insp.status == InspectionStatus.under_review:
+        insp.status = InspectionStatus.submitted
+    db.delete(review)
+    db.commit()
+    log_action(db, "audit.review.delete", user_id=current_user.id,
+               resource_type="audit_review", resource_id=review_id)
+    db.commit()
+
+
 @router.post("/reviews/{review_id}/report")
 def generate_report(review_id: int, background_tasks: BackgroundTasks,
                     db: Session = Depends(get_db),

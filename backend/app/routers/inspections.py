@@ -143,6 +143,30 @@ def get_inspection(inspection_id: int, db: Session = Depends(get_db), current_us
     return inspection_out(insp)
 
 
+@router.delete("/{inspection_id}", status_code=204)
+def delete_inspection(inspection_id: int, db: Session = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
+    """Discard an inspection that hasn't been submitted yet. Once submitted it's a
+    compliance record and must be preserved, so this only works for draft/in-progress ones."""
+    insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    if insp.inspector_id != current_user.id and current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if insp.status not in [InspectionStatus.draft, InspectionStatus.in_progress]:
+        raise HTTPException(
+            status_code=400,
+            detail="This inspection has already been submitted and is part of the compliance "
+                   "record — it can no longer be deleted.",
+        )
+    clinic_name = insp.clinic.name if insp.clinic else None
+    db.delete(insp)
+    db.commit()
+    log_action(db, "inspection.delete", user_id=current_user.id, resource_type="inspection",
+               resource_id=inspection_id, details={"clinic": clinic_name})
+    db.commit()
+
+
 @router.put("/{inspection_id}/items/{item_id}")
 def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
                 db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

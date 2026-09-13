@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
 from ..models.checklist import ChecklistTemplate, ChecklistSection, ChecklistItem, ItemCategory, ItemType
+from ..models.inspection import Inspection
 from ..models.user import User
 from ..utils.audit_trail import log_action
 from .deps import get_current_user, require_admin
@@ -101,6 +102,7 @@ def item_out(i: ChecklistItem) -> dict:
 def template_out(t: ChecklistTemplate) -> dict:
     return {
         "id": t.id,
+        "tenant_id": t.tenant_id,
         "name": t.name,
         "description": t.description,
         "is_active": t.is_active,
@@ -303,6 +305,36 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
     db.commit()
     db.refresh(t)
     return template_out(t)
+
+
+@router.delete("/{template_id}", status_code=204)
+def delete_template(template_id: int, db: Session = Depends(get_db),
+                    current_user: User = Depends(require_admin)):
+    """Permanently remove a template. Blocked if it has ever been used in an inspection —
+    that history must be preserved; deactivate (is_active=false) instead."""
+    t = _owned_template(db, template_id, current_user)
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    inspection_count = db.query(Inspection).filter(Inspection.template_id == template_id).count()
+    if inspection_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete {t.name}: it has been used in {inspection_count} inspection(s). "
+                   f"Deactivate it instead to preserve compliance history.",
+        )
+
+    # Clear "cloned from" lineage on any templates that reference this one, so a source
+    # template doesn't get blocked from deletion by that self-referential foreign key.
+    db.query(ChecklistTemplate).filter(ChecklistTemplate.parent_template_id == template_id).update(
+        {ChecklistTemplate.parent_template_id: None})
+
+    name = t.name
+    db.delete(t)
+    db.commit()
+    log_action(db, "checklist.delete", user_id=current_user.id, resource_type="checklist_template",
+               resource_id=template_id, details={"name": name})
+    db.commit()
 
 
 @router.post("/{template_id}/sections", status_code=201)

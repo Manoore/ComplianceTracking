@@ -199,6 +199,28 @@ async def update_action(action_id: int, payload: ActionUpdate,
     return action_out(action)
 
 
+@router.delete("/{action_id}", status_code=204)
+def delete_action(action_id: int, db: Session = Depends(get_db),
+                  current_user: User = Depends(require_admin_or_auditor)):
+    """Remove a corrective action that hasn't been worked on yet. Once evidence is attached
+    or it has moved past 'open', it's part of the compliance record and must be preserved."""
+    action = db.query(CorrectiveAction).filter(CorrectiveAction.id == action_id).first()
+    if not action:
+        raise HTTPException(status_code=404, detail="Action not found")
+    if action.status != ActionStatus.open or action.evidence:
+        raise HTTPException(
+            status_code=400,
+            detail=f'Cannot delete "{action.title}": it is past the open stage or has evidence '
+                   f"attached. Close it instead to preserve the compliance record.",
+        )
+    title = action.title
+    db.delete(action)
+    db.commit()
+    log_action(db, "corrective_action.delete", user_id=current_user.id,
+               resource_type="corrective_action", resource_id=action_id, details={"title": title})
+    db.commit()
+
+
 @router.post("/{action_id}/verify")
 def verify_action(action_id: int, comment: str = "",
                   db: Session = Depends(get_db),
