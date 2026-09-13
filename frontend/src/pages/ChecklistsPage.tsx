@@ -270,6 +270,7 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [departmentId, setDepartmentId] = useState('')
+  const [frequency, setFrequency] = useState('')
   const [items, setItems] = useState<ItemDraft[]>([emptyItem(0)])
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
 
@@ -306,6 +307,18 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
+          <div>
+            <label className="label">Frequency</label>
+            <select className="input" value={frequency} onChange={e => setFrequency(e.target.value)}>
+              <option value="">Ad-hoc / one-off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Daily templates are tracked on the hierarchy dashboard for missing submissions.
+            </p>
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -326,6 +339,7 @@ function NewTemplateModal({ onClose }: { onClose: () => void }) {
               onClick={() => mutation.mutate({
                 name, description,
                 department_id: departmentId ? parseInt(departmentId) : null,
+                frequency: frequency || null,
                 items: items.filter(i => i.question).map(buildItemPayload),
               })}>
               {mutation.isPending ? 'Creating…' : 'Create Template'}
@@ -343,6 +357,7 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
   const [name, setName] = useState(template.name)
   const [description, setDescription] = useState(template.description ?? '')
   const [departmentId, setDepartmentId] = useState(template.department_id?.toString() ?? '')
+  const [frequency, setFrequency] = useState(template.frequency ?? '')
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
   const [items, setItems] = useState<ItemDraft[]>(
     template.items.map(i => ({
@@ -395,6 +410,18 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
+          <div>
+            <label className="label">Frequency</label>
+            <select className="input" value={frequency} onChange={e => setFrequency(e.target.value)}>
+              <option value="">Ad-hoc / one-off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              Daily templates are tracked on the hierarchy dashboard for missing submissions.
+            </p>
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -415,6 +442,7 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
               onClick={() => mutation.mutate({
                 name, description,
                 department_id: departmentId ? parseInt(departmentId) : null,
+                frequency: frequency || null,
                 items: items.filter(i => i.question).map(buildItemPayload),
               })}>
               {mutation.isPending ? 'Saving…' : 'Save Changes'}
@@ -626,6 +654,9 @@ export function ChecklistsPage() {
                       )}
                       {t.department_name && (
                         <span className="badge bg-gray-100 text-gray-600 text-xs">{t.department_name}</span>
+                      )}
+                      {t.frequency && (
+                        <span className="badge bg-teal-50 text-teal-600 text-xs capitalize">{t.frequency}</span>
                       )}
                     </div>
                     {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}

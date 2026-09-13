@@ -74,6 +74,8 @@ def _apply_migrations():
         "CREATE INDEX ix_clinics_region ON clinics (region)",
         "ALTER TABLE checklist_templates ADD COLUMN department_id INTEGER REFERENCES departments(id)",
         "CREATE INDEX ix_checklist_templates_department_id ON checklist_templates (department_id)",
+        "ALTER TABLE checklist_templates ADD COLUMN frequency VARCHAR",
+        "ALTER TABLE users ADD COLUMN managed_region VARCHAR",
     ]
     for stmt in stmts:
         with engine.connect() as conn:

@@ -41,6 +41,9 @@ class ChecklistTemplate(Base):
     is_active = Column(Boolean, default=True)
     is_preset = Column(Boolean, default=False)   # system-provided preset
     preset_category = Column(String, nullable=True)  # e.g. "OSHA", "HIPAA"
+    # How often this template is expected to be completed per clinic: "daily", "weekly",
+    # "monthly", or null for ad-hoc/one-off templates. Drives missing-checklist detection.
+    frequency = Column(String, nullable=True)
     version = Column(Integer, default=1)
     parent_template_id = Column(Integer, ForeignKey("checklist_templates.id"), nullable=True)  # cloned from
     created_by = Column(Integer, ForeignKey("users.id"))

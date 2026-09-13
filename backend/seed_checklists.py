@@ -92,11 +92,11 @@ TEMPLATES = [
     ("MA/PCT Daily Check List",
      "Daily checklist for Medical Assistants and Patient Care Technicians. "
      "Initial each item when complete; record the actual medication refrigerator temperature.",
-     DAILY),
+     "daily", DAILY),
     ("MA/PCT Monthly Check List",
      "Monthly checklist for Medical Assistants and Patient Care Technicians. "
      "Initial and date each item when complete.",
-     MONTHLY),
+     "monthly", MONTHLY),
 ]
 
 
@@ -154,7 +154,7 @@ def main():
                  .order_by(User.id).first())
 
         created = updated = skipped = 0
-        for name, description, rows in TEMPLATES:
+        for name, description, frequency, rows in TEMPLATES:
             existing = (db.query(ChecklistTemplate)
                         .filter(ChecklistTemplate.tenant_id == tenant.id,
                                 ChecklistTemplate.name == name)
@@ -165,6 +165,7 @@ def main():
                     print(f"  = {name}: already exists ({len(existing.items)} items)")
                     continue
                 existing.description = description
+                existing.frequency = frequency
                 for item in list(existing.items):
                     db.delete(item)
                 db.flush()
@@ -177,6 +178,7 @@ def main():
                 tenant_id=tenant.id,
                 name=name,
                 description=description,
+                frequency=frequency,
                 is_active=True,
                 is_preset=False,
                 created_by=admin.id if admin else None,

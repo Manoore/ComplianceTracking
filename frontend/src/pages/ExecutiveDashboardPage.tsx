@@ -1,10 +1,159 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
-  Building2, BarChart2, Award, ShieldAlert, Layers
+  Building2, BarChart2, Award, ShieldAlert, Layers,
+  ChevronDown, ChevronUp, ClipboardCheck
 } from 'lucide-react'
 import api from '../services/api'
 import { DashboardData, Department } from '../types'
+
+interface HierarchyClinicRow {
+  clinic_id: number
+  clinic_name: string
+  region: string
+  manager_name: string | null
+  status: 'submitted' | 'missing' | 'no_daily_template'
+  missing_templates: string[]
+  open_corrective_actions: number
+}
+
+interface HierarchyRegion {
+  region: string
+  clinics: HierarchyClinicRow[]
+  total: number
+  submitted: number
+  missing: number
+}
+
+interface HierarchyData {
+  scope_label: string
+  as_of: string
+  has_daily_templates: boolean
+  summary: { total_clinics: number; submitted_today: number; missing_today: number }
+  missing_clinics: HierarchyClinicRow[]
+  regions: HierarchyRegion[]
+}
+
+function DailyStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
+  if (status === 'submitted') {
+    return <span className="badge bg-green-100 text-green-800 text-xs">Submitted</span>
+  }
+  if (status === 'missing') {
+    return <span className="badge bg-red-100 text-red-800 text-xs">Missing</span>
+  }
+  return <span className="badge bg-gray-100 text-gray-500 text-xs">No daily checklist</span>
+}
+
+function HierarchyDashboard() {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { data, isLoading } = useQuery<HierarchyData>({
+    queryKey: ['reports-hierarchy'],
+    queryFn: () => api.get('/reports/hierarchy').then(r => r.data),
+    refetchInterval: 60_000,
+  })
+
+  const toggleRegion = (r: string) => setCollapsed(prev => {
+    const next = new Set(prev)
+    if (next.has(r)) next.delete(r); else next.add(r)
+    return next
+  })
+
+  if (isLoading || !data) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mx-auto" />
+      </div>
+    )
+  }
+
+  if (!data.has_daily_templates) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h2 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
+        </h2>
+        <p className="text-sm text-gray-400">
+          No template is marked as "daily" yet. Set a template's frequency to Daily on the
+          Templates page to start tracking completion here.
+        </p>
+      </div>
+    )
+  }
+
+  const { summary } = data
+  const pct = summary.total_clinics > 0 ? Math.round((summary.submitted_today / summary.total_clinics) * 100) : 0
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
+        </h2>
+        <span className="text-xs text-gray-400">{data.scope_label}</span>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">
+        {summary.submitted_today} of {summary.total_clinics} clinics submitted today's checklist ({pct}%)
+      </p>
+
+      {summary.missing_today > 0 && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+          <p className="text-sm font-medium text-red-700 mb-2">
+            {summary.missing_today} clinic{summary.missing_today !== 1 ? 's' : ''} missing today's checklist
+          </p>
+          <div className="space-y-1">
+            {data.missing_clinics.map(c => (
+              <div key={c.clinic_id} className="flex items-center justify-between text-sm">
+                <span className="text-gray-700">{c.clinic_name} <span className="text-gray-400">· {c.region}</span></span>
+                <span className="text-gray-400 text-xs">{c.manager_name ?? 'No lead assigned'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {data.regions.map(r => {
+          const isCollapsed = collapsed.has(r.region)
+          return (
+            <div key={r.region} className="border border-gray-100 rounded-lg overflow-hidden">
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
+                onClick={() => toggleRegion(r.region)}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                  {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                  {r.region}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {r.submitted}/{r.total} submitted{r.missing > 0 ? ` · ${r.missing} missing` : ''}
+                </span>
+              </button>
+              {!isCollapsed && (
+                <div className="divide-y divide-gray-50">
+                  {r.clinics.map(c => (
+                    <div key={c.clinic_id} className="flex items-center justify-between px-4 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="text-gray-800 truncate">{c.clinic_name}</p>
+                        <p className="text-xs text-gray-400">{c.manager_name ?? 'No lead assigned'}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {c.open_corrective_actions > 0 && (
+                          <span className="text-xs text-orange-600">{c.open_corrective_actions} open action{c.open_corrective_actions !== 1 ? 's' : ''}</span>
+                        )}
+                        <DailyStatusPill status={c.status} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 const RISK_COLOR: Record<string, string> = {
   low: '#22c55e',
@@ -154,6 +303,8 @@ export function ExecutiveDashboardPage() {
           sub={s?.overdue_certifications ? `${s.overdue_certifications} expiring soon` : 'all on track'}
           icon={Award} color="text-purple-600" bg="bg-purple-50" />
       </div>
+
+      <HierarchyDashboard />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Compliance trend */}

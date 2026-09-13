@@ -10,10 +10,120 @@ from ..models.inspection import Inspection, InspectionStatus
 from ..models.corrective_action import CorrectiveAction, ActionStatus
 from ..models.certification import TeamCertification, CertStatus
 from ..models.clinic import Clinic
-from ..models.user import User
+from ..models.user import User, UserRole
 from .deps import get_current_user, require_admin_or_auditor
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+@router.get("/hierarchy")
+def hierarchy_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Rollup of today's daily-checklist completion and open issues, scoped to the
+    viewer's place in the org: a Clinic Lead (manager) sees their own clinics, a
+    Regional Manager sees their region, and Director of Operations / Executive /
+    Admin see every region.
+    """
+    from ..models.checklist import ChecklistTemplate
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    # custom_role is stored as the slugified role name (e.g. "regional_manager"),
+    # matching Role.name — not the human-readable display name.
+    custom_role = (current_user.custom_role or "").strip().lower()
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+
+    if current_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+        scope_label = "All Regions"
+    elif custom_role == "regional_manager" and current_user.managed_region:
+        clinics_q = clinics_q.filter(Clinic.region == current_user.managed_region)
+        scope_label = f"Region: {current_user.managed_region}"
+    elif custom_role == "clinic_lead" or current_user.role == UserRole.manager:
+        clinics_q = clinics_q.filter(Clinic.manager_id == current_user.id)
+        scope_label = "Your Clinics"
+    else:
+        scope_label = "All Regions"
+
+    clinics = clinics_q.order_by(Clinic.region, Clinic.name).all()
+
+    daily_templates = (db.query(ChecklistTemplate)
+                       .filter(ChecklistTemplate.tenant_id == current_user.tenant_id,
+                               ChecklistTemplate.frequency == "daily",
+                               ChecklistTemplate.is_active == True)
+                       .all())
+
+    def applicable_templates(clinic):
+        return [t for t in daily_templates if t.department_id is None or t.department_id == clinic.department_id]
+
+    clinic_rows = []
+    missing = []
+    submitted_count = 0
+    for c in clinics:
+        applicable = applicable_templates(c)
+        if not applicable:
+            status_str = "no_daily_template"
+            missing_names = []
+        else:
+            template_ids = [t.id for t in applicable]
+            submitted_ids = {
+                row[0] for row in db.query(Inspection.template_id).filter(
+                    Inspection.clinic_id == c.id,
+                    Inspection.template_id.in_(template_ids),
+                    Inspection.checkin_time >= today_start,
+                    Inspection.checkin_time < today_end,
+                ).distinct().all()
+            }
+            missing_names = [t.name for t in applicable if t.id not in submitted_ids]
+            status_str = "submitted" if not missing_names else "missing"
+
+        if status_str == "submitted":
+            submitted_count += 1
+
+        open_actions = db.query(CorrectiveAction).filter(
+            CorrectiveAction.clinic_id == c.id,
+            CorrectiveAction.status.in_([ActionStatus.open, ActionStatus.in_progress, ActionStatus.pending_verification]),
+        ).count()
+
+        row = {
+            "clinic_id": c.id,
+            "clinic_name": c.name,
+            "region": c.region or "Unassigned",
+            "manager_name": c.manager.full_name if c.manager else None,
+            "status": status_str,
+            "missing_templates": missing_names,
+            "open_corrective_actions": open_actions,
+        }
+        clinic_rows.append(row)
+        if status_str == "missing":
+            missing.append(row)
+
+    regions: dict = {}
+    for row in clinic_rows:
+        regions.setdefault(row["region"], []).append(row)
+    region_summaries = [
+        {
+            "region": r,
+            "clinics": rows,
+            "total": len(rows),
+            "submitted": sum(1 for x in rows if x["status"] == "submitted"),
+            "missing": sum(1 for x in rows if x["status"] == "missing"),
+        }
+        for r, rows in sorted(regions.items(), key=lambda kv: (kv[0] == "Unassigned", kv[0]))
+    ]
+
+    return {
+        "scope_label": scope_label,
+        "as_of": datetime.utcnow().isoformat(),
+        "has_daily_templates": len(daily_templates) > 0,
+        "summary": {
+            "total_clinics": len(clinic_rows),
+            "submitted_today": submitted_count,
+            "missing_today": len(missing),
+        },
+        "missing_clinics": missing,
+        "regions": region_summaries,
+    }
 
 
 @router.get("/dashboard")

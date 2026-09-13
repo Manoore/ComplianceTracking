@@ -6,6 +6,7 @@ export interface User {
   full_name: string
   role: UserRole
   custom_role?: string
+  managed_region?: string
   is_active: boolean
   last_login?: string
   tenant_id?: number
@@ -73,6 +74,7 @@ export interface ChecklistTemplate {
   tenant_id?: number | null
   department_id?: number | null
   department_name?: string | null
+  frequency?: string | null
   name: string
   description?: string
   is_active: boolean

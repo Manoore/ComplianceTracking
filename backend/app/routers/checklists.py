@@ -60,6 +60,7 @@ class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     department_id: Optional[int] = None
+    frequency: Optional[str] = None
     sections: List[SectionIn] = []
     items: List[ItemIn] = []
 
@@ -68,6 +69,7 @@ class TemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     department_id: Optional[int] = None
+    frequency: Optional[str] = None
     is_active: Optional[bool] = None
     items: Optional[List[ItemIn]] = None
 
@@ -107,6 +109,7 @@ def template_out(t: ChecklistTemplate) -> dict:
         "tenant_id": t.tenant_id,
         "department_id": t.department_id,
         "department_name": t.department.name if t.department else None,
+        "frequency": t.frequency,
         "name": t.name,
         "description": t.description,
         "is_active": t.is_active,
@@ -259,7 +262,7 @@ def create_template(payload: TemplateCreate, db: Session = Depends(get_db),
                     current_user: User = Depends(require_admin)):
     t = ChecklistTemplate(tenant_id=current_user.tenant_id, name=payload.name,
                           description=payload.description, department_id=payload.department_id,
-                          created_by=current_user.id)
+                          frequency=payload.frequency, created_by=current_user.id)
     db.add(t)
     db.flush()
 

@@ -17,12 +17,14 @@ class UserCreate(BaseModel):
     password: Optional[str] = None
     role: UserRole = UserRole.team_member
     custom_role: Optional[str] = None
+    managed_region: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[UserRole] = None
     custom_role: Optional[str] = None
+    managed_region: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
 
@@ -33,6 +35,7 @@ class UserOut(BaseModel):
     full_name: str
     role: str
     custom_role: Optional[str] = None
+    managed_region: Optional[str] = None
     is_active: bool
     last_login: Optional[str] = None
 
@@ -44,7 +47,7 @@ class UserOut(BaseModel):
 def list_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     users = db.query(User).filter(User.tenant_id == current_user.tenant_id).order_by(User.full_name).all()
     return [UserOut(id=u.id, email=u.email, full_name=u.full_name, role=u.role.value,
-                    custom_role=u.custom_role, is_active=u.is_active,
+                    custom_role=u.custom_role, managed_region=u.managed_region, is_active=u.is_active,
                     last_login=str(u.last_login) if u.last_login else None)
             for u in users]
 
@@ -60,6 +63,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db),
         hashed_password=hash_password(payload.password) if payload.password else None,
         role=payload.role,
         custom_role=payload.custom_role or None,
+        managed_region=payload.managed_region or None,
         tenant_id=current_user.tenant_id,
     )
     db.add(user)
@@ -68,7 +72,8 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db),
     log_action(db, "user.create", user_id=current_user.id, resource_type="user", resource_id=user.id)
     db.commit()
     return UserOut(id=user.id, email=user.email, full_name=user.full_name,
-                   role=user.role.value, custom_role=user.custom_role, is_active=user.is_active)
+                   role=user.role.value, custom_role=user.custom_role,
+                   managed_region=user.managed_region, is_active=user.is_active)
 
 
 @router.put("/{user_id}", response_model=UserOut)
@@ -85,6 +90,8 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
         user.role = payload.role
     if payload.custom_role is not None and current_user.role == UserRole.admin:
         user.custom_role = payload.custom_role or None
+    if payload.managed_region is not None and current_user.role == UserRole.admin:
+        user.managed_region = payload.managed_region or None
     if payload.is_active is not None and current_user.role == UserRole.admin:
         user.is_active = payload.is_active
     if payload.password:
@@ -94,7 +101,8 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     log_action(db, "user.update", user_id=current_user.id, resource_type="user", resource_id=user.id)
     db.commit()
     return UserOut(id=user.id, email=user.email, full_name=user.full_name,
-                   role=user.role.value, custom_role=user.custom_role, is_active=user.is_active)
+                   role=user.role.value, custom_role=user.custom_role,
+                   managed_region=user.managed_region, is_active=user.is_active)
 
 
 @router.delete("/{user_id}", status_code=204)

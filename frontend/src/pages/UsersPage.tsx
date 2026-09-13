@@ -16,7 +16,13 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
     email: user?.email ?? '',
     full_name: user?.full_name ?? '',
     selectedRole: effectiveRole,
+    managedRegion: user?.managed_region ?? '',
     password: '',
+  })
+  const { data: regions } = useQuery<{ region: string; clinic_count: number }[]>({
+    queryKey: ['clinic-regions'],
+    queryFn: () => api.get('/clinics/regions').then(r => r.data),
+    enabled: form.selectedRole === 'regional_manager',
   })
 
   const buildPayload = () => {
@@ -27,6 +33,7 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
       password: form.password || undefined,
       role: isSystem ? form.selectedRole : 'team_member',
       custom_role: isSystem ? '' : form.selectedRole,
+      managed_region: form.selectedRole === 'regional_manager' ? form.managedRegion : '',
     }
   }
 
@@ -69,6 +76,19 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
               Manage roles and their screen access in <strong>Roles & Permissions</strong>.
             </p>
           </div>
+          {form.selectedRole === 'regional_manager' && (
+            <div>
+              <label className="label">Managed Region *</label>
+              <select required className="input" value={form.managedRegion}
+                onChange={e => setForm(f => ({ ...f, managedRegion: e.target.value }))}>
+                <option value="">— Select region —</option>
+                {(regions ?? []).map(r => <option key={r.region} value={r.region}>{r.region} ({r.clinic_count})</option>)}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Which clinics this Regional Manager oversees on the hierarchy dashboard.
+              </p>
+            </div>
+          )}
           <div>
             <label className="label">{user ? 'New Password (leave blank to keep)' : 'Password *'}</label>
             <input type="password" required={!user} className="input" value={form.password}
