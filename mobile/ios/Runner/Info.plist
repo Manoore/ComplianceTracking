@@ -34,13 +34,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 
@@ -82,20 +75,9 @@
 		</dict>
 	</array>
 
-	<!-- ── Background modes ── -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
-	</array>
-
 	<!-- ── Export compliance: app only uses standard HTTPS encryption ── -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-
-	<!-- ── Biometrics (Face ID) ── -->
-	<key>NSFaceIDUsageDescription</key>
-	<string>CompliNow uses Face ID to quickly and securely verify your identity.</string>
 
 	<!-- ── Flutter engine ── -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
