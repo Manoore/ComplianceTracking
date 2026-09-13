@@ -37,8 +37,24 @@ try:
             print("  (no users)")
         print()
 
-    orphaned_templates = db.query(ChecklistTemplate).filter(ChecklistTemplate.tenant_id.is_(None)).count()
-    if orphaned_templates:
-        print(f"NOTE: {orphaned_templates} template(s) have no tenant_id set (tenant_id IS NULL).")
+    print("=" * 60)
+    orphaned_users = db.query(User).filter(User.tenant_id.is_(None)).order_by(User.id).all()
+    orphaned_clinics = db.query(Clinic).filter(Clinic.tenant_id.is_(None)).all()
+    orphaned_templates = db.query(ChecklistTemplate).filter(ChecklistTemplate.tenant_id.is_(None)).all()
+
+    print(f"Users with NO tenant assigned (tenant_id IS NULL): {len(orphaned_users)}")
+    for u in orphaned_users:
+        print(f"  user: {u.email:<35} role={u.role.value:<10} active={u.is_active}")
+
+    print(f"\nClinics with NO tenant assigned: {len(orphaned_clinics)}")
+    for c in orphaned_clinics:
+        print(f"  clinic: {c.name}")
+
+    presets = [t for t in orphaned_templates if t.is_preset]
+    non_presets = [t for t in orphaned_templates if not t.is_preset]
+    print(f"\nOrphaned templates: {len(orphaned_templates)} total "
+          f"({len(presets)} presets, {len(non_presets)} non-preset)")
+    for t in non_presets:
+        print(f"  non-preset, no tenant: {t.name}")
 finally:
     db.close()
