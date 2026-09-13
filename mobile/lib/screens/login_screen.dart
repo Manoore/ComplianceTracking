@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/complinow_mark.dart';
 
@@ -25,6 +26,61 @@ class _LoginScreenState extends State<LoginScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _forgotPassword() async {
+    final emailCtrl = TextEditingController(text: _email.text.trim());
+    final sent = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          bool sending = false;
+          return AlertDialog(
+            title: const Text('Forgot password?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Enter your email and we\'ll send you a reset link.'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Email address'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(
+                onPressed: sending || !emailCtrl.text.contains('@') ? null : () async {
+                  setDialogState(() => sending = true);
+                  try {
+                    await ApiService().post('/auth/forgot-password', {'email': emailCtrl.text.trim()});
+                  } catch (_) {
+                    // Backend always returns 200 to avoid revealing whether the email exists.
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                },
+                child: const Text('Send reset link'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    emailCtrl.dispose();
+    if (sent == true && mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Check your inbox'),
+          content: const Text('If that email is linked to an account, you\'ll receive a reset link within a few minutes.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+    }
   }
 
   Future<void> _login() async {
@@ -88,6 +144,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                             onFieldSubmitted: (_) => _login(),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _loading ? null : _forgotPassword,
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
+                              child: const Text('Forgot password?', style: TextStyle(fontSize: 13)),
+                            ),
                           ),
                           if (_error != null) ...[
                             const SizedBox(height: 12),
