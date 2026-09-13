@@ -30,6 +30,30 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
     }
   }
 
+  Future<void> _delete(Inspection insp) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Inspection?'),
+        content: Text('Delete this inspection at ${insp.clinicName}? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: kDanger))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().delete('/inspections/${insp.id}');
+      _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inspection deleted'), backgroundColor: kSuccess));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthState>().user;
@@ -75,7 +99,14 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.chevron_right, color: Colors.grey),
+                              if (insp.status == 'in_progress' || insp.status == 'draft')
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: kDanger, size: 20),
+                                  tooltip: 'Delete inspection',
+                                  onPressed: () => _delete(insp),
+                                )
+                              else
+                                const Icon(Icons.chevron_right, color: Colors.grey),
                               Text(
                                 insp.submittedAt != null
                                     ? _fmtDate(insp.submittedAt!)

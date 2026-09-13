@@ -94,6 +94,21 @@ def list_reviews(db: Session = Depends(get_db), current_user: User = Depends(get
     return [review_out(r) for r in reviews]
 
 
+@router.get("/reviews/{review_id}")
+def get_review(review_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    review = db.query(AuditReview).filter(AuditReview.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if current_user.role == UserRole.auditor and review.auditor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    out = review_out(review)
+    insp = review.inspection
+    out["clinic_name"] = insp.clinic.name if insp and insp.clinic else None
+    out["inspector_name"] = insp.inspector.full_name if insp and insp.inspector else None
+    out["compliance_score"] = insp.compliance_score if insp else None
+    return out
+
+
 @router.post("/reviews", status_code=201)
 def create_review(inspection_id: int, db: Session = Depends(get_db),
                   current_user: User = Depends(require_reviewer)):

@@ -82,16 +82,24 @@ class ChecklistTemplate {
       );
 }
 
+/// Matches the backend's AuditReview (GET/PUT /audits/reviews), not a
+/// per-clinic audit — there is no clinic_name or overall_score on this record.
 class Audit {
   final int id;
-  final String clinicName, auditorName, status;
-  final double? overallScore;
-  final String? riskLevel, createdAt, reviewedAt;
-  Audit({required this.id, required this.clinicName, required this.auditorName, required this.status, this.overallScore, this.riskLevel, this.createdAt, this.reviewedAt});
+  final int inspectionId;
+  final String auditorName, status;
+  final double? riskScore;
+  final String? riskLevel, findings, reportPath, createdAt, reviewedAt;
+  Audit({
+    required this.id, required this.inspectionId, required this.auditorName, required this.status,
+    this.riskScore, this.riskLevel, this.findings, this.reportPath, this.createdAt, this.reviewedAt,
+  });
   factory Audit.fromJson(Map<String, dynamic> j) => Audit(
-        id: j['id'], clinicName: j['clinic_name'] ?? '', auditorName: j['auditor_name'] ?? '',
-        status: j['status'] ?? 'draft', overallScore: (j['overall_score'] as num?)?.toDouble(),
-        riskLevel: j['risk_level'], createdAt: j['created_at'], reviewedAt: j['reviewed_at'],
+        id: (j['id'] as num).toInt(), inspectionId: (j['inspection_id'] as num).toInt(),
+        auditorName: j['auditor_name'] ?? '', status: j['status'] ?? 'pending',
+        riskScore: (j['risk_score'] as num?)?.toDouble(), riskLevel: j['risk_level'],
+        findings: j['findings'], reportPath: j['report_path'],
+        createdAt: j['created_at'], reviewedAt: j['reviewed_at'],
       );
 }
 
@@ -100,13 +108,15 @@ class CorrectiveAction {
   final String title, status, priority;
   final String? clinicName, assigneeName, assignedTo, dueDate, description;
   final bool? requiresReinspection;
-  CorrectiveAction({required this.id, required this.title, required this.status, required this.priority, this.clinicName, this.assigneeName, this.assignedTo, this.dueDate, this.description, this.requiresReinspection});
+  final int evidenceCount;
+  CorrectiveAction({required this.id, required this.title, required this.status, required this.priority, this.clinicName, this.assigneeName, this.assignedTo, this.dueDate, this.description, this.requiresReinspection, this.evidenceCount = 0});
   factory CorrectiveAction.fromJson(Map<String, dynamic> j) => CorrectiveAction(
         id: j['id'], title: j['title'] ?? '', status: j['status'] ?? 'open',
         priority: j['priority'] ?? 'medium', clinicName: j['clinic_name'],
         assigneeName: j['assignee_name'], assignedTo: j['assigned_to_name'] ?? j['assignee_name'],
         dueDate: j['due_date'], description: j['description'],
         requiresReinspection: j['requires_reinspection'] as bool?,
+        evidenceCount: (j['evidence'] as List?)?.length ?? 0,
       );
 }
 
@@ -168,12 +178,14 @@ class AppUser {
   final int id;
   final String email, fullName, role;
   final String? customRole;
+  final String? managedRegion;
   final bool isActive;
   AppUser({required this.id, required this.email, required this.fullName,
-           required this.role, this.customRole, required this.isActive});
+           required this.role, this.customRole, this.managedRegion, required this.isActive});
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
         id: j['id'], email: j['email'], fullName: j['full_name'] ?? '',
-        role: j['role'], customRole: j['custom_role'], isActive: j['is_active'] ?? true,
+        role: j['role'], customRole: j['custom_role'], managedRegion: j['managed_region'],
+        isActive: j['is_active'] ?? true,
       );
   String get effectiveRole => customRole ?? role;
 }

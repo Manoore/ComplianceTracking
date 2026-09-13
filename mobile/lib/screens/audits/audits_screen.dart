@@ -20,9 +20,33 @@ class _AuditsScreenState extends State<AuditsScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await ApiService().get('/audits') as List;
+      final data = await ApiService().get('/audits/reviews') as List;
       if (mounted) setState(() { _audits = data.map((e) => Audit.fromJson(e)).toList(); _loading = false; });
     } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  Future<void> _delete(Audit audit) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cancel Review?'),
+        content: const Text('Cancel this review? The inspection will go back to "submitted", awaiting review.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cancel Review', style: TextStyle(color: kDanger))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().delete('/audits/reviews/${audit.id}');
+      _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review cancelled'), backgroundColor: kSuccess));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
   }
 
   @override
@@ -35,7 +59,7 @@ class _AuditsScreenState extends State<AuditsScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _audits.isEmpty
-                ? const Center(child: Text('No audits yet', style: TextStyle(color: Colors.grey)))
+                ? const Center(child: Text('No reviews yet', style: TextStyle(color: Colors.grey)))
                 : ListView.builder(
                     itemCount: _audits.length,
                     itemBuilder: (_, i) {
@@ -47,7 +71,7 @@ class _AuditsScreenState extends State<AuditsScreen> {
                             backgroundColor: kBrand.withValues(alpha: 0.1),
                             child: const Icon(Icons.shield_outlined, color: kBrand),
                           ),
-                          title: Text(audit.clinicName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          title: Text('Inspection #${audit.inspectionId}', style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -56,11 +80,21 @@ class _AuditsScreenState extends State<AuditsScreen> {
                               Row(children: [
                                 statusBadge(audit.status),
                                 if (audit.riskLevel != null) ...[const SizedBox(width: 6), statusBadge(audit.riskLevel)],
-                                if (audit.overallScore != null) ...[const SizedBox(width: 6), Text('${audit.overallScore!.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))],
                               ]),
                             ],
                           ),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (audit.status == 'pending')
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: kDanger, size: 20),
+                                  tooltip: 'Cancel review',
+                                  onPressed: () => _delete(audit),
+                                ),
+                              const Icon(Icons.chevron_right, color: Colors.grey),
+                            ],
+                          ),
                           onTap: () async { await context.push('/audits/${audit.id}'); _load(); },
                         ),
                       );

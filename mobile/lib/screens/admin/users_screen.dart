@@ -100,14 +100,26 @@ class _UsersScreenState extends State<UsersScreen> {
     final nameCtrl = TextEditingController(text: user?.fullName ?? '');
     final passCtrl = TextEditingController();
     String selectedRole = user?.effectiveRole ?? 'team_member';
+    String managedRegion = user?.managedRegion ?? '';
+    List<String> regions = [];
+    bool regionsRequested = false;
 
     showModalBottomSheet(
       context: context, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
+        builder: (ctx, setSheet) {
+          if (selectedRole == 'regional_manager' && !regionsRequested) {
+            regionsRequested = true;
+            ApiService().get('/clinics/regions').then((data) {
+              final names = (data as List).map((r) => r['region'] as String).toList();
+              setSheet(() => regions = names);
+            }).catchError((_) {});
+          }
+          return Padding(
           padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(user == null ? 'Add User' : 'Edit User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 16),
             TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name *')),
@@ -120,6 +132,16 @@ class _UsersScreenState extends State<UsersScreen> {
               items: _roles.map((r) => DropdownMenuItem(value: r.name, child: Text(r.displayName))).toList(),
               onChanged: (v) => setSheet(() => selectedRole = v!),
             ),
+            if (selectedRole == 'regional_manager') ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: regions.contains(managedRegion) ? managedRegion : null,
+                decoration: const InputDecoration(labelText: 'Managed Region *'),
+                hint: const Text('— Select region —'),
+                items: regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                onChanged: (v) => setSheet(() => managedRegion = v ?? ''),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(controller: passCtrl, obscureText: true,
               decoration: InputDecoration(labelText: user == null ? 'Password *' : 'New Password (leave blank to keep)')),
@@ -134,6 +156,7 @@ class _UsersScreenState extends State<UsersScreen> {
                   'email': emailCtrl.text, 'full_name': nameCtrl.text,
                   'role': isSystem ? selectedRole : 'team_member',
                   'custom_role': isSystem ? '' : selectedRole,
+                  'managed_region': selectedRole == 'regional_manager' ? managedRegion : '',
                   if (passCtrl.text.isNotEmpty) 'password': passCtrl.text,
                   if (user == null && passCtrl.text.isEmpty) 'password': 'Temp1234!',
                 };
@@ -153,8 +176,10 @@ class _UsersScreenState extends State<UsersScreen> {
               },
               child: Text(user == null ? 'Create User' : 'Save Changes', style: const TextStyle(color: Colors.white)),
             )),
-          ]),
-        ),
+            ]),
+          ),
+        );
+        },
       ),
     );
   }

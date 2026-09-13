@@ -48,6 +48,30 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
     }
   }
 
+  Future<void> _delete(CorrectiveAction action) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Action?'),
+        content: Text('Delete "${action.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: kDanger))),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService().delete('/corrective-actions/${action.id}');
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action deleted'), backgroundColor: kSuccess));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
+  }
+
   List<CorrectiveAction> get _filtered {
     if (_filter == 'all') return _actions;
     return _actions.where((a) => a.status == _filter).toList();
@@ -266,6 +290,15 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
                                           style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
                                           onPressed: () => _showDetail(context, action),
                                         )),
+                                        if (action.status == 'open' && action.evidenceCount == 0) ...[
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: kDanger, size: 20),
+                                            tooltip: 'Delete action',
+                                            visualDensity: VisualDensity.compact,
+                                            onPressed: () => _delete(action),
+                                          ),
+                                        ],
                                       ]),
                                     ],
                                   ]),
