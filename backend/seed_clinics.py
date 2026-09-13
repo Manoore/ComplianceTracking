@@ -49,6 +49,8 @@ CLINICS_BY_REGION = {
         ("Hometown North Canton", "1444 N Main St", "North Canton", "44720", ["Urgent Care", "Primary Care"]),
         ("Hometown Poland", "1301 Boardman Poland Rd", "Poland", "44514", ["Urgent Care", "Primary Care"]),
         ("Hometown Ravenna", "951 E Main St", "Ravenna", "44266", ["Urgent Care", "Primary Care"]),
+        ("Hometown Streetsboro", "9300 State Route 14", "Streetsboro", "44241", ["Urgent Care", "Primary Care", "Wellness"]),
+        ("Hometown Wooster", "4164 Burbank Rd", "Wooster", "44691", ["Urgent Care", "Primary Care"]),
     ],
     "Columbus": [
         ("Hometown Canal Winchester", "710 W Waterloo St", "Canal Winchester", "43106", ["Urgent Care", "Primary Care"]),
