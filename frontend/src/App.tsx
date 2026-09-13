@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
+import { usePermissions } from './hooks/usePermissions'
 import { AppLayout } from './components/layout/AppLayout'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
@@ -40,15 +41,21 @@ function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function PrivateRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
+function PrivateRoute({ children, roles, module }: { children: React.ReactNode; roles?: string[]; module?: string }) {
   const { user, loading } = useAuth()
+  const { canView } = usePermissions()
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600" />
     </div>
   )
   if (!user) return <Navigate to="/home" replace />
-  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />
+  // A custom role (Clinic Lead, Regional Manager, ...) always has its base `role` forced to
+  // team_member, so the `roles` array alone would lock these users out. `module` checks what
+  // their custom role was actually granted in Roles & Permissions instead -- either path in.
+  const allowedByBaseRole = !roles || roles.includes(user.role)
+  const allowedByModule = !!module && canView(module)
+  if (roles && !allowedByBaseRole && !allowedByModule) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -72,14 +79,14 @@ function AppRoutes() {
         <Route path="checklists" element={<PrivateRoute roles={['admin']}><ChecklistsPage /></PrivateRoute>} />
         <Route path="inspections" element={<InspectionsPage />} />
         <Route path="inspections/:id" element={<InspectionDetailPage />} />
-        <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor', 'manager']}><AuditsPage /></PrivateRoute>} />
+        <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor', 'manager']} module="audits"><AuditsPage /></PrivateRoute>} />
         <Route path="certifications" element={<CertificationsPage />} />
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
-        <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']}><ReportsPage /></PrivateRoute>} />
+        <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']} module="reports"><ReportsPage /></PrivateRoute>} />
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />
-        <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']}><ExecutiveDashboardPage /></PrivateRoute>} />
+        <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive"><ExecutiveDashboardPage /></PrivateRoute>} />
         <Route path="departments" element={<PrivateRoute roles={['admin', 'manager']}><DepartmentsPage /></PrivateRoute>} />
         <Route path="credentials" element={<CredentialsPage />} />
         <Route path="document-hub" element={<DocumentHubPage />} />

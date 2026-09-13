@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models.inspection import Inspection, InspectionItem, InspectionStatus, ItemResult
 from ..models.checklist import ChecklistItem
 from ..models.corrective_action import CorrectiveAction, ActionStatus
+from ..models.clinic import Clinic
 from ..models.user import User, UserRole
 from ..services.scoring import calculate_compliance_score
 from ..services.email import send_inspection_submitted
@@ -41,6 +42,24 @@ class CheckoutPayload(BaseModel):
     checkout_lat: Optional[float] = None
     checkout_lng: Optional[float] = None
     notes: Optional[str] = None
+
+
+def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
+    """Who may complete the second sign-off on a dual_signoff item: the same hierarchy
+    that can see this clinic on the Executive dashboard (Clinic Lead -> Regional Manager ->
+    Director of Operations -> Admin), not just any other logged-in user."""
+    if user.role == UserRole.admin:
+        return True
+    custom_role = (user.custom_role or "").strip().lower()
+    if custom_role in ("director_of_operations", "executive"):
+        return True
+    if not clinic:
+        return False
+    if custom_role == "regional_manager":
+        return bool(user.managed_region) and user.managed_region == clinic.region
+    if custom_role == "clinic_lead" or user.role == UserRole.manager:
+        return clinic.manager_id == user.id
+    return False
 
 
 def inspection_out(insp: Inspection) -> dict:
@@ -267,6 +286,9 @@ def second_sign(inspection_id: int, item_id: int, payload: SecondSignPayload,
         raise HTTPException(status_code=400, detail="First signature required before second sign-off")
     if item.second_signer_id == current_user.id or insp.inspector_id == current_user.id:
         raise HTTPException(status_code=400, detail="Second signer must be a different user")
+    if not _can_countersign(current_user, insp.clinic):
+        raise HTTPException(status_code=403, detail="Only this clinic's Lead, Regional Manager, "
+                                                     "Director of Operations, or an Admin can countersign")
     item.second_signer_id = current_user.id
     item.second_signed_at = datetime.utcnow()
     item.second_signature = payload.signature

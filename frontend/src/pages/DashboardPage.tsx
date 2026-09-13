@@ -5,6 +5,7 @@ import type { DashboardData } from '../types'
 import { ScoreRing } from '../components/ui/ScoreRing'
 import { statusBadge } from '../components/ui/Badge'
 import { useAuth } from '../hooks/useAuth'
+import { hasOversight } from '../utils/hierarchy'
 import { Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend
@@ -147,7 +148,7 @@ export function DashboardPage() {
     { name: 'Critical', value: riskBreakdown.critical ?? 0 },
   ].filter(d => d.value > 0)
 
-  const isStaff = user?.role === 'team_member'
+  const isStaff = !hasOversight(user)
 
   if (isLoading && tab === 'overview') return (
     <div className="flex items-center justify-center h-64">

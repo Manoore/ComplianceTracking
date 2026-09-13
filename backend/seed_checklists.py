@@ -36,6 +36,7 @@ from app.models.user import User, UserRole
 # (question, item_type, category, is_critical, description, type_config)
 _P = ItemType.pass_fail_na
 _SIG = ItemType.signature
+_DUAL = ItemType.dual_signoff  # requires the MA's signature, then a second sign-off by the reviewer
 _NUM = ItemType.numeric_range
 
 DAILY = [
@@ -59,7 +60,8 @@ DAILY = [
     ("Oxygen Tanks and AED Checked", _P, ItemCategory.equipment, True, None, None),
     ("Eye Wash Station Checked", _P, ItemCategory.safety, False,
      "Required weekly rather than daily.", None),
-    ("Regional Manager Initials / Date", _SIG, ItemCategory.staff, False, None, None),
+    ("Regional Manager / Clinic Lead Review", _DUAL, ItemCategory.staff, False,
+     "MA/PCT signs first; the Regional Manager or Clinic Lead must review and countersign before this checklist counts as complete.", None),
 ]
 
 MONTHLY = [
@@ -86,7 +88,8 @@ MONTHLY = [
      "To be completed each week.", None),
     ("Sharps and Biohazard Bins Checked for Overflow", _P, ItemCategory.safety, True, None, None),
     ("Mock Emergency Response Check List", _P, ItemCategory.safety, False, None, None),
-    ("Regional Manager Initials / Date", _SIG, ItemCategory.staff, False, None, None),
+    ("Regional Manager / Clinic Lead Review", _DUAL, ItemCategory.staff, False,
+     "MA/PCT signs first; the Regional Manager or Clinic Lead must review and countersign before this checklist counts as complete.", None),
 ]
 
 TEMPLATES = [

@@ -5,6 +5,7 @@ import {
   Building2, BarChart2, Award, ShieldAlert, Layers,
   ChevronDown, ChevronUp, ClipboardCheck, Eye, X
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { DashboardData, Department, User } from '../types'
@@ -56,6 +57,7 @@ function DailyStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
 
 function HierarchyDashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [region, setRegion] = useState('')
@@ -164,10 +166,15 @@ function HierarchyDashboard() {
           </p>
           <div className="space-y-1">
             {data.missing_clinics.map(c => (
-              <div key={c.clinic_id} className="flex items-center justify-between text-sm">
+              <button
+                key={c.clinic_id}
+                onClick={() => navigate(`/inspections?clinic_id=${c.clinic_id}`)}
+                className="w-full flex items-center justify-between text-sm text-left hover:bg-red-100/60 rounded px-1.5 -mx-1.5 py-0.5 transition-colors"
+                title="View this clinic's checklist history"
+              >
                 <span className="text-gray-700">{c.clinic_name} <span className="text-gray-400">· {c.region}</span></span>
                 <span className="text-gray-400 text-xs">{c.manager_name ?? 'No lead assigned'}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -193,7 +200,12 @@ function HierarchyDashboard() {
               {!isCollapsed && (
                 <div className="divide-y divide-gray-50">
                   {r.clinics.map(c => (
-                    <div key={c.clinic_id} className="flex items-center justify-between px-4 py-2 text-sm">
+                    <button
+                      key={c.clinic_id}
+                      onClick={() => navigate(`/inspections?clinic_id=${c.clinic_id}`)}
+                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+                      title="View this clinic's checklist history"
+                    >
                       <div className="min-w-0">
                         <p className="text-gray-800 truncate">{c.clinic_name}</p>
                         <p className="text-xs text-gray-400">{c.manager_name ?? 'No lead assigned'}</p>
@@ -204,7 +216,7 @@ function HierarchyDashboard() {
                         )}
                         <DailyStatusPill status={c.status} />
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

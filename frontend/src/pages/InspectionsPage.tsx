@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api, { apiError } from '../services/api'
 import type { Inspection, Clinic, ChecklistTemplate, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
-import { Plus, ChevronRight, MapPin, Trash2 } from 'lucide-react'
+import { Plus, ChevronRight, MapPin, Trash2, X } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import { hasOversight } from '../utils/hierarchy'
 import toast from 'react-hot-toast'
 
 function NewInspectionModal({ onClose }: { onClose: () => void }) {
@@ -143,7 +144,9 @@ export function InspectionsPage() {
   const [showNew, setShowNew] = useState(false)
   const [filterDept, setFilterDept] = useState('')
   const navigate = useNavigate()
-  const isInspector = user?.role === 'team_member'
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filterClinicId = searchParams.get('clinic_id') ?? ''
+  const isInspector = !hasOversight(user)
 
   const { data: inspections, isLoading } = useQuery<Inspection[]>({
     queryKey: ['inspections'],
@@ -152,15 +155,17 @@ export function InspectionsPage() {
   const { data: clinics } = useQuery<Clinic[]>({ queryKey: ['clinics'], queryFn: () => api.get('/clinics').then(r => r.data), enabled: !isInspector })
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data), enabled: !isInspector })
 
+  const filterClinic = filterClinicId ? (clinics ?? []).find(c => c.id.toString() === filterClinicId) : null
+
   const clinicsByDept = filterDept
     ? new Set((clinics ?? []).filter((c: any) => c.department_id?.toString() === filterDept).map(c => c.id))
     : null
 
   const visible = isInspector
     ? (inspections ?? []).filter(i => i.inspector_id === user?.id)
-    : clinicsByDept
-      ? (inspections ?? []).filter(i => clinicsByDept.has(i.clinic_id))
-      : (inspections ?? [])
+    : (inspections ?? [])
+      .filter(i => !clinicsByDept || clinicsByDept.has(i.clinic_id))
+      .filter(i => !filterClinicId || i.clinic_id.toString() === filterClinicId)
 
   const pending = visible.filter(i => i.status === 'in_progress' || i.status === 'draft')
   const completed = visible.filter(i => i.status === 'submitted' || i.status === 'reviewed')
@@ -280,6 +285,14 @@ export function InspectionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
         <div className="flex gap-2 items-center">
+          {filterClinic && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-700 bg-brand-50 px-2.5 py-1.5 rounded-lg">
+              {filterClinic.name}
+              <button onClick={() => setSearchParams(p => { p.delete('clinic_id'); return p })} className="hover:text-brand-900">
+                <X size={13} />
+              </button>
+            </span>
+          )}
           {(departments ?? []).length > 0 && (
             <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>
               <option value="">All Departments</option>
