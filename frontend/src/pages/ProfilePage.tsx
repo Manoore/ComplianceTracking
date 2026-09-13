@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import api, { apiError } from '../services/api'
 import toast from 'react-hot-toast'
-import { User, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react'
+import { User, KeyRound, ShieldCheck, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 function initials(name: string) {
   return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
@@ -19,7 +21,9 @@ function roleBadge(role: string) {
 }
 
 export function ProfilePage() {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, logout } = useAuth()
+  const navigate = useNavigate()
+  const confirm = useConfirm()
   const [name, setName] = useState(user?.full_name ?? '')
   const [nameLoading, setNameLoading] = useState(false)
 
@@ -29,6 +33,9 @@ export function ProfilePage() {
   const [pwLoading, setPwLoading] = useState(false)
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
+
+  const [deletePw, setDeletePw] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   if (!user) return null
 
@@ -60,6 +67,27 @@ export function ProfilePage() {
       toast.error(apiError(err, 'Failed to change password'))
     } finally {
       setPwLoading(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!deletePw) { toast.error('Enter your password to confirm'); return }
+    const ok = await confirm({
+      title: 'Delete your account?',
+      message: 'This permanently deletes your account and cannot be undone. Compliance records you created stay attached to your organization\'s history.',
+      confirmLabel: 'Delete my account',
+    })
+    if (!ok) return
+    setDeleteLoading(true)
+    try {
+      await api.delete('/auth/me', { data: { password: deletePw } })
+      logout()
+      navigate('/login')
+      toast.success('Account deleted')
+    } catch (err) {
+      toast.error(apiError(err, 'Failed to delete account'))
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -164,6 +192,30 @@ export function ProfilePage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Delete account */}
+      <div className="bg-white rounded-2xl border border-red-100 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50">
+            <Trash2 size={16} className="text-red-500" />
+          </div>
+          <h2 className="font-semibold text-gray-900">Delete Account</h2>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Permanently remove your account and personal data. This cannot be undone.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
+            <label className="label">Confirm your password</label>
+            <input className="input" type="password" value={deletePw}
+              onChange={e => setDeletePw(e.target.value)} placeholder="Password" autoComplete="current-password" />
+          </div>
+          <button type="button" onClick={handleDeleteAccount} disabled={deleteLoading || !deletePw}
+            className="btn-danger px-6 py-2 text-sm disabled:opacity-50 whitespace-nowrap">
+            {deleteLoading ? 'Deleting…' : 'Delete my account'}
+          </button>
+        </div>
       </div>
     </div>
   )

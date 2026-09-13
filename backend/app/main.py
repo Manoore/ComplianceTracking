@@ -298,7 +298,7 @@ def privacy_policy():
   <p>The app requests access to your camera and location only during compliance inspections to capture photo evidence and GPS-stamp inspection locations. This data is associated with inspection records in your organization's account and is not used for advertising or analytics.</p>
 
   <h2>7. Data Retention and Deletion</h2>
-  <p>Compliance records are retained for the duration of your organization's subscription plus any legally required retention period. You may request deletion of your personal account at any time from within the app (Profile → Delete Account). Organization data deletion requests should be submitted to support@complinow.com.</p>
+  <p>Compliance records are retained for the duration of your organization's subscription plus any legally required retention period. You may request deletion of your personal account at any time &mdash; from within the mobile app (Profile → Delete Account), from the web app (My Account → Delete Account), or without signing in at all by following our <a href="/account-deletion">account deletion instructions</a>. Organization data deletion requests should be submitted to support@complinow.com.</p>
 
   <h2>8. Your Rights</h2>
   <p>Depending on your jurisdiction, you may have the right to access, correct, port, or delete your personal data. To exercise these rights, contact us at privacy@complinow.com.</p>
@@ -307,6 +307,54 @@ def privacy_policy():
   <p>Privacy Officer: privacy@complinow.com<br>Support: support@complinow.com<br>Website: <a href="https://complinow.com">complinow.com</a></p>
 
   <p><em>CompliNow is a compliance management and workflow tool. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition.</em></p>
+</body>
+</html>"""
+
+
+@app.get("/account-deletion", response_class=HTMLResponse)
+def account_deletion():
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete Your CompliNow Account</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 700px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.7; }
+    h1 { color: #1A3C74; } h2 { color: #1A3C74; margin-top: 28px; font-size: 18px; }
+    p, ul, ol { margin: 12px 0; } ul, ol { padding-left: 24px; }
+    a { color: #1A3C74; } code { background: #f2f2f2; padding: 1px 5px; border-radius: 4px; }
+    .box { border: 1px solid #e2e2e2; border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <h1>Delete Your CompliNow Account</h1>
+  <p>You can request permanent deletion of your CompliNow account and personal data at any time, whether or not you can sign in.</p>
+
+  <div class="box">
+    <h2>Option 1 &mdash; If you can sign in</h2>
+    <p>This deletes your account immediately, no waiting on a support request:</p>
+    <ul>
+      <li><strong>Mobile app:</strong> Profile → Delete Account → enter your password to confirm.</li>
+      <li><strong>Web app:</strong> My Account → Delete Account → enter your password to confirm.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Option 2 &mdash; If you can't sign in</h2>
+    <p>Email <a href="mailto:support@complinow.com">support@complinow.com</a> from the address on your CompliNow account and ask us to delete it. We verify the request and complete it within 30 days.</p>
+  </div>
+
+  <h2>What gets deleted</h2>
+  <ul>
+    <li>Your name, email address, and login credentials.</li>
+    <li>Your profile and any personal preferences.</li>
+  </ul>
+
+  <h2>What we keep</h2>
+  <p>Compliance and audit records you created (inspections, checklist entries, corrective actions) remain attached to your organization's history, since they document regulatory compliance the organization is required to retain &mdash; your personal identifiers on those records are removed. Records tied to an active legal, contractual, or regulatory retention requirement are kept only as long as that requirement applies.</p>
+
+  <p>Questions? Contact <a href="mailto:privacy@complinow.com">privacy@complinow.com</a>. See the full <a href="/privacy">Privacy Policy</a>.</p>
 </body>
 </html>"""
 
