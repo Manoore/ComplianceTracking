@@ -12,6 +12,7 @@ from ..models.certification import TeamCertification, CertStatus
 from ..models.audit import AuditReview, AuditStatus
 from ..models.clinic import Clinic
 from ..models.user import User, UserRole
+from ..utils.hierarchy_scope import scoped_clinic_ids as get_scoped_clinic_ids
 from .deps import get_current_user, require_admin_or_auditor
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -204,28 +205,12 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
     }
 
 
-def _scoped_clinic_ids(db: Session, user: User) -> tuple:
-    """Clinic IDs `user` should see on the dashboard (or None for "every clinic in
-    their tenant"), plus a human-readable label for what that scope is. Same
-    hierarchy as the /hierarchy endpoint: Clinic Lead -> own clinics, Regional
-    Manager -> own region, Director/Executive/Admin -> everything."""
-    custom_role = (user.custom_role or "").strip().lower()
-    if user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
-        return None, "All Regions"
-    q = db.query(Clinic.id).filter(Clinic.tenant_id == user.tenant_id)
-    if custom_role == "regional_manager" and user.managed_region:
-        return [i for (i,) in q.filter(Clinic.region == user.managed_region).all()], f"Region: {user.managed_region}"
-    if custom_role == "clinic_lead" or user.role == UserRole.manager:
-        return [i for (i,) in q.filter(Clinic.manager_id == user.id).all()], "Your Clinics"
-    return None, "All Regions"
-
-
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from ..models.user import UserRole
     now = datetime.utcnow()
     tenant_id = current_user.tenant_id
-    scoped_clinic_ids, scope_label = _scoped_clinic_ids(db, current_user)
+    scoped_clinic_ids, scope_label = get_scoped_clinic_ids(db, current_user)
 
     q_insp = db.query(Inspection).filter(Inspection.tenant_id == tenant_id)
     q_actions = db.query(CorrectiveAction).filter(CorrectiveAction.tenant_id == tenant_id)

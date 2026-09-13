@@ -143,6 +143,8 @@ export function InspectionsPage() {
   const confirmDialog = useConfirm()
   const [showNew, setShowNew] = useState(false)
   const [filterDept, setFilterDept] = useState('')
+  const [filterUser, setFilterUser] = useState('')
+  const [filterFrequency, setFilterFrequency] = useState('')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const filterClinicId = searchParams.get('clinic_id') ?? ''
@@ -161,11 +163,19 @@ export function InspectionsPage() {
     ? new Set((clinics ?? []).filter((c: any) => c.department_id?.toString() === filterDept).map(c => c.id))
     : null
 
+  // Only offer users who've actually submitted something, in the order they appear —
+  // no point listing every staff member in a dropdown meant to narrow down a report.
+  const submittingUsers = Array.from(
+    new Map((inspections ?? []).map(i => [i.inspector_id, i.inspector_name])).entries()
+  ).sort((a, b) => (a[1] ?? '').localeCompare(b[1] ?? ''))
+
   const visible = isInspector
     ? (inspections ?? []).filter(i => i.inspector_id === user?.id)
     : (inspections ?? [])
       .filter(i => !clinicsByDept || clinicsByDept.has(i.clinic_id))
       .filter(i => !filterClinicId || i.clinic_id.toString() === filterClinicId)
+      .filter(i => !filterUser || i.inspector_id.toString() === filterUser)
+      .filter(i => !filterFrequency || (filterFrequency === 'adhoc' ? !i.template_frequency : i.template_frequency === filterFrequency))
 
   const pending = visible.filter(i => i.status === 'in_progress' || i.status === 'draft')
   const completed = visible.filter(i => i.status === 'submitted' || i.status === 'reviewed')
@@ -299,6 +309,19 @@ export function InspectionsPage() {
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
+          {submittingUsers.length > 0 && (
+            <select className="input w-auto text-sm py-1.5" value={filterUser} onChange={e => setFilterUser(e.target.value)}>
+              <option value="">All Users</option>
+              {submittingUsers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          )}
+          <select className="input w-auto text-sm py-1.5" value={filterFrequency} onChange={e => setFilterFrequency(e.target.value)}>
+            <option value="">All Frequencies</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="adhoc">Ad-hoc</option>
+          </select>
           {(user?.role === 'admin' || user?.role === 'manager') && (
             <button className="btn-primary" onClick={() => setShowNew(true)}>
               <Plus size={16} /> New Inspection
@@ -317,6 +340,7 @@ export function InspectionsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">Clinic</th>
+                <th className="text-left py-3 px-4 text-gray-500 font-medium">Template</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">Inspector</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">Score</th>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">Risk</th>
@@ -330,6 +354,12 @@ export function InspectionsPage() {
                 <tr key={insp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/inspections/${insp.id}`)}>
                   <td className="py-3 px-4 font-medium">{insp.clinic_name}</td>
+                  <td className="py-3 px-4 text-gray-500">
+                    {insp.template_name}
+                    {insp.template_frequency && (
+                      <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 capitalize">{insp.template_frequency}</span>
+                    )}
+                  </td>
                   <td className="py-3 px-4 text-gray-500">{insp.inspector_name}</td>
                   <td className="py-3 px-4">
                     {insp.compliance_score != null
@@ -357,7 +387,7 @@ export function InspectionsPage() {
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No inspections yet</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No inspections yet</td></tr>
               )}
             </tbody>
           </table>

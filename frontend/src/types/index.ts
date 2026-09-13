@@ -122,6 +122,7 @@ export interface Inspection {
   clinic_name?: string
   template_id: number
   template_name?: string
+  template_frequency?: string | null
   inspector_id: number
   inspector_name?: string
   status: string

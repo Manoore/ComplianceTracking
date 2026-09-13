@@ -13,6 +13,7 @@ from ..models.user import User, UserRole
 from ..services.scoring import calculate_compliance_score
 from ..services.email import send_inspection_submitted
 from ..utils.audit_trail import log_action
+from ..utils.hierarchy_scope import scoped_clinic_ids
 from ..config import settings
 from .deps import get_current_user, require_admin_or_auditor
 
@@ -69,6 +70,7 @@ def inspection_out(insp: Inspection) -> dict:
         "clinic_name": insp.clinic.name if insp.clinic else None,
         "template_id": insp.template_id,
         "template_name": insp.template.name if insp.template else None,
+        "template_frequency": insp.template.frequency if insp.template else None,
         "inspector_id": insp.inspector_id,
         "inspector_name": insp.inspector.full_name if insp.inspector else None,
         "status": insp.status.value if insp.status else None,
@@ -108,18 +110,36 @@ def inspection_out(insp: Inspection) -> dict:
 
 @router.get("/")
 def list_inspections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
-                     clinic_id: Optional[int] = None, status: Optional[str] = None):
-    q = db.query(Inspection)
-    if current_user.role == UserRole.manager:
-        from ..models.clinic import Clinic
-        managed = db.query(Clinic.id).filter(Clinic.manager_id == current_user.id).subquery()
-        q = q.filter(Inspection.clinic_id.in_(managed))
-    elif current_user.role == UserRole.team_member:
+                     clinic_id: Optional[int] = None, status: Optional[str] = None,
+                     user_id: Optional[int] = None, frequency: Optional[str] = None):
+    q = db.query(Inspection).filter(Inspection.tenant_id == current_user.tenant_id)
+
+    # A hierarchy custom role (Clinic Lead, Regional Manager, Director of Operations,
+    # Executive) always reports its base role as team_member, so it must be checked
+    # before falling back to "just my own submissions" -- otherwise a Regional Manager
+    # would only ever see the inspections they personally filed, not their region's.
+    custom_role = (current_user.custom_role or "").strip().lower()
+    is_hierarchy_role = custom_role in ("clinic_lead", "regional_manager", "director_of_operations", "executive")
+    if current_user.role == UserRole.team_member and not is_hierarchy_role:
         q = q.filter(Inspection.inspector_id == current_user.id)
+    else:
+        ids, _ = scoped_clinic_ids(db, current_user)
+        if ids is not None:
+            q = q.filter(Inspection.clinic_id.in_(ids))
+
     if clinic_id:
         q = q.filter(Inspection.clinic_id == clinic_id)
     if status:
         q = q.filter(Inspection.status == status)
+    if user_id:
+        q = q.filter(Inspection.inspector_id == user_id)
+    if frequency:
+        from ..models.checklist import ChecklistTemplate
+        template_ids = db.query(ChecklistTemplate.id).filter(
+            ChecklistTemplate.tenant_id == current_user.tenant_id,
+            ChecklistTemplate.frequency == frequency,
+        ).subquery()
+        q = q.filter(Inspection.template_id.in_(template_ids))
     return [inspection_out(i) for i in q.order_by(Inspection.created_at.desc()).limit(200).all()]
 
 
