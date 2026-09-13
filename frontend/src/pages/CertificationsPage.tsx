@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { Plus, Copy, Bell, ExternalLink, Award, Trash2, X, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 type OptionDraft = { text: string; is_correct: boolean }
 type QuestionDraft = { text: string; options: OptionDraft[] }
@@ -305,6 +306,7 @@ function GenerateLinkModal({ onClose }: { onClose: () => void }) {
 
 export function CertificationsPage() {
   const { user } = useAuth()
+  const confirmDialog = useConfirm()
   const qc = useQueryClient()
   const [tab, setTab] = useState<'courses' | 'links' | 'completions'>('courses')
   const [showNewCourse, setShowNewCourse] = useState(false)
@@ -399,7 +401,7 @@ export function CertificationsPage() {
                     <Copy size={12} /> Link
                   </button>
                   <button className="btn-secondary text-xs py-1.5 flex-1 justify-center text-red-500 hover:bg-red-50"
-                    onClick={() => { if (confirm(`Delete "${c.title}"?`)) deleteCourse.mutate(c.id) }}>
+                    onClick={async () => { if (await confirmDialog(`Delete "${c.title}"?`)) deleteCourse.mutate(c.id) }}>
                     <Trash2 size={12} /> Delete
                   </button>
                 </div>

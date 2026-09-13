@@ -5,6 +5,7 @@ import type { Clinic, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Link } from 'react-router-dom'
 import { Plus, Edit2, Trash2, Building2, ExternalLink, Upload, Layers, ChevronDown, ChevronRight } from 'lucide-react'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 const SERVICE_OPTIONS = ['Urgent Care', 'Primary Care', 'Clinical Research', 'Wellness']
@@ -293,6 +294,7 @@ function ClinicCard({ clinic, canEdit, onEdit, onDelete }: {
 export function ClinicsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Clinic | undefined>()
   const [filterDept, setFilterDept] = useState('')
@@ -316,8 +318,8 @@ export function ClinicsPage() {
     onError: (e: any) => toast.error(apiError(e, 'Could not delete clinic')),
   })
 
-  const handleDelete = (clinic: Clinic) => {
-    if (confirm(`Permanently delete ${clinic.name}? This cannot be undone.`)) {
+  const handleDelete = async (clinic: Clinic) => {
+    if (await confirmDialog(`Permanently delete ${clinic.name}? This cannot be undone.`)) {
       deleteClinic.mutate(clinic.id)
     }
   }

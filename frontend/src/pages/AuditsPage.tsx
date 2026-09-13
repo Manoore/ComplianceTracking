@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
 import { FileText, CheckCircle, XCircle, Download, Trash2 } from 'lucide-react'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => void }) {
@@ -95,6 +96,7 @@ function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => 
 export function AuditsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [selected, setSelected] = useState<AuditReview | null>(null)
   const [tab, setTab] = useState<'reviews' | 'trail'>('reviews')
 
@@ -135,8 +137,8 @@ export function AuditsPage() {
     onError: (e: any) => toast.error(apiError(e, 'Could not cancel review')),
   })
 
-  const handleDeleteReview = (r: AuditReview) => {
-    if (confirm('Cancel this review? The inspection will go back to "submitted", awaiting review.')) {
+  const handleDeleteReview = async (r: AuditReview) => {
+    if (await confirmDialog('Cancel this review? The inspection will go back to "submitted", awaiting review.')) {
       deleteReview.mutate(r.id)
     }
   }

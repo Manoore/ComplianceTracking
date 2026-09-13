@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import { ShieldCheck, Plus, Pencil, Trash2, X, Upload, AlertTriangle, Clock, CheckCircle } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface Credential {
   id: number
@@ -172,6 +173,7 @@ function CredModal({ cred, onClose }: { cred?: Credential; onClose: () => void }
 export function CredentialsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const isAdmin = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'auditor'
   const [showModal, setShowModal] = useState(false)
   const [editCred, setEditCred] = useState<Credential | undefined>()
@@ -296,7 +298,7 @@ export function CredentialsPage() {
                           className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
                           <Pencil size={14} />
                         </button>
-                        <button onClick={() => { if (confirm('Delete this credential?')) del.mutate(c.id) }}
+                        <button onClick={async () => { if (await confirmDialog('Delete this credential?')) del.mutate(c.id) }}
                           className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
                           <Trash2 size={14} />
                         </button>

@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import { BookMarked, Plus, Pencil, Trash2, X, BarChart2, CheckCircle, AlertCircle } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface Standard {
   id: number
@@ -79,6 +80,7 @@ function StandardModal({ std, onClose }: { std?: Standard; onClose: () => void }
 export function StandardsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const isAdmin = user?.role === 'admin'
   const [showModal, setShowModal] = useState(false)
   const [editStd, setEditStd] = useState<Standard | undefined>()
@@ -177,7 +179,7 @@ export function StandardsPage() {
                               className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
                               <Pencil size={14} />
                             </button>
-                            <button onClick={() => { if (confirm('Remove?')) del.mutate(s.id) }}
+                            <button onClick={async () => { if (await confirmDialog('Remove?')) del.mutate(s.id) }}
                               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
                               <Trash2 size={14} />
                             </button>

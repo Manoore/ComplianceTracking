@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 type Result = 'pass' | 'fail' | 'na' | 'pending'
 
@@ -356,6 +357,7 @@ export function InspectionDetailPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { user } = useAuth()
+  const confirmDialog = useConfirm()
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
 
@@ -514,9 +516,14 @@ export function InspectionDetailPage() {
       {isEditable && (
         <div className="flex justify-end">
           <button disabled={submitInspection.isPending} className="btn-primary"
-            onClick={() => {
+            onClick={async () => {
               if (answered < total) {
-                if (!confirm(`${total - answered} items not yet answered. Submit anyway?`)) return
+                const ok = await confirmDialog({
+                  message: `${total - answered} items not yet answered. Submit anyway?`,
+                  confirmLabel: 'Submit Anyway',
+                  danger: false,
+                })
+                if (!ok) return
               }
               submitInspection.mutate()
             }}>

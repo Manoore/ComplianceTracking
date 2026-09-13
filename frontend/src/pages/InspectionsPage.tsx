@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
 import { Plus, ChevronRight, MapPin, Trash2 } from 'lucide-react'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 function NewInspectionModal({ onClose }: { onClose: () => void }) {
@@ -124,6 +125,7 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
 export function InspectionsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showNew, setShowNew] = useState(false)
   const [filterDept, setFilterDept] = useState('')
   const navigate = useNavigate()
@@ -155,9 +157,9 @@ export function InspectionsPage() {
     onError: (e: any) => toast.error(apiError(e, 'Could not delete inspection')),
   })
 
-  const handleDelete = (e: React.MouseEvent, insp: Inspection) => {
+  const handleDelete = async (e: React.MouseEvent, insp: Inspection) => {
     e.stopPropagation()
-    if (confirm(`Delete this inspection at ${insp.clinic_name}? This cannot be undone.`)) {
+    if (await confirmDialog(`Delete this inspection at ${insp.clinic_name}? This cannot be undone.`)) {
       deleteInspection.mutate(insp.id)
     }
   }

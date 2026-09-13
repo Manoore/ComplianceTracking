@@ -8,6 +8,7 @@ import {
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { PolicyDocument, PolicyAttestation, QuizQuestion } from '../types'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
@@ -513,6 +514,7 @@ function ReadPolicyModal({ policy, onClose }: { policy: PolicyDocument; onClose:
 export function PoliciesPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
 
   const [showModal, setShowModal] = useState(false)
@@ -698,8 +700,8 @@ export function PoliciesPage() {
                           <Pencil size={16} />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm('Archive this policy?')) archive.mutate(p.id)
+                          onClick={async () => {
+                            if (await confirmDialog('Archive this policy?')) archive.mutate(p.id)
                           }}
                           className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                           title="Archive"

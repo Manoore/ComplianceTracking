@@ -5,6 +5,7 @@ import type { CorrectiveAction } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge, priorityBadge } from '../components/ui/Badge'
 import { Upload, CheckSquare, X, RefreshCw, Trash2 } from 'lucide-react'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
@@ -151,6 +152,7 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
 
 export function CorrectiveActionsPage() {
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [selected, setSelected] = useState<CorrectiveAction | null>(null)
   const [filterStatus, setFilterStatus] = useState('')
   const { data: actions, isLoading } = useQuery<CorrectiveAction[]>({
@@ -164,9 +166,9 @@ export function CorrectiveActionsPage() {
     onError: (e: any) => toast.error(apiError(e, 'Could not delete action')),
   })
 
-  const handleDelete = (e: React.MouseEvent, action: CorrectiveAction) => {
+  const handleDelete = async (e: React.MouseEvent, action: CorrectiveAction) => {
     e.stopPropagation()
-    if (confirm(`Delete "${action.title}"? This cannot be undone.`)) {
+    if (await confirmDialog(`Delete "${action.title}"? This cannot be undone.`)) {
       deleteAction.mutate(action.id)
     }
   }

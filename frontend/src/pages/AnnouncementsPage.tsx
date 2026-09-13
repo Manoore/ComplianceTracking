@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { Pin, Plus, CheckCheck, X, Paperclip } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 function NewAnnouncementModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
@@ -73,6 +74,7 @@ function NewAnnouncementModal({ onClose }: { onClose: () => void }) {
 function AnnouncementCard({ ann }: { ann: any }) {
   const qc = useQueryClient()
   const { user } = useAuth()
+  const confirmDialog = useConfirm()
 
   const markRead = useMutation({
     mutationFn: () => api.post(`/announcements/${ann.id}/read`),
@@ -138,7 +140,7 @@ function AnnouncementCard({ ann }: { ann: any }) {
           )}
           {user?.role === 'admin' && (
             <button className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500"
-              onClick={() => { if (confirm('Delete announcement?')) deactivate.mutate() }}>
+              onClick={async () => { if (await confirmDialog('Delete announcement?')) deactivate.mutate() }}>
               <X size={15} />
             </button>
           )}

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface HubDocument {
   id: number
@@ -196,6 +197,7 @@ function VersionModal({ doc, onClose }: { doc: HubDocument; onClose: () => void 
 export function DocumentHubPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const isAdmin = user?.role === 'admin' || user?.role === 'manager'
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -298,7 +300,7 @@ export function DocumentHubPage() {
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-100 ml-auto">
                       <RefreshCw size={13} /> New Version
                     </button>
-                    <button onClick={() => { if (confirm('Archive this document?')) del.mutate(d.id) }}
+                    <button onClick={async () => { if (await confirmDialog('Archive this document?')) del.mutate(d.id) }}
                       className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
                       <Trash2 size={14} />
                     </button>

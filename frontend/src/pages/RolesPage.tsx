@@ -4,6 +4,7 @@ import api, { apiError } from '../services/api'
 import type { RoleConfig } from '../types'
 import { Plus, Trash2, Shield, Pencil, Check, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 const ALL_MODULES = [
   { key: 'clinics', label: 'Clinics' },
@@ -114,6 +115,7 @@ function RoleHeader({ role, onDelete }: { role: RoleConfig; onDelete: () => void
 
 export function RolesPage() {
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showNew, setShowNew] = useState(false)
 
   const { data: roles = [], isLoading } = useQuery<RoleConfig[]>({
@@ -181,7 +183,7 @@ export function RolesPage() {
                   <th key={r.name} className="py-3 px-3 text-center text-gray-600 font-medium min-w-[130px]">
                     <RoleHeader
                       role={r}
-                      onDelete={() => { if (confirm(`Delete role "${r.display_name}"?`)) deleteRole.mutate(r.name) }}
+                      onDelete={async () => { if (await confirmDialog(`Delete role "${r.display_name}"?`)) deleteRole.mutate(r.name) }}
                     />
                   </th>
                 ))}

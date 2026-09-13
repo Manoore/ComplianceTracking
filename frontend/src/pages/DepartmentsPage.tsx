@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import { Layers, Plus, Pencil, Trash2, Building2, X, Check } from 'lucide-react'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 interface Department {
   id: number
@@ -148,6 +149,7 @@ function AssignClinicsModal({ dept, onClose }: { dept: Department; onClose: () =
 export function DepartmentsPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showModal, setShowModal] = useState(false)
   const [editDept, setEditDept] = useState<Department | undefined>()
   const [assignDept, setAssignDept] = useState<Department | undefined>()
@@ -216,7 +218,7 @@ export function DepartmentsPage() {
                       className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg" title="Edit">
                       <Pencil size={15} />
                     </button>
-                    <button onClick={() => { if (confirm('Archive this department?')) del.mutate(d.id) }}
+                    <button onClick={async () => { if (await confirmDialog('Archive this department?')) del.mutate(d.id) }}
                       className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Archive">
                       <Trash2 size={15} />
                     </button>

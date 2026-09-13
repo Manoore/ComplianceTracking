@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { ChecklistTemplate, AccreditationStandard } from '../types'
 import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X } from 'lucide-react'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
@@ -520,6 +521,7 @@ function ImportPdfModal({ onClose }: { onClose: () => void }) {
 
 export function ChecklistsPage() {
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showNew, setShowNew] = useState(false)
   const [showPresets, setShowPresets] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -542,8 +544,8 @@ export function ChecklistsPage() {
     onError: (e: any) => toast.error(apiError(e, 'Could not delete template')),
   })
 
-  const handleDelete = (t: ChecklistTemplate) => {
-    if (confirm(`Permanently delete "${t.name}"? This cannot be undone.`)) {
+  const handleDelete = async (t: ChecklistTemplate) => {
+    if (await confirmDialog(`Permanently delete "${t.name}"? This cannot be undone.`)) {
       deleteTemplate.mutate(t.id)
     }
   }

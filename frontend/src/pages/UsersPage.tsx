@@ -5,6 +5,7 @@ import type { User, RoleConfig } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { Plus, Edit2, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 
 const SYSTEM_ROLE_NAMES = ['admin', 'manager', 'auditor', 'team_member']
 
@@ -96,6 +97,7 @@ const roleColors: Record<string, string> = {
 export function UsersPage() {
   const { user: me } = useAuth()
   const qc = useQueryClient()
+  const confirmDialog = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<User | undefined>()
 
@@ -175,7 +177,7 @@ export function UsersPage() {
                       </button>
                       {u.id !== me?.id && u.is_active && (
                         <button className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500"
-                          onClick={() => { if (confirm(`Deactivate ${u.full_name}?`)) deactivate.mutate(u.id) }}>
+                          onClick={async () => { if (await confirmDialog(`Deactivate ${u.full_name}?`)) deactivate.mutate(u.id) }}>
                           <UserX size={15} />
                         </button>
                       )}
