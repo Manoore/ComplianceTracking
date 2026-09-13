@@ -101,10 +101,10 @@ function HierarchyDashboard() {
           {data.available_regions.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       )}
-      {isAdmin && hierarchyUsers.length > 0 && (
-        <select className="input w-auto text-xs py-1" value={viewAsUserId}
+      {isAdmin && (
+        <select className="input w-auto text-xs py-1" value={viewAsUserId} disabled={hierarchyUsers.length === 0}
           onChange={e => { setViewAsUserId(e.target.value); setRegion('') }}>
-          <option value="">View as…</option>
+          <option value="">{hierarchyUsers.length === 0 ? 'View as… (no one assigned yet)' : 'View as…'}</option>
           {hierarchyUsers.map(u => (
             <option key={u.id} value={u.id}>
               {u.full_name} ({HIERARCHY_ROLE_LABELS[u.custom_role!]}{u.managed_region ? ` — ${u.managed_region}` : ''})
