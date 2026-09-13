@@ -169,12 +169,16 @@ function ClinicForm({ clinic, regions, onClose }: { clinic?: Clinic; regions: st
             </select>
           </div>
           <div>
-            <label className="label">Assigned Manager</label>
+            <label className="label">Assigned Manager (Clinic Lead)</label>
             <select className="input" value={manager_id} onChange={e => setManagerId(e.target.value)}>
               <option value="">— None —</option>
-              {(users || []).filter((u: any) => u.role === 'manager' || u.role === 'admin').map((u: any) => (
-                <option key={u.id} value={u.id}>{u.full_name}</option>
-              ))}
+              {(users || [])
+                .filter((u: any) => u.role === 'manager' || u.role === 'admin' || u.custom_role === 'clinic_lead')
+                .map((u: any) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name}{u.custom_role === 'clinic_lead' ? ' (Clinic Lead)' : ''}
+                  </option>
+                ))}
             </select>
           </div>
           <div>

@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import api from '../services/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api, { apiError } from '../services/api'
+import { useAuth } from '../hooks/useAuth'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { ScoreRing } from '../components/ui/ScoreRing'
 import { statusBadge } from '../components/ui/Badge'
-import { ArrowLeft, MapPin, Phone, Mail, Globe, Clock } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, Mail, Globe, Clock, UserPlus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import toast from 'react-hot-toast'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
@@ -12,11 +16,45 @@ const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed',
 export function ClinicProfilePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const confirm = useConfirm()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const [adding, setAdding] = useState(false)
+  const [staffUserId, setStaffUserId] = useState('')
+  const [staffRoleNote, setStaffRoleNote] = useState('')
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['clinic-profile', id],
     queryFn: () => api.get(`/clinics/${id}/profile`).then(r => r.data),
   })
+  const { data: allUsers } = useQuery<any[]>({
+    queryKey: ['users'],
+    queryFn: () => api.get('/users').then(r => r.data),
+    enabled: isAdmin,
+  })
+
+  const addStaff = useMutation({
+    mutationFn: () => api.post(`/clinics/${id}/staff`, null, { params: { user_id: staffUserId, role_note: staffRoleNote } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clinic-profile', id] })
+      setAdding(false); setStaffUserId(''); setStaffRoleNote('')
+      toast.success('Staff member added')
+    },
+    onError: (e: any) => toast.error(apiError(e, 'Could not add staff member')),
+  })
+
+  const removeStaff = useMutation({
+    mutationFn: (userId: number) => api.delete(`/clinics/${id}/staff/${userId}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clinic-profile', id] }); toast.success('Staff member removed') },
+    onError: (e: any) => toast.error(apiError(e, 'Could not remove staff member')),
+  })
+
+  const handleRemoveStaff = async (userId: number, name: string) => {
+    if (await confirm({ title: 'Remove staff member?', message: `Remove ${name} from this clinic's staff?`, confirmLabel: 'Remove' })) {
+      removeStaff.mutate(userId)
+    }
+  }
 
   if (isLoading) return (
     <div className="flex justify-center py-12">
@@ -159,19 +197,53 @@ export function ClinicProfilePage() {
 
         {/* Staff */}
         <div className="card p-0 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Assigned Staff ({staff.length})</h2>
+            {isAdmin && (
+              <button onClick={() => setAdding(v => !v)} className="text-xs font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                <UserPlus size={14} /> Add
+              </button>
+            )}
           </div>
+          {adding && (
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[160px]">
+                <label className="label text-xs">Staff member</label>
+                <select className="input text-sm" value={staffUserId} onChange={e => setStaffUserId(e.target.value)}>
+                  <option value="">— Select —</option>
+                  {(allUsers ?? [])
+                    .filter(u => !staff.some((s: any) => s.user_id === u.id))
+                    .map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                </select>
+              </div>
+              <div className="flex-1 min-w-[140px]">
+                <label className="label text-xs">Role note (optional)</label>
+                <input className="input text-sm" placeholder="e.g. MA, Front Desk" value={staffRoleNote} onChange={e => setStaffRoleNote(e.target.value)} />
+              </div>
+              <button className="btn-primary text-sm px-3 py-1.5" disabled={!staffUserId || addStaff.isPending}
+                onClick={() => addStaff.mutate()}>
+                {addStaff.isPending ? 'Adding…' : 'Add'}
+              </button>
+              <button className="btn-secondary text-sm px-3 py-1.5" onClick={() => setAdding(false)}>Cancel</button>
+            </div>
+          )}
           <div className="divide-y divide-gray-50">
             {staff.map((s: any) => (
-              <div key={s.user_id} className="flex items-center gap-3 px-5 py-3">
-                <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-medium text-sm flex-shrink-0">
-                  {s.full_name?.charAt(0)?.toUpperCase()}
+              <div key={s.user_id} className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-medium text-sm flex-shrink-0">
+                    {s.full_name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.full_name}</p>
+                    {s.role_note && <p className="text-xs text-gray-400 truncate">{s.role_note}</p>}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{s.full_name}</p>
-                  {s.role_note && <p className="text-xs text-gray-400">{s.role_note}</p>}
-                </div>
+                {isAdmin && (
+                  <button onClick={() => handleRemoveStaff(s.user_id, s.full_name)} className="p-1 text-gray-400 hover:text-red-600 flex-shrink-0">
+                    <X size={15} />
+                  </button>
+                )}
               </div>
             ))}
             {staff.length === 0 && <p className="text-center py-8 text-gray-400 text-sm">No staff assigned</p>}
