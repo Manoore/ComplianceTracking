@@ -2,6 +2,7 @@ import re
 import io
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
@@ -12,6 +13,24 @@ from .deps import get_current_user, require_admin
 from ..data.preset_templates import PRESET_TEMPLATES
 
 router = APIRouter(prefix="/checklists", tags=["checklists"])
+
+
+def _visible_template(db: Session, template_id: int, current_user: User) -> Optional[ChecklistTemplate]:
+    """A template the user may read: their own tenant's, or a shared preset."""
+    t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+    if not t:
+        return None
+    if t.tenant_id == current_user.tenant_id or (t.is_preset and t.tenant_id is None):
+        return t
+    return None
+
+
+def _owned_template(db: Session, template_id: int, current_user: User) -> Optional[ChecklistTemplate]:
+    """A template the user may edit or delete: must belong to their own tenant."""
+    return (db.query(ChecklistTemplate)
+            .filter(ChecklistTemplate.id == template_id,
+                    ChecklistTemplate.tenant_id == current_user.tenant_id)
+            .first())
 
 
 class SectionIn(BaseModel):
@@ -98,8 +117,11 @@ def template_out(t: ChecklistTemplate) -> dict:
 
 @router.get("/")
 def list_templates(include_presets: bool = True, db: Session = Depends(get_db),
-                   _=Depends(get_current_user)):
-    q = db.query(ChecklistTemplate).filter(ChecklistTemplate.is_active == True)
+                   current_user: User = Depends(get_current_user)):
+    q = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.is_active == True,
+        or_(ChecklistTemplate.tenant_id == current_user.tenant_id,
+            and_(ChecklistTemplate.is_preset == True, ChecklistTemplate.tenant_id.is_(None))))
     if not include_presets:
         q = q.filter(ChecklistTemplate.is_preset == False)
     return [template_out(t) for t in q.order_by(ChecklistTemplate.name).all()]
@@ -108,7 +130,8 @@ def list_templates(include_presets: bool = True, db: Session = Depends(get_db),
 @router.get("/presets")
 def list_presets(db: Session = Depends(get_db), _=Depends(get_current_user)):
     """Return available preset categories and counts."""
-    presets = db.query(ChecklistTemplate).filter(ChecklistTemplate.is_preset == True).all()
+    presets = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.is_preset == True, ChecklistTemplate.tenant_id.is_(None)).all()
     if not presets:
         return [{"category": k, "count": len(v["items"])} for k, v in PRESET_TEMPLATES.items()]
     cats = {}
@@ -127,6 +150,7 @@ def deploy_preset(category: str, db: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail=f"Preset '{category}' not found")
 
     t = ChecklistTemplate(
+        tenant_id=current_user.tenant_id,
         name=data["name"],
         description=data.get("description"),
         is_preset=True,
@@ -173,11 +197,12 @@ def deploy_preset(category: str, db: Session = Depends(get_db),
 @router.post("/{template_id}/clone", status_code=201)
 def clone_template(template_id: int, new_name: Optional[str] = None,
                    db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    src = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+    src = _visible_template(db, template_id, current_user)
     if not src:
         raise HTTPException(status_code=404, detail="Template not found")
 
     clone = ChecklistTemplate(
+        tenant_id=current_user.tenant_id,
         name=new_name or f"{src.name} (copy)",
         description=src.description,
         is_preset=False,
@@ -226,8 +251,8 @@ def clone_template(template_id: int, new_name: Optional[str] = None,
 @router.post("/", status_code=201)
 def create_template(payload: TemplateCreate, db: Session = Depends(get_db),
                     current_user: User = Depends(require_admin)):
-    t = ChecklistTemplate(name=payload.name, description=payload.description,
-                          created_by=current_user.id)
+    t = ChecklistTemplate(tenant_id=current_user.tenant_id, name=payload.name,
+                          description=payload.description, created_by=current_user.id)
     db.add(t)
     db.flush()
 
@@ -252,8 +277,9 @@ def create_template(payload: TemplateCreate, db: Session = Depends(get_db),
 
 
 @router.get("/{template_id}")
-def get_template(template_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
-    t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+def get_template(template_id: int, db: Session = Depends(get_db),
+                 current_user: User = Depends(get_current_user)):
+    t = _visible_template(db, template_id, current_user)
     if not t:
         raise HTTPException(status_code=404, detail="Template not found")
     return template_out(t)
@@ -262,7 +288,7 @@ def get_template(template_id: int, db: Session = Depends(get_db), _=Depends(get_
 @router.put("/{template_id}")
 def update_template(template_id: int, payload: TemplateUpdate, db: Session = Depends(get_db),
                     current_user: User = Depends(require_admin)):
-    t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+    t = _owned_template(db, template_id, current_user)
     if not t:
         raise HTTPException(status_code=404, detail="Template not found")
     for k, v in payload.model_dump(exclude_none=True, exclude={'items'}).items():
@@ -282,7 +308,7 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
 @router.post("/{template_id}/sections", status_code=201)
 def add_section(template_id: int, payload: SectionIn, db: Session = Depends(get_db),
                 current_user: User = Depends(require_admin)):
-    t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+    t = _owned_template(db, template_id, current_user)
     if not t:
         raise HTTPException(status_code=404, detail="Template not found")
     sec = ChecklistSection(template_id=template_id, **payload.model_dump())
@@ -295,7 +321,7 @@ def add_section(template_id: int, payload: SectionIn, db: Session = Depends(get_
 @router.post("/{template_id}/items", status_code=201)
 def add_item(template_id: int, payload: ItemIn, db: Session = Depends(get_db),
              current_user: User = Depends(require_admin)):
-    t = db.query(ChecklistTemplate).filter(ChecklistTemplate.id == template_id).first()
+    t = _owned_template(db, template_id, current_user)
     if not t:
         raise HTTPException(status_code=404, detail="Template not found")
     item = ChecklistItem(template_id=template_id, **payload.model_dump())
@@ -308,6 +334,8 @@ def add_item(template_id: int, payload: ItemIn, db: Session = Depends(get_db),
 @router.put("/{template_id}/items/{item_id}")
 def update_item(template_id: int, item_id: int, payload: ItemIn,
                 db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    if not _owned_template(db, template_id, current_user):
+        raise HTTPException(status_code=404, detail="Template not found")
     item = db.query(ChecklistItem).filter(
         ChecklistItem.id == item_id, ChecklistItem.template_id == template_id).first()
     if not item:
@@ -322,6 +350,8 @@ def update_item(template_id: int, item_id: int, payload: ItemIn,
 @router.delete("/{template_id}/items/{item_id}", status_code=204)
 def delete_item(template_id: int, item_id: int, db: Session = Depends(get_db),
                 current_user: User = Depends(require_admin)):
+    if not _owned_template(db, template_id, current_user):
+        raise HTTPException(status_code=404, detail="Template not found")
     item = db.query(ChecklistItem).filter(
         ChecklistItem.id == item_id, ChecklistItem.template_id == template_id).first()
     if not item:
