@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -17,33 +17,64 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.get("/hierarchy")
-def hierarchy_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[int] = None,
+                        db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Rollup of today's daily-checklist completion and open issues, scoped to the
     viewer's place in the org: a Clinic Lead (manager) sees their own clinics, a
     Regional Manager sees their region, and Director of Operations / Executive /
     Admin see every region.
+
+    Admins may pass view_as_user_id to preview the dashboard exactly as that
+    person would see it (their own scope, not the admin's), and region to
+    narrow down to one region within whatever scope applies.
     """
     from ..models.checklist import ChecklistTemplate
 
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
 
+    viewing_as = None
+    scope_user = current_user
+    if view_as_user_id is not None:
+        if current_user.role != UserRole.admin:
+            raise HTTPException(status_code=403, detail="Only admins can view another user's dashboard")
+        target = db.query(User).filter(User.id == view_as_user_id, User.tenant_id == current_user.tenant_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        scope_user = target
+        viewing_as = {
+            "id": target.id,
+            "full_name": target.full_name,
+            "custom_role": target.custom_role,
+            "managed_region": target.managed_region,
+        }
+
     # custom_role is stored as the slugified role name (e.g. "regional_manager"),
     # matching Role.name — not the human-readable display name.
-    custom_role = (current_user.custom_role or "").strip().lower()
+    custom_role = (scope_user.custom_role or "").strip().lower()
     clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
 
-    if current_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+    if scope_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
         scope_label = "All Regions"
-    elif custom_role == "regional_manager" and current_user.managed_region:
-        clinics_q = clinics_q.filter(Clinic.region == current_user.managed_region)
-        scope_label = f"Region: {current_user.managed_region}"
-    elif custom_role == "clinic_lead" or current_user.role == UserRole.manager:
-        clinics_q = clinics_q.filter(Clinic.manager_id == current_user.id)
+    elif custom_role == "regional_manager" and scope_user.managed_region:
+        clinics_q = clinics_q.filter(Clinic.region == scope_user.managed_region)
+        scope_label = f"Region: {scope_user.managed_region}"
+    elif custom_role == "clinic_lead" or scope_user.role == UserRole.manager:
+        clinics_q = clinics_q.filter(Clinic.manager_id == scope_user.id)
         scope_label = "Your Clinics"
     else:
         scope_label = "All Regions"
+
+    # Regions available within this scope, before the optional region filter narrows it —
+    # lets the frontend offer only the regions that actually mean something here.
+    available_regions = sorted({
+        r for (r,) in clinics_q.with_entities(Clinic.region).distinct().all() if r
+    })
+
+    if region:
+        clinics_q = clinics_q.filter(Clinic.region == region)
+        scope_label = f"{scope_label} — Region: {region}" if scope_label != "All Regions" else f"Region: {region}"
 
     clinics = clinics_q.order_by(Clinic.region, Clinic.name).all()
 
@@ -114,6 +145,8 @@ def hierarchy_dashboard(db: Session = Depends(get_db), current_user: User = Depe
 
     return {
         "scope_label": scope_label,
+        "viewing_as": viewing_as,
+        "available_regions": available_regions,
         "as_of": datetime.utcnow().isoformat(),
         "has_daily_templates": len(daily_templates) > 0,
         "summary": {

@@ -3,10 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
   Building2, BarChart2, Award, ShieldAlert, Layers,
-  ChevronDown, ChevronUp, ClipboardCheck
+  ChevronDown, ChevronUp, ClipboardCheck, Eye, X
 } from 'lucide-react'
 import api from '../services/api'
-import { DashboardData, Department } from '../types'
+import { useAuth } from '../hooks/useAuth'
+import { DashboardData, Department, User } from '../types'
+
+const HIERARCHY_ROLE_LABELS: Record<string, string> = {
+  clinic_lead: 'Clinic Lead',
+  regional_manager: 'Regional Manager',
+  director_of_operations: 'Director of Operations',
+}
 
 interface HierarchyClinicRow {
   clinic_id: number
@@ -28,6 +35,8 @@ interface HierarchyRegion {
 
 interface HierarchyData {
   scope_label: string
+  viewing_as: { id: number; full_name: string; custom_role: string | null; managed_region: string | null } | null
+  available_regions: string[]
   as_of: string
   has_daily_templates: boolean
   summary: { total_clinics: number; submitted_today: number; missing_today: number }
@@ -46,10 +55,27 @@ function DailyStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
 }
 
 function HierarchyDashboard() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [region, setRegion] = useState('')
+  const [viewAsUserId, setViewAsUserId] = useState('')
+
+  const { data: allUsers } = useQuery<User[]>({
+    queryKey: ['users'],
+    queryFn: () => api.get('/users').then(r => r.data),
+    enabled: isAdmin,
+  })
+  const hierarchyUsers = (allUsers ?? []).filter(u => u.custom_role && HIERARCHY_ROLE_LABELS[u.custom_role])
+
   const { data, isLoading } = useQuery<HierarchyData>({
-    queryKey: ['reports-hierarchy'],
-    queryFn: () => api.get('/reports/hierarchy').then(r => r.data),
+    queryKey: ['reports-hierarchy', region, viewAsUserId],
+    queryFn: () => api.get('/reports/hierarchy', {
+      params: {
+        region: region || undefined,
+        view_as_user_id: viewAsUserId || undefined,
+      },
+    }).then(r => r.data),
     refetchInterval: 60_000,
   })
 
@@ -67,12 +93,37 @@ function HierarchyDashboard() {
     )
   }
 
+  const pickers = (
+    <div className="flex items-center gap-2">
+      {data.available_regions.length > 1 && (
+        <select className="input w-auto text-xs py-1" value={region} onChange={e => setRegion(e.target.value)}>
+          <option value="">All Regions</option>
+          {data.available_regions.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+      )}
+      {isAdmin && hierarchyUsers.length > 0 && (
+        <select className="input w-auto text-xs py-1" value={viewAsUserId}
+          onChange={e => { setViewAsUserId(e.target.value); setRegion('') }}>
+          <option value="">View as…</option>
+          {hierarchyUsers.map(u => (
+            <option key={u.id} value={u.id}>
+              {u.full_name} ({HIERARCHY_ROLE_LABELS[u.custom_role!]}{u.managed_region ? ` — ${u.managed_region}` : ''})
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  )
+
   if (!data.has_daily_templates) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-          <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
+          </h2>
+          {pickers}
+        </div>
         <p className="text-sm text-gray-400">
           No template is marked as "daily" yet. Set a template's frequency to Daily on the
           Templates page to start tracking completion here.
@@ -90,10 +141,20 @@ function HierarchyDashboard() {
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
         </h2>
-        <span className="text-xs text-gray-400">{data.scope_label}</span>
+        {pickers}
       </div>
+      {data.viewing_as && (
+        <div className="flex items-center gap-2 mb-2 text-xs text-brand-700 bg-brand-50 px-2.5 py-1.5 rounded-lg w-fit">
+          <Eye size={13} />
+          Viewing as {data.viewing_as.full_name}
+          {data.viewing_as.custom_role && ` (${HIERARCHY_ROLE_LABELS[data.viewing_as.custom_role] ?? data.viewing_as.custom_role})`}
+          <button onClick={() => setViewAsUserId('')} className="ml-1 hover:text-brand-900">
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <p className="text-xs text-gray-400 mb-4">
-        {summary.submitted_today} of {summary.total_clinics} clinics submitted today's checklist ({pct}%)
+        {data.scope_label} · {summary.submitted_today} of {summary.total_clinics} clinics submitted today's checklist ({pct}%)
       </p>
 
       {summary.missing_today > 0 && (
