@@ -316,6 +316,7 @@ export interface AccreditationStandard {
 }
 
 export interface DashboardData {
+  scope_label: string
   summary: {
     total_inspections: number
     approved_inspections: number

@@ -178,24 +178,46 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
     }
 
 
+def _scoped_clinic_ids(db: Session, user: User) -> tuple:
+    """Clinic IDs `user` should see on the dashboard (or None for "every clinic in
+    their tenant"), plus a human-readable label for what that scope is. Same
+    hierarchy as the /hierarchy endpoint: Clinic Lead -> own clinics, Regional
+    Manager -> own region, Director/Executive/Admin -> everything."""
+    custom_role = (user.custom_role or "").strip().lower()
+    if user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+        return None, "All Regions"
+    q = db.query(Clinic.id).filter(Clinic.tenant_id == user.tenant_id)
+    if custom_role == "regional_manager" and user.managed_region:
+        return [i for (i,) in q.filter(Clinic.region == user.managed_region).all()], f"Region: {user.managed_region}"
+    if custom_role == "clinic_lead" or user.role == UserRole.manager:
+        return [i for (i,) in q.filter(Clinic.manager_id == user.id).all()], "Your Clinics"
+    return None, "All Regions"
+
+
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from ..models.user import UserRole
     now = datetime.utcnow()
+    tenant_id = current_user.tenant_id
+    scoped_clinic_ids, scope_label = _scoped_clinic_ids(db, current_user)
 
-    q_insp = db.query(Inspection)
-    q_actions = db.query(CorrectiveAction)
-    q_certs = db.query(TeamCertification)
+    q_insp = db.query(Inspection).filter(Inspection.tenant_id == tenant_id)
+    q_actions = db.query(CorrectiveAction).filter(CorrectiveAction.tenant_id == tenant_id)
+    # TeamCertification has no tenant_id of its own -- scope it through its course.
+    from ..models.certification import Course
+    q_certs = (db.query(TeamCertification)
+               .join(Course, TeamCertification.course_id == Course.id)
+               .filter(Course.tenant_id == tenant_id))
 
-    if current_user.role == UserRole.manager:
-        managed_ids = db.query(Clinic.id).filter(Clinic.manager_id == current_user.id).subquery()
-        q_insp = q_insp.filter(Inspection.clinic_id.in_(managed_ids))
-        q_actions = q_actions.filter(CorrectiveAction.clinic_id.in_(managed_ids))
+    if scoped_clinic_ids is not None:
+        q_insp = q_insp.filter(Inspection.clinic_id.in_(scoped_clinic_ids))
+        q_actions = q_actions.filter(CorrectiveAction.clinic_id.in_(scoped_clinic_ids))
 
     total_inspections = q_insp.count()
     approved = q_insp.filter(Inspection.status == InspectionStatus.approved).count()
     pending_review = q_insp.filter(Inspection.status.in_([InspectionStatus.submitted, InspectionStatus.under_review])).count()
-    avg_score = db.query(func.avg(Inspection.compliance_score)).filter(Inspection.compliance_score.isnot(None)).scalar()
+    avg_score = q_insp.with_entities(func.avg(Inspection.compliance_score)).filter(
+        Inspection.compliance_score.isnot(None)).scalar()
 
     open_actions = q_actions.filter(CorrectiveAction.status.in_([ActionStatus.open, ActionStatus.in_progress, ActionStatus.pending_verification])).count()
     overdue_actions = q_actions.filter(
@@ -212,11 +234,12 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         TeamCertification.expires_at > now,
     ).count()
 
-    q_audits = db.query(AuditReview)
-    if current_user.role == UserRole.manager:
-        managed_ids = db.query(Clinic.id).filter(Clinic.manager_id == current_user.id).subquery()
-        q_audits = q_audits.join(Inspection, AuditReview.inspection_id == Inspection.id).filter(
-            Inspection.clinic_id.in_(managed_ids))
+    # AuditReview has no tenant_id of its own -- scope it through its inspection.
+    q_audits = (db.query(AuditReview)
+                .join(Inspection, AuditReview.inspection_id == Inspection.id)
+                .filter(Inspection.tenant_id == tenant_id))
+    if scoped_clinic_ids is not None:
+        q_audits = q_audits.filter(Inspection.clinic_id.in_(scoped_clinic_ids))
     elif current_user.role == UserRole.auditor:
         q_audits = q_audits.filter(AuditReview.auditor_id == current_user.id)
     audit_counts = {s.value: q_audits.filter(AuditReview.status == s).count() for s in AuditStatus}
@@ -228,7 +251,10 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     }
 
     # Clinics by risk level
-    clinics = db.query(Clinic).filter(Clinic.is_active == True).all()
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == tenant_id, Clinic.is_active == True)
+    if scoped_clinic_ids is not None:
+        clinics_q = clinics_q.filter(Clinic.id.in_(scoped_clinic_ids))
+    clinics = clinics_q.all()
     risk_breakdown = {"low": 0, "medium": 0, "high": 0, "critical": 0, "unknown": 0}
     clinic_scores = []
     for c in clinics:
@@ -246,20 +272,24 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         else:
             risk_breakdown["unknown"] += 1
 
-    recent = (db.query(Inspection)
-              .filter(Inspection.compliance_score.isnot(None))
+    recent = (q_insp.filter(Inspection.compliance_score.isnot(None))
               .order_by(Inspection.submitted_at.desc()).limit(10).all())
 
     trend = []
     for i in range(5, -1, -1):
         start = (now - timedelta(days=30 * (i + 1))).replace(day=1)
         end = (now - timedelta(days=30 * i)).replace(day=1)
-        avg = db.query(func.avg(Inspection.compliance_score)).filter(
+        trend_q = db.query(func.avg(Inspection.compliance_score)).filter(
+            Inspection.tenant_id == tenant_id,
             Inspection.submitted_at >= start, Inspection.submitted_at < end,
-            Inspection.compliance_score.isnot(None)).scalar()
+            Inspection.compliance_score.isnot(None))
+        if scoped_clinic_ids is not None:
+            trend_q = trend_q.filter(Inspection.clinic_id.in_(scoped_clinic_ids))
+        avg = trend_q.scalar()
         trend.append({"month": start.strftime("%b %Y"), "avg_score": round(avg or 0, 1)})
 
     return {
+        "scope_label": scope_label,
         "summary": {
             "total_inspections": total_inspections,
             "approved_inspections": approved,

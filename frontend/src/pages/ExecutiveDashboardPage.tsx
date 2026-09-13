@@ -386,8 +386,17 @@ export function ExecutiveDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BarChart2 className="text-brand-600" size={26} /> Executive Dashboard
+            {data?.scope_label && data.scope_label !== 'All Regions' && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-100">
+                {data.scope_label}
+              </span>
+            )}
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Organization-wide compliance at a glance.</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {data?.scope_label && data.scope_label !== 'All Regions'
+              ? 'Compliance for the clinics you oversee.'
+              : 'Organization-wide compliance at a glance.'}
+          </p>
         </div>
         <span className="text-xs text-gray-400">Auto-refreshes every 60s</span>
       </div>
