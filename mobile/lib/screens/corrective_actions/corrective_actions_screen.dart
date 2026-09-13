@@ -30,7 +30,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
 
   Future<void> _resolve(int id) async {
     try {
-      await ApiService().patch('/corrective-actions/$id', {'status': 'resolved'});
+      await ApiService().put('/corrective-actions/$id', {'status': 'resolved'});
       await _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marked as resolved'), backgroundColor: kSuccess));
     } catch (e) {
@@ -40,7 +40,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
 
   Future<void> _updateStatus(int id, String status) async {
     try {
-      await ApiService().patch('/corrective-actions/$id', {'status': status});
+      await ApiService().put('/corrective-actions/$id', {'status': status});
       await _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status updated to $status'), backgroundColor: kSuccess));
     } catch (e) {

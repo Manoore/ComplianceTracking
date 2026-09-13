@@ -163,7 +163,7 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text(c['credential_type'] ?? c['name'] ?? 'Credential',
+                                    Text(c['title'] ?? c['credential_type'] ?? c['name'] ?? 'Credential',
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                     if (c['holder_name'] != null || c['user_name'] != null)
                                       Text(c['holder_name'] ?? c['user_name'] ?? '',
@@ -190,8 +190,8 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
                                     ),
                                   ],
                                   const Spacer(),
-                                  if (c['license_number'] != null)
-                                    Text('#${c['license_number']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  if (c['credential_number'] != null)
+                                    Text('#${c['credential_number']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                 ]),
                                 if (c['notes'] != null) ...[
                                   const SizedBox(height: 6),
@@ -287,8 +287,8 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
   void _showEdit(BuildContext context, Map<String, dynamic> c) => _showForm(context, c);
 
   void _showForm(BuildContext context, Map<String, dynamic>? existing) {
-    final typeCtrl = TextEditingController(text: existing?['credential_type'] ?? existing?['name'] ?? '');
-    final licenseCtrl = TextEditingController(text: existing?['license_number'] ?? '');
+    final typeCtrl = TextEditingController(text: existing?['title'] ?? existing?['credential_type'] ?? existing?['name'] ?? '');
+    final licenseCtrl = TextEditingController(text: existing?['credential_number'] ?? '');
     final expiryCtrl = TextEditingController(text: existing?['expiry_date']?.toString().substring(0, 10) ?? '');
     final notesCtrl = TextEditingController(text: existing?['notes'] ?? '');
     String? selectedUserId = existing?['user_id']?.toString();
@@ -342,8 +342,9 @@ class _CredentialsScreenState extends State<CredentialsScreen> with SingleTicker
                 if (typeCtrl.text.isEmpty) return;
                 try {
                   final body = {
+                    'title': typeCtrl.text,
                     'credential_type': typeCtrl.text,
-                    if (licenseCtrl.text.isNotEmpty) 'license_number': licenseCtrl.text,
+                    if (licenseCtrl.text.isNotEmpty) 'credential_number': licenseCtrl.text,
                     if (expiryCtrl.text.isNotEmpty) 'expiry_date': expiryCtrl.text,
                     if (notesCtrl.text.isNotEmpty) 'notes': notesCtrl.text,
                     if (selectedUserId != null) 'user_id': int.tryParse(selectedUserId!),

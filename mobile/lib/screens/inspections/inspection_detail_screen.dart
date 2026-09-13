@@ -43,7 +43,10 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
   Future<void> _saveAnswer(int itemId, String answer) async {
     setState(() => _answers[itemId] = answer);
     try {
-      await ApiService().patch('/inspections/${widget.id}/items/$itemId', {'answer': answer, 'notes': _notes[itemId]?.text ?? ''});
+      await ApiService().put('/inspections/${widget.id}/items/$itemId', {
+        if (kAnswerToResult.containsKey(answer)) 'result': kAnswerToResult[answer],
+        'notes': _notes[itemId]?.text ?? '',
+      });
     } catch (_) {}
   }
 

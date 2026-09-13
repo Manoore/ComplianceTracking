@@ -58,6 +58,9 @@ class InspectionDetail extends Inspection {
       );
 }
 
+const Map<String, String> kResultToAnswer = {'pass': 'yes', 'fail': 'no', 'na': 'na'};
+const Map<String, String> kAnswerToResult = {'yes': 'pass', 'no': 'fail', 'na': 'na'};
+
 class ChecklistItem {
   final int id;
   final String question;
@@ -65,8 +68,9 @@ class ChecklistItem {
   final bool isRequired;
   ChecklistItem({required this.id, required this.question, this.answer, this.notes, required this.isRequired});
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
-        id: (j['id'] as num).toInt(), question: j['question'] ?? '', answer: j['answer'],
-        notes: j['notes'], isRequired: j['is_required'] ?? false,
+        id: (j['id'] as num).toInt(), question: j['question'] ?? '',
+        answer: kResultToAnswer[j['result']],
+        notes: j['notes'], isRequired: j['is_critical'] ?? false,
       );
 }
 

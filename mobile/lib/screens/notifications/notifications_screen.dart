@@ -25,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markAllRead() async {
-    try { await ApiService().post('/notifications/mark-all-read', {}); await _load(); } catch (_) {}
+    try { await ApiService().post('/notifications/read-all', {}); await _load(); } catch (_) {}
   }
 
   IconData _icon(String type) {

@@ -51,6 +51,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 def _make_token_data(user: User) -> dict:
     return {"sub": str(user.id), "role": user.role.value, "tenant_id": user.tenant_id}
 
@@ -224,6 +229,21 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
 
     user.hashed_password = hash_password(req.new_password)
     log_action(db, "user.password_reset", user_id=user.id)
+    db.commit()
+    return {"message": "Password updated successfully"}
+
+
+@router.post("/change-password")
+def change_password(req: ChangePasswordRequest, db: Session = Depends(get_db),
+                    current_user: User = Depends(get_current_user)):
+    from ..services.auth import verify_password
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not current_user.hashed_password or not verify_password(req.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    current_user.hashed_password = hash_password(req.new_password)
+    log_action(db, "user.change_password", user_id=current_user.id)
     db.commit()
     return {"message": "Password updated successfully"}
 
