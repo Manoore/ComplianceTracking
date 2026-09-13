@@ -20,12 +20,15 @@ const HIERARCHY_ROLE_LABELS: Record<string, string> = {
   director_of_operations: 'Director of Operations',
 }
 
+type Frequency = 'daily' | 'weekly' | 'monthly'
+const FREQUENCY_LABELS: Record<Frequency, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }
+
 interface HierarchyClinicRow {
   clinic_id: number
   clinic_name: string
   region: string
   manager_name: string | null
-  status: 'submitted' | 'missing' | 'no_daily_template'
+  status: 'submitted' | 'missing' | 'no_template'
   missing_templates: string[]
   open_corrective_actions: number
 }
@@ -41,8 +44,8 @@ interface HierarchyRegion {
 interface IndividualRollup {
   name: string
   total_clinics: number
-  submitted_today: number
-  missing_today: number
+  submitted: number
+  missing: number
   open_corrective_actions: number
 }
 
@@ -51,15 +54,17 @@ interface HierarchyData {
   viewing_as: { id: number; full_name: string; custom_role: string | null; managed_region: string | null } | null
   available_regions: string[]
   as_of: string
-  has_daily_templates: boolean
-  summary: { total_clinics: number; submitted_today: number; missing_today: number }
+  frequency: Frequency
+  period_label: string
+  has_templates: boolean
+  summary: { total_clinics: number; submitted: number; missing: number }
   missing_clinics: HierarchyClinicRow[]
   regions: HierarchyRegion[]
   by_individual: IndividualRollup[]
 }
 
-function IndividualCard({ p }: { p: IndividualRollup }) {
-  const allDone = p.missing_today === 0
+function IndividualCard({ p, periodLabel }: { p: IndividualRollup; periodLabel: string }) {
+  const allDone = p.missing === 0
   return (
     <div className={`rounded-xl border p-4 ${allDone ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -69,9 +74,9 @@ function IndividualCard({ p }: { p: IndividualRollup }) {
           : <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />}
       </div>
       <p className="text-2xl font-bold text-gray-900 leading-none">
-        {p.submitted_today}<span className="text-sm font-normal text-gray-400">/{p.total_clinics}</span>
+        {p.submitted}<span className="text-sm font-normal text-gray-400">/{p.total_clinics}</span>
       </p>
-      <p className="text-xs text-gray-400 mt-1 mb-2">clinics submitted today</p>
+      <p className="text-xs text-gray-400 mt-1 mb-2">clinics submitted {periodLabel}</p>
       {p.open_corrective_actions > 0 && (
         <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
           {p.open_corrective_actions} open action{p.open_corrective_actions !== 1 ? 's' : ''}
@@ -81,23 +86,24 @@ function IndividualCard({ p }: { p: IndividualRollup }) {
   )
 }
 
-function DailyStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
+function PeriodStatusPill({ status }: { status: HierarchyClinicRow['status'] }) {
   if (status === 'submitted') {
     return <span className="badge bg-green-100 text-green-800 text-xs">Submitted</span>
   }
   if (status === 'missing') {
     return <span className="badge bg-red-100 text-red-800 text-xs">Missing</span>
   }
-  return <span className="badge bg-gray-100 text-gray-500 text-xs">No daily checklist</span>
+  return <span className="badge bg-gray-100 text-gray-500 text-xs">No template</span>
 }
 
 function HierarchyDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isAdmin = user?.role === 'admin'
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [toggled, setToggled] = useState<Set<string>>(new Set())
   const [region, setRegion] = useState('')
   const [viewAsUserId, setViewAsUserId] = useState('')
+  const [frequency, setFrequency] = useState<Frequency>('daily')
 
   const { data: allUsers } = useQuery<User[]>({
     queryKey: ['users'],
@@ -107,17 +113,25 @@ function HierarchyDashboard() {
   const hierarchyUsers = (allUsers ?? []).filter(u => u.custom_role && HIERARCHY_ROLE_LABELS[u.custom_role])
 
   const { data, isLoading } = useQuery<HierarchyData>({
-    queryKey: ['reports-hierarchy', region, viewAsUserId],
+    queryKey: ['reports-hierarchy', region, viewAsUserId, frequency],
     queryFn: () => api.get('/reports/hierarchy', {
       params: {
         region: region || undefined,
         view_as_user_id: viewAsUserId || undefined,
+        frequency,
       },
     }).then(r => r.data),
     refetchInterval: 60_000,
   })
 
-  const toggleRegion = (r: string) => setCollapsed(prev => {
+  // A region's default open/closed state comes from the data (collapsed when everything's
+  // submitted, open when something needs attention) -- `toggled` only records that the
+  // viewer overrode that default by clicking it, in either direction.
+  const isRegionCollapsed = (r: HierarchyRegion) => {
+    const defaultCollapsed = r.missing === 0 && r.total > 0
+    return toggled.has(r.region) ? !defaultCollapsed : defaultCollapsed
+  }
+  const toggleRegion = (r: string) => setToggled(prev => {
     const next = new Set(prev)
     if (next.has(r)) next.delete(r); else next.add(r)
     return next
@@ -131,8 +145,23 @@ function HierarchyDashboard() {
     )
   }
 
+  const frequencyPicker = (
+    <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+      {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map(f => (
+        <button
+          key={f}
+          onClick={() => setFrequency(f)}
+          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${frequency === f ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          {FREQUENCY_LABELS[f]}
+        </button>
+      ))}
+    </div>
+  )
+
   const pickers = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap justify-end">
+      {frequencyPicker}
       {data.available_regions.length > 1 && (
         <select className="input w-auto text-xs py-1" value={region} onChange={e => setRegion(e.target.value)}>
           <option value="">All Regions</option>
@@ -153,17 +182,19 @@ function HierarchyDashboard() {
     </div>
   )
 
-  if (!data.has_daily_templates) {
+  const panelTitle = `${FREQUENCY_LABELS[frequency]} Checklist Status`
+
+  if (!data.has_templates) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
           <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
+            <ClipboardCheck size={16} className="text-brand-600" /> {panelTitle}
           </h2>
           {pickers}
         </div>
         <p className="text-sm text-gray-400">
-          No template is marked as "daily" yet. Set a template's frequency to Daily on the
+          No template is marked as "{frequency}" yet. Set a template's frequency to {FREQUENCY_LABELS[frequency]} on the
           Templates page to start tracking completion here.
         </p>
       </div>
@@ -171,13 +202,17 @@ function HierarchyDashboard() {
   }
 
   const { summary } = data
-  const pct = summary.total_clinics > 0 ? Math.round((summary.submitted_today / summary.total_clinics) * 100) : 0
+  const pct = summary.total_clinics > 0 ? Math.round((summary.submitted / summary.total_clinics) * 100) : 0
+
+  // Which regions have anything missing, most-affected first -- a scannable overview
+  // instead of repeating every clinic's name in a second flat list.
+  const regionsNeedingAttention = [...data.regions].filter(r => r.missing > 0).sort((a, b) => b.missing - a.missing)
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-          <ClipboardCheck size={16} className="text-brand-600" /> Daily Checklist Status
+          <ClipboardCheck size={16} className="text-brand-600" /> {panelTitle}
         </h2>
         {pickers}
       </div>
@@ -192,7 +227,7 @@ function HierarchyDashboard() {
         </div>
       )}
       <p className="text-xs text-gray-400 mb-4">
-        {data.scope_label} · {summary.submitted_today} of {summary.total_clinics} clinics submitted today's checklist ({pct}%)
+        {data.scope_label} · {summary.submitted} of {summary.total_clinics} clinics submitted {data.period_label}'s checklist ({pct}%)
       </p>
 
       {data.by_individual.length > 1 && (
@@ -201,26 +236,25 @@ function HierarchyDashboard() {
             <Users size={12} /> By Clinic Lead
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {data.by_individual.map(p => <IndividualCard key={p.name} p={p} />)}
+            {data.by_individual.map(p => <IndividualCard key={p.name} p={p} periodLabel={data.period_label} />)}
           </div>
         </div>
       )}
 
-      {summary.missing_today > 0 && (
+      {regionsNeedingAttention.length > 0 && (
         <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
           <p className="text-sm font-medium text-red-700 mb-2">
-            {summary.missing_today} clinic{summary.missing_today !== 1 ? 's' : ''} missing today's checklist
+            {summary.missing} clinic{summary.missing !== 1 ? 's' : ''} missing {data.period_label}'s checklist
           </p>
-          <div className="space-y-1">
-            {data.missing_clinics.map(c => (
+          <div className="flex flex-wrap gap-1.5">
+            {regionsNeedingAttention.map(r => (
               <button
-                key={c.clinic_id}
-                onClick={() => navigate(`/inspections?clinic_id=${c.clinic_id}`)}
-                className="w-full flex items-center justify-between text-sm text-left hover:bg-red-100/60 rounded px-1.5 -mx-1.5 py-0.5 transition-colors"
-                title="View this clinic's checklist history"
+                key={r.region}
+                onClick={() => { setToggled(prev => { const next = new Set(prev); next.delete(r.region); return next }) }}
+                className="text-xs px-2.5 py-1 rounded-full bg-white border border-red-200 text-red-700 font-medium hover:bg-red-100 transition-colors"
+                title={`Jump to ${r.region} below`}
               >
-                <span className="text-gray-700">{c.clinic_name} <span className="text-gray-400">· {c.region}</span></span>
-                <span className="text-gray-400 text-xs">{c.manager_name ?? 'No lead assigned'}</span>
+                {r.region} — {r.missing}/{r.total} missing
               </button>
             ))}
           </div>
@@ -229,7 +263,7 @@ function HierarchyDashboard() {
 
       <div className="space-y-2">
         {data.regions.map(r => {
-          const isCollapsed = collapsed.has(r.region)
+          const isCollapsed = isRegionCollapsed(r)
           return (
             <div key={r.region} className="border border-gray-100 rounded-lg overflow-hidden">
               <button
@@ -240,7 +274,7 @@ function HierarchyDashboard() {
                   {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
                   {r.region}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className={`text-xs font-medium ${r.missing > 0 ? 'text-red-600' : 'text-gray-500'}`}>
                   {r.submitted}/{r.total} submitted{r.missing > 0 ? ` · ${r.missing} missing` : ''}
                 </span>
               </button>
@@ -255,13 +289,16 @@ function HierarchyDashboard() {
                     >
                       <div className="min-w-0">
                         <p className="text-gray-800 truncate">{c.clinic_name}</p>
-                        <p className="text-xs text-gray-400">{c.manager_name ?? 'No lead assigned'}</p>
+                        <p className="text-xs text-gray-400 truncate">{c.manager_name ?? 'No lead assigned'}</p>
+                        {c.status === 'missing' && c.missing_templates.length > 0 && (
+                          <p className="text-xs text-red-500 truncate mt-0.5">Missing: {c.missing_templates.join(', ')}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {c.open_corrective_actions > 0 && (
                           <span className="text-xs text-orange-600">{c.open_corrective_actions} open action{c.open_corrective_actions !== 1 ? 's' : ''}</span>
                         )}
-                        <DailyStatusPill status={c.status} />
+                        <PeriodStatusPill status={c.status} />
                       </div>
                     </button>
                   ))}

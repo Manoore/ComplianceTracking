@@ -17,14 +17,36 @@ from .deps import get_current_user, require_admin_or_auditor
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
+_FREQUENCY_PERIODS = {
+    "daily": "today",
+    "weekly": "this week",
+    "monthly": "this month",
+}
+
+
+def _period_bounds(frequency: str, now: datetime) -> tuple:
+    """Start/end of the current period for this frequency -- what counts as
+    "on time" for a submission right now."""
+    if frequency == "weekly":
+        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        return start, start + timedelta(days=7)
+    if frequency == "monthly":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
+        return start, next_month
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + timedelta(days=1)
+
+
 @router.get("/hierarchy")
 def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[int] = None,
+                        frequency: str = "daily",
                         db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
-    Rollup of today's daily-checklist completion and open issues, scoped to the
-    viewer's place in the org: a Clinic Lead (manager) sees their own clinics, a
-    Regional Manager sees their region, and Director of Operations / Executive /
-    Admin see every region.
+    Rollup of checklist completion (daily, weekly, or monthly) and open issues,
+    scoped to the viewer's place in the org: a Clinic Lead (manager) sees their
+    own clinics, a Regional Manager sees their region, and Director of
+    Operations / Executive / Admin see every region.
 
     Admins may pass view_as_user_id to preview the dashboard exactly as that
     person would see it (their own scope, not the admin's), and region to
@@ -32,8 +54,10 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
     """
     from ..models.checklist import ChecklistTemplate
 
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
+    if frequency not in _FREQUENCY_PERIODS:
+        raise HTTPException(status_code=400, detail=f"frequency must be one of {list(_FREQUENCY_PERIODS)}")
+
+    period_start, period_end = _period_bounds(frequency, datetime.utcnow())
 
     viewing_as = None
     scope_user = current_user
@@ -79,14 +103,14 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
 
     clinics = clinics_q.order_by(Clinic.region, Clinic.name).all()
 
-    daily_templates = (db.query(ChecklistTemplate)
-                       .filter(ChecklistTemplate.tenant_id == current_user.tenant_id,
-                               ChecklistTemplate.frequency == "daily",
-                               ChecklistTemplate.is_active == True)
-                       .all())
+    period_templates = (db.query(ChecklistTemplate)
+                        .filter(ChecklistTemplate.tenant_id == current_user.tenant_id,
+                                ChecklistTemplate.frequency == frequency,
+                                ChecklistTemplate.is_active == True)
+                        .all())
 
     def applicable_templates(clinic):
-        return [t for t in daily_templates if t.department_id is None or t.department_id == clinic.department_id]
+        return [t for t in period_templates if t.department_id is None or t.department_id == clinic.department_id]
 
     clinic_rows = []
     missing = []
@@ -94,7 +118,7 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
     for c in clinics:
         applicable = applicable_templates(c)
         if not applicable:
-            status_str = "no_daily_template"
+            status_str = "no_template"
             missing_names = []
         else:
             template_ids = [t.id for t in applicable]
@@ -102,8 +126,8 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
                 row[0] for row in db.query(Inspection.template_id).filter(
                     Inspection.clinic_id == c.id,
                     Inspection.template_id.in_(template_ids),
-                    Inspection.checkin_time >= today_start,
-                    Inspection.checkin_time < today_end,
+                    Inspection.checkin_time >= period_start,
+                    Inspection.checkin_time < period_end,
                 ).distinct().all()
             }
             missing_names = [t.name for t in applicable if t.id not in submitted_ids]
@@ -150,27 +174,29 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
     for row in clinic_rows:
         key = row["manager_name"] or "Unassigned"
         entry = leads.setdefault(key, {
-            "name": key, "total_clinics": 0, "submitted_today": 0,
-            "missing_today": 0, "open_corrective_actions": 0,
+            "name": key, "total_clinics": 0, "submitted": 0,
+            "missing": 0, "open_corrective_actions": 0,
         })
         entry["total_clinics"] += 1
         if row["status"] == "submitted":
-            entry["submitted_today"] += 1
+            entry["submitted"] += 1
         elif row["status"] == "missing":
-            entry["missing_today"] += 1
+            entry["missing"] += 1
         entry["open_corrective_actions"] += row["open_corrective_actions"]
-    by_individual = sorted(leads.values(), key=lambda x: (-x["missing_today"], x["name"]))
+    by_individual = sorted(leads.values(), key=lambda x: (-x["missing"], x["name"]))
 
     return {
         "scope_label": scope_label,
         "viewing_as": viewing_as,
         "available_regions": available_regions,
         "as_of": datetime.utcnow().isoformat(),
-        "has_daily_templates": len(daily_templates) > 0,
+        "frequency": frequency,
+        "period_label": _FREQUENCY_PERIODS[frequency],
+        "has_templates": len(period_templates) > 0,
         "summary": {
             "total_clinics": len(clinic_rows),
-            "submitted_today": submitted_count,
-            "missing_today": len(missing),
+            "submitted": submitted_count,
+            "missing": len(missing),
         },
         "missing_clinics": missing,
         "regions": region_summaries,
