@@ -29,6 +29,7 @@ import app.models  # noqa: F401
 import app.models.department  # noqa: F401  (not re-exported from app.models)
 
 from app.models.checklist import ChecklistTemplate, ChecklistItem, ItemCategory, ItemType
+from app.models.inspection import InspectionItem
 from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 
@@ -164,8 +165,28 @@ def main():
                     skipped += 1
                     print(f"  = {name}: already exists ({len(existing.items)} items)")
                     continue
+
+                # Metadata is always safe to refresh.
                 existing.description = description
                 existing.frequency = frequency
+
+                # Items already answered by a real inspection can't be deleted — that
+                # would destroy compliance history via the FK from inspection_items.
+                existing_item_ids = [i.id for i in existing.items]
+                in_use_ids = set()
+                if existing_item_ids:
+                    in_use_ids = {
+                        row[0] for row in db.query(InspectionItem.checklist_item_id)
+                        .filter(InspectionItem.checklist_item_id.in_(existing_item_ids))
+                        .distinct().all()
+                    }
+
+                if in_use_ids:
+                    updated += 1
+                    print(f"  ~ {name}: description/frequency updated; items left as-is "
+                          f"({len(in_use_ids)} already used in an inspection)")
+                    continue
+
                 for item in list(existing.items):
                     db.delete(item)
                 db.flush()
