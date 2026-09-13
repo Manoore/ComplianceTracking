@@ -17,7 +17,7 @@ const FALLBACK: Record<string, string[]> = {
 export function usePermissions() {
   const { user } = useAuth()
 
-  const { data } = useQuery<{ role: string; modules: string[] }>({
+  const { data, isLoading } = useQuery<{ role: string; modules: string[] }>({
     queryKey: ['my-permissions'],
     queryFn: () => api.get('/roles/my-permissions').then(r => r.data),
     enabled: !!user,
@@ -25,10 +25,15 @@ export function usePermissions() {
     retry: 1,
   })
 
+  // The FALLBACK list is keyed by base role only, so for a custom role (which always
+  // reports its base role as team_member) it's wrong until the real /my-permissions
+  // response arrives -- isLoading lets callers avoid making a deny decision on that
+  // temporary, incomplete list (see PrivateRoute in App.tsx).
   const modules = data?.modules ?? FALLBACK[user?.role ?? ''] ?? ['dashboard']
 
   return {
     canView: (module: string) => modules.includes(module),
     modules,
+    isLoading: isLoading && !!user,
   }
 }

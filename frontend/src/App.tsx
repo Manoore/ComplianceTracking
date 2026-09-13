@@ -43,17 +43,20 @@ function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
 
 function PrivateRoute({ children, roles, module }: { children: React.ReactNode; roles?: string[]; module?: string }) {
   const { user, loading } = useAuth()
-  const { canView } = usePermissions()
-  if (loading) return (
+  const { canView, isLoading: permissionsLoading } = usePermissions()
+  // A custom role (Clinic Lead, Regional Manager, ...) always has its base `role` forced to
+  // team_member, so the `roles` array alone would lock these users out. `module` checks what
+  // their custom role was actually granted in Roles & Permissions instead -- either path in.
+  // Until that real permissions data has loaded, canView() falls back to a base-role-only
+  // guess that's wrong for exactly these users -- wait for it rather than redirect on a
+  // guess that's about to be replaced by the real answer.
+  const allowedByBaseRole = !roles || roles.includes(user?.role ?? '')
+  if (loading || (!!module && !allowedByBaseRole && permissionsLoading)) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600" />
     </div>
   )
   if (!user) return <Navigate to="/home" replace />
-  // A custom role (Clinic Lead, Regional Manager, ...) always has its base `role` forced to
-  // team_member, so the `roles` array alone would lock these users out. `module` checks what
-  // their custom role was actually granted in Roles & Permissions instead -- either path in.
-  const allowedByBaseRole = !roles || roles.includes(user.role)
   const allowedByModule = !!module && canView(module)
   if (roles && !allowedByBaseRole && !allowedByModule) return <Navigate to="/" replace />
   return <>{children}</>
