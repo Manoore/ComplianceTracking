@@ -282,7 +282,7 @@ def privacy_policy():
   <ul>
     <li>All data transmitted between the app and our servers uses HTTPS/TLS encryption</li>
     <li>Authentication tokens are stored in the device's secure keystore (iOS Keychain / Android Keystore)</li>
-    <li>Sessions automatically expire after 15 minutes of inactivity</li>
+    <li>Sign-in tokens expire after 8 hours and are silently renewed for up to 30 days of continued use; after 30 days of inactivity you must sign in again</li>
     <li>No sensitive compliance data is included in device backups</li>
   </ul>
 
