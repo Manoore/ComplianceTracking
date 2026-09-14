@@ -56,16 +56,16 @@ class PrivacyPolicyScreen extends StatelessWidget {
             '• Request correction of inaccurate data\n'
             '• Request deletion of your data\n'
             '• Object to certain processing\n\n'
-            'To exercise these rights, contact support@complinow.com'),
+            'To exercise these rights, contact support@complinow.app'),
           _section('9. Contact Us',
             'For privacy questions or to report a concern:\n\n'
-            'Email: privacy@complinow.com\n'
-            'Support: support@complinow.com'),
+            'Email: privacy@complinow.app\n'
+            'Support: support@complinow.app'),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             icon: const Icon(Icons.open_in_new, size: 16),
             label: const Text('View Full Policy Online'),
-            onPressed: () => launchUrl(Uri.parse('https://complinow.com/privacy'), mode: LaunchMode.externalApplication),
+            onPressed: () => launchUrl(Uri.parse('https://complinow.app/privacy'), mode: LaunchMode.externalApplication),
           ),
           const SizedBox(height: 40),
         ],
