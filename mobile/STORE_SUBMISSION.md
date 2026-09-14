@@ -70,8 +70,21 @@
 - [x] Healthcare disclaimer in changelog
 
 ### Play Console — you must do these
-- [ ] **Organization account** — REQUIRED for health apps since Jan 2026. Verify your account as an Organization (needs D-U-N-S number). Go to Play Console → Account details → Account type
-- [ ] **Health Apps Declaration Form** — Required since 2025. Go to Play Console → Policy → App content → Health apps declaration. Answer: this is NOT a medical device, it is a workflow/compliance management tool
+
+**Category decision (made explicitly, not left as a default):** listed under
+**Business/Productivity**, not Medical. CompliNow is a compliance/audit/checklist
+workflow tool used by clinic staff (per its own API description, "for any
+industry") — it doesn't provide medical advice/diagnosis/treatment and doesn't
+read or write patient health records, so it isn't a "health app" in Google's
+sense. That specifically means:
+- An **individual** Play Console account is fine — no Organization
+  verification (D-U-N-S number, etc.) needed.
+- No Health Apps Declaration form.
+- If this ever changes (e.g. the app starts reading/writing clinical/patient
+  data, or you deliberately want Medical-category discoverability), revisit
+  this — Organization verification and the Health Apps Declaration would then
+  apply, and can take several days to complete.
+
 - [ ] **Data Safety section** — declare:
   - Email address (collected, shared with service provider)
   - Name (collected, shared with service provider)
@@ -82,8 +95,8 @@
 - [ ] **App content rating** — complete the IARC questionnaire; expect **Everyone** or **Everyone 10+**
 - [ ] **Privacy policy URL** — must match exactly: https://complinow.com/privacy (same in Play Console, in-app, and on website)
 - [ ] **Screenshots** — phone screenshots required; tablet optional
-- [ ] **Category** — Medical (primary)
-- [ ] **Short description** — max 80 chars (add "not a medical device" signal)
+- [ ] **Category** — Business (primary)
+- [ ] **Short description** — max 80 chars
 
 ### Signing (GitHub Secrets needed)
 | Secret | How to get |
@@ -137,5 +150,5 @@ Add these credentials in the App Review notes field in App Store Connect / Play 
 | Backend not accessible during review | Keep Render service running |
 | Missing demo credentials | Add to App Review notes |
 | Misleading health claims | ✅ Disclaimer added |
-| Missing healthcare declaration (Play) | Complete Health Apps Declaration form |
-| Personal developer account for health app (Play) | Verify as Organization |
+| Missing healthcare declaration (Play) | N/A — listed as Business, not Medical; doesn't apply |
+| Personal developer account for health app (Play) | N/A — same reason, individual account is fine |
