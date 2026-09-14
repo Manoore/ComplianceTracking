@@ -18,6 +18,10 @@ jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
     runs-on: ubuntu-latest
+    # Signing secrets live in the "Production" GitHub Environment, not as plain repo
+    # secrets -- a job only gets an Environment's secrets if it declares that
+    # environment here.
+    environment: Production
     defaults:
       run:
         working-directory: mobile
