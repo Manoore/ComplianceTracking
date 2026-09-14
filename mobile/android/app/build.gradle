@@ -41,16 +41,20 @@ android {
             // Set these via environment variables in CI/CD pipeline:
             //   KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
             // Never commit the actual keystore or credentials to git.
+            //
+            // This block is evaluated by Gradle during project configuration for every
+            // task -- including `assembleDebug` -- not just when actually building a
+            // release variant. So it must not throw when the env vars are unset; it just
+            // leaves this signing config incomplete, and Gradle/AGP itself will refuse to
+            // produce a release build with an incomplete signing config, with its own
+            // clear error, the moment someone actually runs assembleRelease/bundleRelease.
             def keystorePath = System.getenv("KEYSTORE_PATH")
             def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
             def keyAlias = System.getenv("KEY_ALIAS")
             def keyPassword = System.getenv("KEY_PASSWORD")
 
             if (keystorePath == null || keystorePassword == null || keyAlias == null || keyPassword == null) {
-                throw new GradleException(
-                    "Release signing requires KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD env vars. " +
-                    "Set them before running a release build."
-                )
+                return
             }
 
             storeFile file(keystorePath)
