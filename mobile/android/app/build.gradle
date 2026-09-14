@@ -53,19 +53,24 @@ android {
             // leaves this signing config incomplete, and Gradle/AGP itself will refuse to
             // produce a release build with an incomplete signing config, with its own
             // clear error, the moment someone actually runs assembleRelease/bundleRelease.
+            // Named releaseKeyAlias/releaseKeyPassword, not keyAlias/keyPassword -- a local
+            // variable with the exact same name as the keyAlias()/keyPassword() DSL setter
+            // it's passed to confuses Groovy's dynamic dispatch (it resolves `keyAlias` as
+            // the variable even in call position, then tries to call() the resulting String,
+            // throwing "No signature of method: java.lang.String.call()").
             def keystorePath = System.getenv("KEYSTORE_PATH")
             def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            def keyAlias = System.getenv("KEY_ALIAS")
-            def keyPassword = System.getenv("KEY_PASSWORD")
+            def releaseKeyAlias = System.getenv("KEY_ALIAS")
+            def releaseKeyPassword = System.getenv("KEY_PASSWORD")
 
-            if (keystorePath == null || keystorePassword == null || keyAlias == null || keyPassword == null) {
+            if (keystorePath == null || keystorePassword == null || releaseKeyAlias == null || releaseKeyPassword == null) {
                 return
             }
 
             storeFile file(keystorePath)
             storePassword keystorePassword
-            keyAlias keyAlias
-            keyPassword keyPassword
+            keyAlias releaseKeyAlias
+            keyPassword releaseKeyPassword
         }
     }
 
