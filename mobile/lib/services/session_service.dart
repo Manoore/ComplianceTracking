@@ -66,11 +66,14 @@ class _SessionActivityDetectorState extends State<SessionActivityDetector> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // Scale is a superset of pan (it fires for plain single-finger drags too, with
+      // scale defaulting to 1.0) -- registering both a pan and a scale callback on the
+      // same detector is invalid and asserts at runtime. Scale alone still catches taps,
+      // drags/scrolls, and pinches, which is all this needs for "was there any touch".
       behavior: HitTestBehavior.translucent,
       onTap: () => SessionService().activity(),
-      onPanDown: (_) => SessionService().activity(),
-      onPanUpdate: (_) => SessionService().activity(),
       onScaleStart: (_) => SessionService().activity(),
+      onScaleUpdate: (_) => SessionService().activity(),
       child: widget.child,
     );
   }
