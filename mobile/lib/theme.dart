@@ -59,6 +59,18 @@ ThemeData appTheme() => ThemeData(
           (states) => states.contains(WidgetState.selected) ? kTeal.withValues(alpha: 0.4) : null,
         ),
       ),
+      // Every screen's edit/update/delete error and success message goes through a
+      // plain SnackBar -- without this, Flutter's default is a full-width bar flush
+      // against the screen edges with no rounding, which reads like a raw error dump
+      // and can sit right on top of a floating action button. This makes every one of
+      // those messages a proper floating in-app card instead, with no per-screen changes.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        elevation: 3,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+      ),
     );
 
 Color statusColor(String? status) {

@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart' show ApiService, kBaseUrl;
 import '../../theme.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 
 class CertificationsScreen extends StatefulWidget {
@@ -56,6 +57,7 @@ class _CertificationsScreenState extends State<CertificationsScreen> with Single
         ),
       ),
       drawer: const AppDrawer(),
+      bottomNavigationBar: const AppBottomNav(),
       body: TabBarView(
         controller: _tabs,
         children: [

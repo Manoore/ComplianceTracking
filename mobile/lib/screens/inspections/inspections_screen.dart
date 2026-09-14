@@ -5,6 +5,7 @@ import '../../main.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 
 class InspectionsScreen extends StatefulWidget {
@@ -60,6 +61,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Inspections')),
       drawer: const AppDrawer(),
+      bottomNavigationBar: const AppBottomNav(),
       floatingActionButton: user?.canManage == true
           ? FloatingActionButton.extended(
               backgroundColor: kBrand,
@@ -97,16 +99,21 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                             ],
                           ),
                           trailing: Column(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               if (insp.status == 'in_progress' || insp.status == 'draft')
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: kDanger, size: 20),
                                   tooltip: 'Delete inspection',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  visualDensity: VisualDensity.compact,
                                   onPressed: () => _delete(insp),
                                 )
                               else
                                 const Icon(Icons.chevron_right, color: Colors.grey),
+                              const SizedBox(height: 4),
                               Text(
                                 insp.submittedAt != null
                                     ? _fmtDate(insp.submittedAt!)

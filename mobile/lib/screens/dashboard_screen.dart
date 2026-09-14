@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
+import '../widgets/app_bottom_nav.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/offline_banner.dart';
 
@@ -53,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => context.push('/notifications')),
       ]),
       drawer: const AppDrawer(),
+      bottomNavigationBar: const AppBottomNav(),
       body: Column(
         children: [
           const OfflineBanner(),

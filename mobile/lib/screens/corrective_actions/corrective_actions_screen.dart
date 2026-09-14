@@ -5,6 +5,7 @@ import '../../main.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../theme.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/app_drawer.dart';
 
 class CorrectiveActionsScreen extends StatefulWidget {
@@ -190,6 +191,7 @@ class _CorrectiveActionsScreenState extends State<CorrectiveActionsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Corrective Actions')),
       drawer: const AppDrawer(),
+      bottomNavigationBar: const AppBottomNav(),
       body: Column(
         children: [
           // Summary strip
