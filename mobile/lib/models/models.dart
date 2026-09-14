@@ -66,11 +66,26 @@ class ChecklistItem {
   final String question;
   final String? answer, notes;
   final bool isRequired;
-  ChecklistItem({required this.id, required this.question, this.answer, this.notes, required this.isRequired});
+  final String itemType;
+  // True for an item only the assigned Clinic Lead / Regional Manager / Director of
+  // Operations / Admin may complete -- the inspector never gets an editable control for
+  // it, and it can only be signed once the inspection has been submitted.
+  final bool reviewerOnly;
+  final bool canReviewerSign;
+  final String? secondSignerName;
+  ChecklistItem({
+    required this.id, required this.question, this.answer, this.notes, required this.isRequired,
+    this.itemType = 'pass_fail_na', this.reviewerOnly = false, this.canReviewerSign = false,
+    this.secondSignerName,
+  });
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
         id: (j['id'] as num).toInt(), question: j['question'] ?? '',
         answer: kResultToAnswer[j['result']],
         notes: j['notes'], isRequired: j['is_critical'] ?? false,
+        itemType: j['item_type'] as String? ?? 'pass_fail_na',
+        reviewerOnly: j['reviewer_only'] == true,
+        canReviewerSign: j['can_reviewer_sign'] == true,
+        secondSignerName: j['second_signer_name'],
       );
 }
 

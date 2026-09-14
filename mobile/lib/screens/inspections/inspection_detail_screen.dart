@@ -33,6 +33,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
       if (mounted) {
         setState(() { _insp = insp; _loading = false; });
         for (final item in insp.items) {
+          if (item.reviewerOnly) continue; // never editable by the MA, nothing to preload
           if (item.answer != null) _answers[item.id] = item.answer!;
           _notes[item.id] = TextEditingController(text: item.notes ?? '');
         }
@@ -63,6 +64,18 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
     }
   }
 
+  Future<void> _secondSign(int itemId) async {
+    try {
+      await ApiService().post('/inspections/${widget.id}/items/$itemId/second-sign', {
+        'signature': 'signed:${DateTime.now().toIso8601String()}',
+      });
+      await _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Review recorded'), backgroundColor: kSuccess));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
+    }
+  }
+
   Future<void> _pickPhoto(int itemId) async {
     final picker = ImagePicker();
     final img = await picker.pickImage(source: ImageSource.camera, imageQuality: 80);
@@ -70,7 +83,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
     try {
       final bytes = await img.readAsBytes();
       final token = await ApiService().getToken();
-      final uri = Uri.parse('$kBaseUrl/inspections/${widget.id}/items/$itemId/photo');
+      final uri = Uri.parse('$kBaseUrl/inspections/${widget.id}/items/$itemId/photos');
       final req = http.MultipartRequest('POST', uri);
       req.headers['Authorization'] = 'Bearer $token';
       req.files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'photo_$itemId.jpg'));
@@ -91,7 +104,9 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_insp == null) return const Scaffold(body: Center(child: Text('Inspection not found')));
     final insp = _insp!;
-    final isDraft = insp.status == 'draft';
+    // Backend creates inspections as 'in_progress', never 'draft' -- both are the MA's
+    // editable fill-out window, before 'submitted' and later statuses lock it.
+    final isDraft = insp.status == 'draft' || insp.status == 'in_progress';
 
     return Scaffold(
       appBar: AppBar(
@@ -110,7 +125,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
               statusBadge(insp.status),
               if (insp.riskLevel != null) ...[const SizedBox(width: 8), statusBadge(insp.riskLevel)],
               const Spacer(),
-              Text('${insp.items.length} items', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              Text('${insp.items.where((i) => !i.reviewerOnly).length} items', style: const TextStyle(color: Colors.grey, fontSize: 13)),
             ]),
           ),
           Expanded(
@@ -133,7 +148,9 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                         ),
                       ]),
                       const SizedBox(height: 10),
-                      if (isDraft) ...[
+                      if (item.reviewerOnly)
+                        _reviewerOnlyRow(item)
+                      else if (isDraft) ...[
                         Row(children: [
                           for (final ans in ['yes', 'no', 'na']) ...[
                             Expanded(child: _answerBtn(item.id, ans)),
@@ -179,6 +196,34 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _reviewerOnlyRow(ChecklistItem item) {
+    if (item.secondSignerName != null) {
+      return Row(children: [
+        const Icon(Icons.groups_outlined, size: 16, color: kSuccess),
+        const SizedBox(width: 6),
+        Text('Reviewed by ${item.secondSignerName}', style: const TextStyle(fontSize: 13, color: kSuccess)),
+      ]);
+    }
+    if (item.canReviewerSign) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          icon: const Icon(Icons.draw_outlined, size: 16),
+          label: const Text('Tap to Sign'),
+          onPressed: () => _secondSign(item.id),
+        ),
+      );
+    }
+    return Row(children: [
+      const Icon(Icons.groups_outlined, size: 14, color: Colors.grey),
+      const SizedBox(width: 6),
+      const Expanded(child: Text(
+        'Reviewed by your Clinic Lead or Regional Manager after you submit',
+        style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+      )),
+    ]);
   }
 
   Widget _answerBtn(int itemId, String ans) {

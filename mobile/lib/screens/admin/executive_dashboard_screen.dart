@@ -109,14 +109,14 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
   }
 
   Widget _kpiRow() {
-    final d = _dash!;
-    final avg = (d['avg_compliance_score'] ?? 0) as num;
+    final s = _dash!['summary'] as Map<String, dynamic>? ?? {};
+    final avg = (s['avg_compliance_score'] ?? 0) as num;
     return Row(children: [
       Expanded(child: _kpiCard('Avg Score', '${avg.toStringAsFixed(1)}%', _scoreColor(avg.toDouble()), Icons.bar_chart_outlined)),
       const SizedBox(width: 10),
-      Expanded(child: _kpiCard('Clinics', '${d['total_clinics'] ?? 0}', kBrand, Icons.local_hospital_outlined)),
+      Expanded(child: _kpiCard('Clinics', '${_clinics.length}', kBrand, Icons.local_hospital_outlined)),
       const SizedBox(width: 10),
-      Expanded(child: _kpiCard('Open Actions', '${d['open_corrective_actions'] ?? 0}', kWarning, Icons.warning_amber_outlined)),
+      Expanded(child: _kpiCard('Open Actions', '${s['open_corrective_actions'] ?? 0}', kWarning, Icons.warning_amber_outlined)),
     ]);
   }
 
@@ -182,7 +182,7 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
     if (_hierarchy == null) return const SizedBox.shrink();
 
     final h = _hierarchy!;
-    final hasDaily = h['has_daily_templates'] == true;
+    final hasDaily = h['has_templates'] == true;
     final availableRegions = (h['available_regions'] as List?)?.cast<String>() ?? [];
     final viewingAs = h['viewing_as'] as Map<String, dynamic>?;
 
@@ -244,8 +244,8 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
 
     final summary = h['summary'] as Map<String, dynamic>;
     final totalClinics = summary['total_clinics'] as int;
-    final submittedToday = summary['submitted_today'] as int;
-    final missingToday = summary['missing_today'] as int;
+    final submittedToday = summary['submitted'] as int;
+    final missingToday = summary['missing'] as int;
     final pct = totalClinics > 0 ? ((submittedToday / totalClinics) * 100).round() : 0;
     final missingClinics = (h['missing_clinics'] as List).cast<Map<String, dynamic>>();
     final regions = (h['regions'] as List).cast<Map<String, dynamic>>();
@@ -474,9 +474,10 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
   ]);
 
   Widget _actionsChart() {
-    final open = (_dash!['open_corrective_actions'] ?? 0) as int;
-    final overdue = (_dash!['overdue_corrective_actions'] ?? 0) as int;
-    final resolved = (_dash!['resolved_corrective_actions'] ?? open) as int;
+    final s = _dash!['summary'] as Map<String, dynamic>? ?? {};
+    final open = (s['open_corrective_actions'] ?? 0) as int;
+    final overdue = (s['overdue_corrective_actions'] ?? 0) as int;
+    final resolved = (s['resolved_corrective_actions'] ?? open) as int;
 
     return Card(
       child: Padding(
@@ -493,10 +494,11 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
   }
 
   Widget _actionRow(String label, int count, Color color) {
+    final s = _dash!['summary'] as Map<String, dynamic>? ?? {};
     final max = [
-      (_dash!['open_corrective_actions'] ?? 0) as int,
-      (_dash!['overdue_corrective_actions'] ?? 0) as int,
-      (_dash!['resolved_corrective_actions'] ?? count) as int,
+      (s['open_corrective_actions'] ?? 0) as int,
+      (s['overdue_corrective_actions'] ?? 0) as int,
+      (s['resolved_corrective_actions'] ?? count) as int,
     ].fold(0, (a, b) => a > b ? a : b);
     final frac = max == 0 ? 0.0 : count / max;
     return Row(children: [

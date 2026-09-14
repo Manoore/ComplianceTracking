@@ -15,7 +15,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  // The dashboard's actual stat numbers, not the raw /reports/dashboard payload
+  // (everything relevant lives under its "summary" key).
   Map<String, dynamic>? _stats;
+  int _totalClinics = 0;
   bool _loading = true;
 
   @override
@@ -26,8 +29,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await ApiService().get('/reports/dashboard');
-      if (mounted) setState(() { _stats = data; _loading = false; });
+      final results = await Future.wait([
+        ApiService().get('/reports/dashboard'),
+        ApiService().get('/clinics').catchError((_) => <dynamic>[]),
+      ]);
+      final data = results[0] as Map<String, dynamic>;
+      final clinics = results[1] as List;
+      if (mounted) setState(() {
+        _stats = data['summary'] as Map<String, dynamic>?;
+        _totalClinics = clinics.length;
+        _loading = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -85,7 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _statGrid() {
     final s = _stats!;
     final cards = [
-      _StatCard('Total Clinics', '${s['total_clinics'] ?? 0}', Icons.local_hospital_outlined, kBrand),
+      _StatCard('Total Clinics', '$_totalClinics', Icons.local_hospital_outlined, kBrand),
       _StatCard('Inspections', '${s['total_inspections'] ?? 0}', Icons.search_outlined, Colors.indigo),
       _StatCard('Open Actions', '${s['open_corrective_actions'] ?? 0}', Icons.warning_amber_outlined, kWarning),
       _StatCard('Avg Score', '${((s['avg_compliance_score'] ?? 0) as num).toStringAsFixed(1)}%', Icons.bar_chart_outlined, kSuccess),

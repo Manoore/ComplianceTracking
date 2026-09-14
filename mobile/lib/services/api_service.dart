@@ -2,7 +2,11 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-const String kBaseUrl = 'https://compliancetracking.onrender.com/api';
+// Override for local testing with e.g.:
+//   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api        (Android emulator)
+//   flutter run --dart-define=API_BASE_URL=http://192.168.1.23:8000/api    (real device, same LAN)
+const String kBaseUrl = String.fromEnvironment('API_BASE_URL',
+    defaultValue: 'https://compliancetracking.onrender.com/api');
 
 class ApiService {
   static final ApiService _instance = ApiService._();

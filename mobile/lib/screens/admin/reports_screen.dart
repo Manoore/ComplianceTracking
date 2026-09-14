@@ -11,7 +11,11 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
+  // The report's actual stat numbers (everything relevant lives under the
+  // /reports/dashboard payload's "summary" key), plus its risk breakdown and audit
+  // pipeline which sit alongside "summary" at the top level.
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _summary;
   List<Map<String, dynamic>> _clinics = [];
   bool _loading = true;
 
@@ -26,6 +30,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ]);
       if (mounted) setState(() {
         _data = results[0] as Map<String, dynamic>;
+        _summary = _data!['summary'] as Map<String, dynamic>?;
         _clinics = (results[1] as List).cast<Map<String, dynamic>>();
         _loading = false;
       });
@@ -53,12 +58,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       _sectionTitle('Overview'),
-                      _statRow('Total Clinics', '${_data!['total_clinics'] ?? 0}', Icons.local_hospital_outlined, kBrand),
-                      _statRow('Total Inspections', '${_data!['total_inspections'] ?? 0}', Icons.search_outlined, Colors.indigo),
-                      _statRow('Completed Inspections', '${_data!['completed_inspections'] ?? 0}', Icons.check_circle_outline, kSuccess),
-                      _statRow('Avg Compliance Score', '${((_data!['avg_compliance_score'] ?? 0) as num).toStringAsFixed(1)}%', Icons.bar_chart_outlined, kSuccess),
-                      _statRow('Open Corrective Actions', '${_data!['open_corrective_actions'] ?? 0}', Icons.warning_amber_outlined, kWarning),
-                      _statRow('Overdue Actions', '${_data!['overdue_corrective_actions'] ?? 0}', Icons.error_outline, kDanger),
+                      _statRow('Total Clinics', '${_clinics.length}', Icons.local_hospital_outlined, kBrand),
+                      _statRow('Total Inspections', '${_summary?['total_inspections'] ?? 0}', Icons.search_outlined, Colors.indigo),
+                      _statRow('Approved Inspections', '${_summary?['approved_inspections'] ?? 0}', Icons.check_circle_outline, kSuccess),
+                      _statRow('Avg Compliance Score', '${((_summary?['avg_compliance_score'] ?? 0) as num).toStringAsFixed(1)}%', Icons.bar_chart_outlined, kSuccess),
+                      _statRow('Open Corrective Actions', '${_summary?['open_corrective_actions'] ?? 0}', Icons.warning_amber_outlined, kWarning),
+                      _statRow('Overdue Actions', '${_summary?['overdue_corrective_actions'] ?? 0}', Icons.error_outline, kDanger),
 
                       const SizedBox(height: 20),
                       _sectionTitle('Compliance by Clinic'),
@@ -73,8 +78,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                       const SizedBox(height: 20),
                       _sectionTitle('Certifications'),
-                      _statRow('Total Certifications', '${_data!['total_certifications'] ?? 0}', Icons.workspace_premium_outlined, Colors.purple),
-                      _statRow('Passed', '${_data!['passed_certifications'] ?? 0}', Icons.check_circle_outline, kSuccess),
+                      _statRow('Total Certifications', '${_summary?['total_certifications'] ?? 0}', Icons.workspace_premium_outlined, Colors.purple),
+                      _statRow('Completed', '${_summary?['completed_certifications'] ?? 0}', Icons.check_circle_outline, kSuccess),
                     ],
                   ),
       ),
