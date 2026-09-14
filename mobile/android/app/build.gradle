@@ -10,6 +10,11 @@ android {
     // Target the latest stable Android SDK
     compileSdk = flutter.compileSdkVersion
 
+    // Highest NDK version any plugin in this project's dependency tree requires
+    // (currently package:jni, pulled in transitively) -- NDKs are backward compatible,
+    // so pinning to the highest required version satisfies every plugin at once.
+    ndkVersion = "28.2.13676358"
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
