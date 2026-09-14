@@ -27,3 +27,9 @@
 
 # Suppress warnings for missing classes we don't use
 -dontwarn java.lang.reflect.**
+
+# Flutter's embedding defensively references Play Core's deferred-component
+# (dynamic feature delivery) classes even though this app doesn't use that
+# feature and doesn't depend on com.google.android.play:core -- without this,
+# R8 fails the release build with "Missing class" errors for all of them.
+-dontwarn com.google.android.play.core.**
