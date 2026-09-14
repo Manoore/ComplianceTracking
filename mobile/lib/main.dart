@@ -53,16 +53,14 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password) async {
-    try {
-      await _auth.login(email, password);
-      _loggedIn = true;
-      await permissions.load(_auth.currentUser!.effectiveRole);
-      notifyListeners();
-      return true;
-    } catch (_) {
-      return false;
-    }
+  // Lets the caller see the real failure (network error, server error, etc.) instead
+  // of a bare true/false that gets reported as "Invalid email or password" no matter
+  // what actually went wrong.
+  Future<void> login(String email, String password) async {
+    await _auth.login(email, password);
+    _loggedIn = true;
+    await permissions.load(_auth.currentUser!.effectiveRole);
+    notifyListeners();
   }
 
   Future<void> logout() async {

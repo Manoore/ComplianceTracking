@@ -88,12 +88,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     final auth = context.read<AuthState>();
-    final ok = await auth.login(_email.text.trim(), _password.text);
-    if (!mounted) return;
-    if (ok) {
+    try {
+      await auth.login(_email.text.trim(), _password.text);
+      if (!mounted) return;
       context.go('/');
-    } else {
-      setState(() { _loading = false; _error = 'Invalid email or password'; });
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is ApiException && e.statusCode == 401 ? 'Invalid email or password' : e.toString();
+      setState(() { _loading = false; _error = msg; });
     }
   }
 
