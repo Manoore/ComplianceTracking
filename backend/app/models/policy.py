@@ -1,7 +1,6 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Float, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB
 from ..database import Base
 
 
@@ -15,10 +14,13 @@ class PolicyDocument(Base):
     content = Column(Text, nullable=False)
     version = Column(String, default="1.0")
     category = Column(String, nullable=True)
-    target_roles = Column(JSONB, default=list)  # e.g. ["admin", "team_member"]
+    # Plain JSON (not the Postgres-only JSONB) so this table can also be created on
+    # SQLite, which is the default local-dev database -- SQLAlchemy's JSON type still
+    # works fine against an existing Postgres JSONB column in production.
+    target_roles = Column(JSON, default=list)  # e.g. ["admin", "team_member"]
     is_published = Column(Boolean, default=False)
     requires_quiz = Column(Boolean, default=False)
-    quiz_questions = Column(JSONB, nullable=True)  # [{question, options, answer_index}]
+    quiz_questions = Column(JSON, nullable=True)  # [{question, options, answer_index}]
     pass_threshold = Column(Integer, default=80)  # percentage
     effective_date = Column(DateTime, nullable=True)
     published_by = Column(Integer, ForeignKey("users.id"), nullable=True)
