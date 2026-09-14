@@ -35,11 +35,19 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
   void initState() { super.initState(); _load(); }
 
   Future<void> _load() async {
+    // Dashboard/clinics, hierarchy, and (for an admin) the users list are all
+    // independent of each other -- fire them together instead of one after another,
+    // which was needlessly adding up their round-trip times.
+    final dashClinicsFuture = Future.wait([
+      ApiService().get('/reports/dashboard'),
+      ApiService().get('/clinics').catchError((_) => <dynamic>[]),
+    ]);
+    final isAdmin = mounted ? context.read<AuthState>().user?.role == 'admin' : false;
+    final usersFuture = isAdmin ? ApiService().get('/users').catchError((_) => <dynamic>[]) : null;
+    _loadHierarchy(); // manages its own loading state independently
+
     try {
-      final results = await Future.wait([
-        ApiService().get('/reports/dashboard'),
-        ApiService().get('/clinics').catchError((_) => <dynamic>[]),
-      ]);
+      final results = await dashClinicsFuture;
       if (mounted) setState(() {
         _dash = results[0] as Map<String, dynamic>;
         _clinics = (results[1] as List).cast<Map<String, dynamic>>();
@@ -47,12 +55,9 @@ class _ExecutiveDashboardScreenState extends State<ExecutiveDashboardScreen> {
       });
     } catch (_) { if (mounted) setState(() => _loading = false); }
 
-    await _loadHierarchy();
-
-    final isAdmin = mounted ? context.read<AuthState>().user?.role == 'admin' : false;
-    if (isAdmin) {
+    if (usersFuture != null) {
       try {
-        final users = await ApiService().get('/users') as List;
+        final users = await usersFuture as List;
         if (mounted) setState(() {
           _hierarchyUsers = users.map((e) => AppUser.fromJson(e))
               .where((u) => u.customRole != null && kHierarchyRoleLabels.containsKey(u.customRole))
