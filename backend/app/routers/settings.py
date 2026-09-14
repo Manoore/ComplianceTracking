@@ -61,12 +61,12 @@ def settings_out(s: OrgSettings) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def get_settings(db: Session = Depends(get_db), _=Depends(require_admin)):
     return settings_out(_get_or_create(db))
 
 
-@router.put("/")
+@router.put("")
 def update_settings(payload: OrgSettingsUpdate, db: Session = Depends(get_db),
                     _=Depends(require_admin)):
     s = _get_or_create(db)

@@ -43,7 +43,7 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
-@router.get("/", response_model=List[UserOut])
+@router.get("", response_model=List[UserOut])
 def list_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     users = db.query(User).filter(User.tenant_id == current_user.tenant_id).order_by(User.full_name).all()
     return [UserOut(id=u.id, email=u.email, full_name=u.full_name, role=u.role.value,
@@ -52,7 +52,7 @@ def list_users(db: Session = Depends(get_db), current_user: User = Depends(requi
             for u in users]
 
 
-@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(payload: UserCreate, db: Session = Depends(get_db),
                 current_user: User = Depends(require_admin)):
     if db.query(User).filter(User.email == payload.email).first():

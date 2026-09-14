@@ -49,7 +49,7 @@ def ann_out(a: Announcement, user_id: int) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_announcements(db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user)):
     q = db.query(Announcement).filter(Announcement.is_active == True, Announcement.tenant_id == current_user.tenant_id)
@@ -57,7 +57,7 @@ def list_announcements(db: Session = Depends(get_db),
     return [ann_out(a, current_user.id) for a in announcements]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_announcement(payload: AnnouncementCreate,
                          db: Session = Depends(get_db),
                          current_user: User = Depends(require_admin)):

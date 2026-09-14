@@ -25,7 +25,7 @@ def notify(db: Session, user_id: int, notification_type: NotificationType,
     db.add(n)
 
 
-@router.get("/")
+@router.get("")
 def list_notifications(db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user),
                        unread_only: bool = False, limit: int = 50):

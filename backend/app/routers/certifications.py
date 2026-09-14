@@ -406,7 +406,7 @@ def submit_certification(token: str, payload: SubmitAnswers, background_tasks: B
     return cert_out(cert)
 
 
-@router.get("/")
+@router.get("")
 def list_certifications(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
                         course_id: Optional[int] = None, status: Optional[str] = None):
     q = db.query(TeamCertification)

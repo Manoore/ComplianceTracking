@@ -111,7 +111,7 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
     }
 
 
-@router.get("/")
+@router.get("")
 def list_inspections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
                      clinic_id: Optional[int] = None, status: Optional[str] = None,
                      user_id: Optional[int] = None, frequency: Optional[str] = None):
@@ -146,7 +146,7 @@ def list_inspections(db: Session = Depends(get_db), current_user: User = Depends
     return [inspection_out(i, current_user) for i in q.order_by(Inspection.created_at.desc()).limit(200).all()]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_inspection(payload: InspectionCreate, db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     from ..models.checklist import ChecklistTemplate

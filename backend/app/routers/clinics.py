@@ -92,7 +92,7 @@ def clinic_out(c: Clinic) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_clinics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id)
     if current_user.role == UserRole.manager:
@@ -115,7 +115,7 @@ def list_regions(db: Session = Depends(get_db), current_user: User = Depends(get
     return [{"region": r, "clinic_count": n} for r, n in rows if r]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_clinic(payload: ClinicCreate, db: Session = Depends(get_db),
                   current_user: User = Depends(require_admin)):
     clinic = Clinic(**payload.model_dump(), tenant_id=current_user.tenant_id)

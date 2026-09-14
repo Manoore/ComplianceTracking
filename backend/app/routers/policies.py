@@ -75,7 +75,7 @@ def _is_admin_or_manager(user: User) -> bool:
     return user.role in [UserRole.admin, UserRole.manager]
 
 
-@router.get("/")
+@router.get("")
 def list_policies(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(PolicyDocument).filter(
         PolicyDocument.tenant_id == current_user.tenant_id,
@@ -98,7 +98,7 @@ def list_policies(db: Session = Depends(get_db), current_user: User = Depends(ge
     return results
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_policy(payload: PolicyCreate, db: Session = Depends(get_db),
                   current_user: User = Depends(get_current_user)):
     if not _is_admin_or_manager(current_user):

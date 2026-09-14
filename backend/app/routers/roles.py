@@ -57,7 +57,7 @@ def my_permissions(current_user: User = Depends(get_current_user), db: Session =
     return {"role": role_name, "modules": ["dashboard"] + [p.module for p in role.permissions]}
 
 
-@router.get("/", response_model=List[RoleOut])
+@router.get("", response_model=List[RoleOut])
 def list_roles(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     roles = db.query(Role).filter(_role_filter(current_user.tenant_id)).order_by(Role.name).all()
     return [
@@ -67,7 +67,7 @@ def list_roles(db: Session = Depends(get_db), current_user: User = Depends(requi
     ]
 
 
-@router.post("/", response_model=RoleOut, status_code=201)
+@router.post("", response_model=RoleOut, status_code=201)
 def create_role(payload: RoleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     name = payload.name.lower().replace(" ", "_")
     if db.query(Role).filter(Role.name == name, Role.tenant_id == current_user.tenant_id).first():

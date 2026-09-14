@@ -71,7 +71,7 @@ def cred_out(c: Credential) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_credentials(user_id: Optional[int] = None, expiring_days: Optional[int] = None,
                      db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(Credential).filter(
@@ -113,7 +113,7 @@ def credential_summary(db: Session = Depends(get_db), current_user: User = Depen
     }
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_credential(payload: CredentialCreate, db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     target_uid = payload.user_id or current_user.id

@@ -29,7 +29,7 @@ def std_out(s: AccreditationStandard) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_standards(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     stds = db.query(AccreditationStandard).filter(
         AccreditationStandard.is_active == True,
@@ -40,7 +40,7 @@ def list_standards(db: Session = Depends(get_db), current_user: User = Depends(g
     return [std_out(s) for s in stds]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_standard(payload: StandardCreate, db: Session = Depends(get_db),
                     current_user: User = Depends(get_current_user)):
     if current_user.role != UserRole.admin:

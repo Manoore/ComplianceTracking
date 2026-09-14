@@ -35,7 +35,7 @@ def doc_out(d: HubDocument) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_documents(category: Optional[str] = None, search: Optional[str] = None,
                    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(HubDocument).filter(
@@ -71,7 +71,7 @@ def get_document(doc_id: int, db: Session = Depends(get_db),
     return out
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def upload_document(
     title: str = Form(...),
     description: str = Form(""),

@@ -73,7 +73,7 @@ def action_out(a: CorrectiveAction) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_actions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
                  status: Optional[str] = None, clinic_id: Optional[int] = None):
     q = db.query(CorrectiveAction)
@@ -91,7 +91,7 @@ def list_actions(db: Session = Depends(get_db), current_user: User = Depends(get
     return [action_out(a) for a in actions]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_action(payload: ActionCreate,
                         background_tasks: BackgroundTasks,
                         db: Session = Depends(get_db),

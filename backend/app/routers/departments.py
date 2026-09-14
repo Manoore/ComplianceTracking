@@ -34,7 +34,7 @@ def dept_out(d: Department, db: Session) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_departments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     depts = db.query(Department).filter(
         Department.tenant_id == current_user.tenant_id,
@@ -43,7 +43,7 @@ def list_departments(db: Session = Depends(get_db), current_user: User = Depends
     return [dept_out(d, db) for d in depts]
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_department(payload: DepartmentCreate, db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.admin, UserRole.manager]:

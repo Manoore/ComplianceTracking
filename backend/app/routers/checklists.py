@@ -124,7 +124,7 @@ def template_out(t: ChecklistTemplate) -> dict:
     }
 
 
-@router.get("/")
+@router.get("")
 def list_templates(include_presets: bool = True, db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     q = db.query(ChecklistTemplate).filter(
@@ -257,7 +257,7 @@ def clone_template(template_id: int, new_name: Optional[str] = None,
     return template_out(clone)
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 def create_template(payload: TemplateCreate, db: Session = Depends(get_db),
                     current_user: User = Depends(require_admin)):
     t = ChecklistTemplate(tenant_id=current_user.tenant_id, name=payload.name,
