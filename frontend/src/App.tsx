@@ -35,6 +35,7 @@ import { DocumentHubPage } from './pages/DocumentHubPage'
 import { StandardsPage } from './pages/StandardsPage'
 import { PendingReviewsPage } from './pages/PendingReviewsPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
@@ -69,6 +70,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/home" element={<HomePage />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/delete-account" element={<DeleteAccountPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
