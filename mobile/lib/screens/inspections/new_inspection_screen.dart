@@ -83,7 +83,10 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
         if (_gps != null) 'checkin_lng': _gps!.longitude,
       };
       final res = await ApiService().post('/inspections', body);
-      if (mounted) context.go('/inspections/${res['id']}');
+      // pushReplacement (not go, which would wipe the whole nav stack and leave no
+      // way back) so the stale "New Inspection" form is swapped out for the detail
+      // screen, while the Inspections list underneath stays poppable to.
+      if (mounted) context.pushReplacement('/inspections/${res['id']}');
     } catch (e) {
       if (mounted) { _showErr(e.toString()); setState(() => _submitting = false); }
     }
