@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { Inspection, InspectionItem, ItemType } from '../types'
@@ -100,10 +100,9 @@ function ItemInput({ item, inspId, isEditable }: { item: InspectionItem; inspId:
     }
     if (item.can_reviewer_sign) {
       return (
-        <button onClick={() => secondSign.mutate({ signature: `signed:${user?.id}:${new Date().toISOString()}` })}
-          className="mt-2 flex items-center gap-2 btn-primary text-sm" disabled={secondSign.isPending}>
-          <PenLine size={14} /> Tap to Sign
-        </button>
+        <Link to="/pending-reviews" className="mt-2 flex items-center gap-1.5 text-sm text-brand-700 hover:underline">
+          <PenLine size={14} /> Awaiting your review — sign it from your Pending Reviews queue
+        </Link>
       )
     }
     return (

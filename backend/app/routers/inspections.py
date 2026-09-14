@@ -63,6 +63,25 @@ def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
     return False
 
 
+def _reviewable_clinic_ids(db: Session, user: User) -> Optional[list]:
+    """Clinic IDs whose reviewer_only items `user` may countersign, or None for
+    "every clinic in the tenant". Mirrors _can_countersign's role logic exactly
+    (unlike scoped_clinic_ids, which is for the Executive dashboard and treats a
+    plain team_member as seeing everything -- here that same user can't countersign
+    anything, so they get an empty list, not unrestricted access)."""
+    if user.role == UserRole.admin:
+        return None
+    custom_role = (user.custom_role or "").strip().lower()
+    if custom_role in ("director_of_operations", "executive"):
+        return None
+    q = db.query(Clinic.id).filter(Clinic.tenant_id == user.tenant_id)
+    if custom_role == "regional_manager" and user.managed_region:
+        return [i for (i,) in q.filter(Clinic.region == user.managed_region).all()]
+    if custom_role == "clinic_lead" or user.role == UserRole.manager:
+        return [i for (i,) in q.filter(Clinic.manager_id == user.id).all()]
+    return []
+
+
 def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dict:
     can_review = current_user is not None and _can_countersign(current_user, insp.clinic)
     return {
@@ -175,6 +194,48 @@ def create_inspection(payload: InspectionCreate, db: Session = Depends(get_db),
     log_action(db, "inspection.create", user_id=current_user.id, resource_type="inspection", resource_id=insp.id)
     db.commit()
     return inspection_out(insp, current_user)
+
+
+@router.get("/pending-review")
+def pending_review(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every reviewer_only item still awaiting current_user's countersignature,
+    across whichever clinics they're allowed to review -- the queue a Clinic Lead,
+    Regional Manager, Director of Operations, or Admin works through directly,
+    instead of having to open each inspection individually to find it.
+
+    Must be registered before /{inspection_id} -- otherwise "pending-review" would
+    be swallowed by that route's inspection_id: int path parameter.
+    """
+    clinic_ids = _reviewable_clinic_ids(db, current_user)
+    if clinic_ids == []:
+        return []
+
+    q = (db.query(InspectionItem)
+         .join(Inspection, InspectionItem.inspection_id == Inspection.id)
+         .join(ChecklistItem, InspectionItem.checklist_item_id == ChecklistItem.id)
+         .filter(
+             Inspection.tenant_id == current_user.tenant_id,
+             Inspection.status != InspectionStatus.draft,
+             Inspection.status != InspectionStatus.in_progress,
+             ChecklistItem.reviewer_only == True,  # noqa: E712
+             InspectionItem.second_signer_id.is_(None),
+         ))
+    if clinic_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(clinic_ids))
+
+    items = q.order_by(Inspection.submitted_at.asc()).all()
+    return [
+        {
+            "inspection_id": item.inspection_id,
+            "item_id": item.id,
+            "clinic_id": item.inspection.clinic_id,
+            "clinic_name": item.inspection.clinic.name if item.inspection.clinic else None,
+            "template_name": item.inspection.template.name if item.inspection.template else None,
+            "inspector_name": item.inspection.inspector.full_name if item.inspection.inspector else None,
+            "submitted_at": str(item.inspection.submitted_at) if item.inspection.submitted_at else None,
+        }
+        for item in items
+    ]
 
 
 @router.get("/{inspection_id}")

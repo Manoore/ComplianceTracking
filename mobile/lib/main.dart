@@ -11,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/inspections/inspections_screen.dart';
 import 'screens/inspections/inspection_detail_screen.dart';
 import 'screens/inspections/new_inspection_screen.dart';
+import 'screens/reviews/pending_reviews_screen.dart';
 import 'screens/audits/audits_screen.dart';
 import 'screens/audits/audit_detail_screen.dart';
 import 'screens/certifications/certifications_screen.dart';
@@ -115,6 +116,7 @@ class _AppShellState extends State<_AppShell> {
         GoRoute(path: '/inspections', builder: (_, __) => const InspectionsScreen()),
         GoRoute(path: '/inspections/new', builder: (_, __) => const NewInspectionScreen()),
         GoRoute(path: '/inspections/:id', builder: (_, s) => InspectionDetailScreen(id: int.parse(s.pathParameters['id']!))),
+        GoRoute(path: '/pending-reviews', builder: (_, __) => const PendingReviewsScreen()),
         GoRoute(path: '/audits', builder: (_, __) => const AuditsScreen()),
         GoRoute(path: '/audits/:id', builder: (_, s) => AuditDetailScreen(id: int.parse(s.pathParameters['id']!))),
         GoRoute(path: '/certifications', builder: (_, __) => const CertificationsScreen()),

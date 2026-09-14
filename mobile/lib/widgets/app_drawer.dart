@@ -39,6 +39,12 @@ class _AppDrawerState extends State<AppDrawer> {
     final displayRole = user?.customRole?.replaceAll('_', ' ') ?? user?.role.replaceAll('_', ' ') ?? '';
     final isAdmin = user?.role == 'admin';
     final canManage = user?.canManage ?? false;
+    // Gated by the same role logic the backend uses for who may countersign a
+    // reviewer_only item, not the modules permission system -- this isn't a
+    // module a tenant admin configures, it's inherent to the role.
+    final customRole = (user?.customRole ?? '').toLowerCase();
+    final canReview = isAdmin || user?.role == 'manager' ||
+        ['clinic_lead', 'regional_manager', 'director_of_operations', 'executive'].contains(customRole);
 
     return Drawer(
       child: Column(
@@ -93,6 +99,8 @@ class _AppDrawerState extends State<AppDrawer> {
                   _tile(context, Icons.local_hospital_outlined, 'Clinics', '/admin/clinics'),
                 if (perms.canView('inspections'))
                   _tile(context, Icons.search_outlined, 'Inspections', '/inspections'),
+                if (canReview)
+                  _tile(context, Icons.fact_check_outlined, 'Pending Reviews', '/pending-reviews'),
                 if (perms.canView('audits'))
                   _tile(context, Icons.shield_outlined, 'Audits', '/audits'),
                 if (perms.canView('certifications'))

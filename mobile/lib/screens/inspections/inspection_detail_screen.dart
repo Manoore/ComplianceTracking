@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../models/models.dart';
@@ -61,18 +62,6 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
     } finally {
       if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _secondSign(int itemId) async {
-    try {
-      await ApiService().post('/inspections/${widget.id}/items/$itemId/second-sign', {
-        'signature': 'signed:${DateTime.now().toIso8601String()}',
-      });
-      await _load();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Review recorded'), backgroundColor: kSuccess));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: kDanger));
     }
   }
 
@@ -207,13 +196,16 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
       ]);
     }
     if (item.canReviewerSign) {
-      return SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          icon: const Icon(Icons.draw_outlined, size: 16),
-          label: const Text('Tap to Sign'),
-          onPressed: () => _secondSign(item.id),
-        ),
+      return InkWell(
+        onTap: () => context.push('/pending-reviews'),
+        child: Row(children: [
+          const Icon(Icons.draw_outlined, size: 14, color: kBrand),
+          const SizedBox(width: 6),
+          const Expanded(child: Text(
+            'Awaiting your review — sign it from your Pending Reviews queue',
+            style: TextStyle(fontSize: 12, color: kBrand, fontWeight: FontWeight.w600),
+          )),
+        ]),
       );
     }
     return Row(children: [

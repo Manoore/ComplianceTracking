@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Building2, ClipboardList, Search,
   ShieldCheck, CheckSquare, AlertTriangle, BarChart2,
   Users, LogOut, Menu, X, Megaphone, Settings, Shield, FileText,
-  TrendingUp, Layers, Award, FolderOpen, BookMarked
+  TrendingUp, Layers, Award, FolderOpen, BookMarked, ClipboardCheck
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -50,6 +50,13 @@ export function Sidebar() {
 
   const visible = allNavItems.filter(item => canView(item.module))
 
+  // Gated by the same role logic the backend uses for who may countersign a
+  // reviewer_only item (_can_countersign), not the modules permission system --
+  // this isn't a module a tenant admin configures, it's inherent to the role.
+  const customRole = (user?.custom_role ?? '').toLowerCase()
+  const canReview = user?.role === 'admin' || user?.role === 'manager' ||
+    ['clinic_lead', 'regional_manager', 'director_of_operations', 'executive'].includes(customRole)
+
   const displayRole = user?.custom_role
     ? user.custom_role.replace(/_/g, ' ')
     : user?.role.replace('_', ' ')
@@ -59,21 +66,28 @@ export function Sidebar() {
     navigate('/login')
   }
 
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    clsx('flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+      isActive
+        ? 'bg-brand-800 text-white'
+        : 'text-brand-100 hover:bg-brand-700 hover:text-white'
+    )
+
   const Nav = () => (
     <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      {canReview && (
+        <NavLink to="/pending-reviews" onClick={() => setOpen(false)} className={linkClass}>
+          <ClipboardCheck size={18} />
+          Pending Reviews
+        </NavLink>
+      )}
       {visible.map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
           onClick={() => setOpen(false)}
-          className={({ isActive }) =>
-            clsx('flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-brand-800 text-white'
-                : 'text-brand-100 hover:bg-brand-700 hover:text-white'
-            )
-          }
+          className={linkClass}
         >
           <Icon size={18} />
           {label}

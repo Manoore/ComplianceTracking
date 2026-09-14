@@ -33,6 +33,7 @@ import { DepartmentsPage } from './pages/DepartmentsPage'
 import { CredentialsPage } from './pages/CredentialsPage'
 import { DocumentHubPage } from './pages/DocumentHubPage'
 import { StandardsPage } from './pages/StandardsPage'
+import { PendingReviewsPage } from './pages/PendingReviewsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
@@ -82,6 +83,7 @@ function AppRoutes() {
         <Route path="checklists" element={<PrivateRoute roles={['admin']}><ChecklistsPage /></PrivateRoute>} />
         <Route path="inspections" element={<InspectionsPage />} />
         <Route path="inspections/:id" element={<InspectionDetailPage />} />
+        <Route path="pending-reviews" element={<PendingReviewsPage />} />
         <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor', 'manager']} module="audits"><AuditsPage /></PrivateRoute>} />
         <Route path="certifications" element={<CertificationsPage />} />
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
