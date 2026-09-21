@@ -8,14 +8,16 @@ from ..database import get_db
 from ..models.inspection import Inspection, InspectionItem, InspectionStatus, ItemResult
 from ..models.checklist import ChecklistItem
 from ..models.corrective_action import CorrectiveAction, ActionStatus
-from ..models.clinic import Clinic
+from ..models.clinic import Clinic, ClinicStaff
 from ..models.user import User, UserRole
+from ..models.notification import NotificationType
 from ..services.scoring import calculate_compliance_score
 from ..services.email import send_inspection_submitted
 from ..utils.audit_trail import log_action
 from ..utils.hierarchy_scope import scoped_clinic_ids
 from ..config import settings
 from .deps import get_current_user, require_admin_or_auditor
+from .notifications import notify
 
 router = APIRouter(prefix="/inspections", tags=["inspections"])
 
@@ -37,12 +39,34 @@ class ItemUpdate(BaseModel):
 
 class SecondSignPayload(BaseModel):
     signature: Optional[str] = None
+    # Clinic Lead review (placeholder for a fuller CL checklist to be defined
+    # later): free-text notes plus a flag that alerts the Regional Manager.
+    notes: Optional[str] = None
+    flagged: bool = False
 
 
 class CheckoutPayload(BaseModel):
     checkout_lat: Optional[float] = None
     checkout_lng: Optional[float] = None
     notes: Optional[str] = None
+
+
+class SubmitPayload(BaseModel):
+    is_priority: bool = False
+    priority_note: Optional[str] = None
+
+
+def _can_edit_inspection(db: Session, user: User, insp: Inspection) -> bool:
+    """Who may fill in / submit / checkout this inspection: the original
+    inspector, an admin, or any other staff member assigned to the clinic --
+    a checklist can be worked by more than one person across a shift, split
+    naturally rather than formally assigned, with each item's answered_by
+    tracking who actually did it."""
+    if user.role == UserRole.admin or insp.inspector_id == user.id:
+        return True
+    return db.query(ClinicStaff).filter(
+        ClinicStaff.clinic_id == insp.clinic_id, ClinicStaff.user_id == user.id
+    ).first() is not None
 
 
 def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
@@ -61,6 +85,36 @@ def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
     if custom_role == "clinic_lead" or user.role == UserRole.manager:
         return clinic.manager_id == user.id
     return False
+
+
+def _notify_regional_managers(db: Session, clinic: Optional[Clinic], insp: Inspection,
+                              flagged_by: User, notes: Optional[str]):
+    """A Clinic Lead/reviewer flagged something -- alert whoever's actually
+    responsible for this clinic's region, since an RM can't personally open
+    every single submitted checklist to notice a problem. Falls back to
+    Director of Operations/Executive/Admin if no Regional Manager is assigned
+    to this clinic's region, so a flag is never silently dropped."""
+    if not clinic:
+        return
+    recipients = db.query(User).filter(
+        User.tenant_id == clinic.tenant_id, User.is_active == True,
+        User.custom_role == "regional_manager", User.managed_region == clinic.region,
+    ).all() if clinic.region else []
+    if not recipients:
+        recipients = db.query(User).filter(
+            User.tenant_id == clinic.tenant_id, User.is_active == True,
+        ).filter(
+            (User.role == UserRole.admin) | (User.custom_role.in_(["director_of_operations", "executive"]))
+        ).all()
+    title = f"Flagged for review: {clinic.name}"
+    message = f"{flagged_by.full_name} flagged the checklist review at {clinic.name}."
+    if notes:
+        message += f" Notes: {notes}"
+    for r in recipients:
+        if r.id == flagged_by.id:
+            continue
+        notify(db, r.id, NotificationType.critical_finding, title=title, message=message,
+               resource_type="inspection", resource_id=insp.id)
 
 
 def _reviewable_clinic_ids(db: Session, user: User) -> Optional[list]:
@@ -101,6 +155,8 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
         "checkin_lat": insp.checkin_lat,
         "checkin_lng": insp.checkin_lng,
         "notes": insp.notes,
+        "is_priority": bool(insp.is_priority),
+        "priority_note": insp.priority_note,
         "submitted_at": str(insp.submitted_at) if insp.submitted_at else None,
         "created_at": str(insp.created_at) if insp.created_at else None,
         "items": [
@@ -121,9 +177,14 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
                 "passes_range": i.passes_range,
                 "document_url": i.document_url,
                 "photo_urls": i.photo_urls or [],
+                "answered_by": i.answered_by,
+                "answered_by_name": i.answered_by_user.full_name if i.answered_by_user else None,
+                "answered_at": str(i.answered_at) if i.answered_at else None,
                 "second_signer_id": i.second_signer_id,
                 "second_signed_at": str(i.second_signed_at) if i.second_signed_at else None,
                 "second_signer_name": i.second_signer.full_name if i.second_signer else None,
+                "review_notes": i.review_notes,
+                "is_flagged": bool(i.is_flagged),
             }
             for i in (insp.items or [])
         ],
@@ -223,7 +284,8 @@ def pending_review(db: Session = Depends(get_db), current_user: User = Depends(g
     if clinic_ids is not None:
         q = q.filter(Inspection.clinic_id.in_(clinic_ids))
 
-    items = q.order_by(Inspection.submitted_at.asc()).all()
+    # Priority-flagged checklists first, then oldest-submitted first within each group.
+    items = q.order_by(Inspection.is_priority.desc(), Inspection.submitted_at.asc()).all()
     return [
         {
             "inspection_id": item.inspection_id,
@@ -233,6 +295,8 @@ def pending_review(db: Session = Depends(get_db), current_user: User = Depends(g
             "template_name": item.inspection.template.name if item.inspection.template else None,
             "inspector_name": item.inspection.inspector.full_name if item.inspection.inspector else None,
             "submitted_at": str(item.inspection.submitted_at) if item.inspection.submitted_at else None,
+            "is_priority": bool(item.inspection.is_priority),
+            "priority_note": item.inspection.priority_note,
         }
         for item in items
     ]
@@ -276,7 +340,7 @@ def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
-    if insp.inspector_id != current_user.id and current_user.role not in [UserRole.admin]:
+    if not _can_edit_inspection(db, current_user, insp):
         raise HTTPException(status_code=403, detail="Forbidden")
     if insp.status not in [InspectionStatus.draft, InspectionStatus.in_progress]:
         raise HTTPException(status_code=400, detail="Inspection already submitted")
@@ -318,6 +382,7 @@ def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
     if payload.notes is not None:
         item.notes = payload.notes
     item.answered_at = datetime.utcnow()
+    item.answered_by = current_user.id
     db.commit()
     return {"status": "ok", "result": item.result.value, "passes_range": item.passes_range}
 
@@ -328,7 +393,7 @@ async def upload_photo(inspection_id: int, item_id: int,
                        db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
-    if not insp or insp.inspector_id != current_user.id:
+    if not insp or not _can_edit_inspection(db, current_user, insp):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     item = db.query(InspectionItem).filter(
@@ -355,6 +420,7 @@ async def upload_photo(inspection_id: int, item_id: int,
     urls = list(item.photo_urls or [])
     urls.append(f"/uploads/inspections/{inspection_id}/{filename}")
     item.photo_urls = urls
+    item.answered_by = current_user.id
     db.commit()
     return {"url": urls[-1]}
 
@@ -397,7 +463,13 @@ def second_sign(inspection_id: int, item_id: int, payload: SecondSignPayload,
     item.second_signed_at = datetime.utcnow()
     item.second_signature = payload.signature
     item.result = ItemResult.pass_
+    if payload.notes is not None:
+        item.review_notes = payload.notes
+    item.is_flagged = bool(payload.flagged)
     db.commit()
+    if item.is_flagged:
+        _notify_regional_managers(db, insp.clinic, insp, current_user, payload.notes)
+        db.commit()
     return {"status": "ok"}
 
 
@@ -407,7 +479,7 @@ async def upload_document(inspection_id: int, item_id: int,
                           db: Session = Depends(get_db),
                           current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
-    if not insp or insp.inspector_id != current_user.id:
+    if not insp or not _can_edit_inspection(db, current_user, insp):
         raise HTTPException(status_code=403, detail="Forbidden")
     item = db.query(InspectionItem).filter(
         InspectionItem.id == item_id, InspectionItem.inspection_id == inspection_id).first()
@@ -428,6 +500,7 @@ async def upload_document(inspection_id: int, item_id: int,
     item.document_url = f"/uploads/inspections/{inspection_id}/{filename}"
     item.result = ItemResult.pass_
     item.answered_at = datetime.utcnow()
+    item.answered_by = current_user.id
     db.commit()
     return {"url": item.document_url}
 
@@ -436,7 +509,7 @@ async def upload_document(inspection_id: int, item_id: int,
 def checkout(inspection_id: int, payload: CheckoutPayload,
              db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
-    if not insp or insp.inspector_id != current_user.id:
+    if not insp or not _can_edit_inspection(db, current_user, insp):
         raise HTTPException(status_code=403, detail="Forbidden")
     insp.checkout_time = datetime.utcnow()
     insp.checkout_lat = payload.checkout_lat
@@ -449,15 +522,19 @@ def checkout(inspection_id: int, payload: CheckoutPayload,
 
 @router.post("/{inspection_id}/submit")
 def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks,
+                      payload: SubmitPayload = SubmitPayload(),
                       db: Session = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     insp = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
-    if insp.inspector_id != current_user.id and current_user.role != UserRole.admin:
+    if not _can_edit_inspection(db, current_user, insp):
         raise HTTPException(status_code=403, detail="Forbidden")
     if insp.status not in [InspectionStatus.draft, InspectionStatus.in_progress]:
         raise HTTPException(status_code=400, detail="Already submitted")
+
+    insp.is_priority = payload.is_priority
+    insp.priority_note = payload.priority_note
 
     checklist_items = db.query(ChecklistItem).filter(ChecklistItem.template_id == insp.template_id).all()
     result = calculate_compliance_score(insp.items, checklist_items)

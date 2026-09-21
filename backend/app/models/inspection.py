@@ -41,6 +41,10 @@ class Inspection(Base):
     checkout_lng = Column(Float, nullable=True)
 
     notes = Column(Text, nullable=True)
+    # Set by whoever submits, to push this checklist to the top of the Clinic
+    # Lead/Regional Manager's review queue instead of waiting its turn.
+    is_priority = Column(Boolean, default=False)
+    priority_note = Column(Text, nullable=True)
     submitted_at = Column(DateTime, nullable=True)
     synced_at = Column(DateTime, nullable=True)
     # Digital signatures (stored as base64 data URLs)
@@ -72,11 +76,23 @@ class InspectionItem(Base):
     document_url = Column(String, nullable=True)   # document_upload
     auditor_comment = Column(Text, nullable=True)
     answered_at = Column(DateTime, nullable=True)
+    # Who last answered/touched this specific item -- distinct from
+    # Inspection.inspector_id, since a checklist can now be worked by more than
+    # one person across a shift (naturally split, not formally assigned). This
+    # is what makes that shared-checklist model auditable row by row.
+    answered_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     # Dual sign-off: second signer fills this after the first submits
     second_signer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     second_signed_at = Column(DateTime, nullable=True)
     second_signature = Column(Text, nullable=True)
+    # Clinic Lead's review of this item (placeholder for a fuller CL checklist
+    # to be defined later): free-text notes, plus a flag that alerts the
+    # Regional Manager -- since a CL/RM can't personally look at every single
+    # checklist, this is how a real problem gets their attention.
+    review_notes = Column(Text, nullable=True)
+    is_flagged = Column(Boolean, default=False)
 
     inspection = relationship("Inspection", back_populates="items")
     checklist_item = relationship("ChecklistItem")
+    answered_by_user = relationship("User", foreign_keys=[answered_by])
     second_signer = relationship("User", foreign_keys=[second_signer_id])

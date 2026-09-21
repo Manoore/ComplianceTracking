@@ -77,6 +77,11 @@ def _apply_migrations():
         "ALTER TABLE checklist_templates ADD COLUMN frequency VARCHAR",
         "ALTER TABLE users ADD COLUMN managed_region VARCHAR",
         "ALTER TABLE checklist_items ADD COLUMN reviewer_only BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE inspections ADD COLUMN is_priority BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE inspections ADD COLUMN priority_note TEXT",
+        "ALTER TABLE inspection_items ADD COLUMN answered_by INTEGER REFERENCES users(id)",
+        "ALTER TABLE inspection_items ADD COLUMN review_notes TEXT",
+        "ALTER TABLE inspection_items ADD COLUMN is_flagged BOOLEAN DEFAULT FALSE",
     ]
     for stmt in stmts:
         with engine.connect() as conn:
