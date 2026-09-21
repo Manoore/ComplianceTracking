@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
 from ..models.checklist import ChecklistTemplate, ChecklistSection, ChecklistItem, ItemCategory, ItemType
-from ..models.inspection import Inspection
+from ..models.inspection import Inspection, InspectionItem
 from ..models.user import User
 from ..utils.audit_trail import log_action
 from .deps import get_current_user, require_admin
@@ -304,6 +304,22 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
     for k, v in payload.model_dump(exclude_none=True, exclude={'items'}).items():
         setattr(t, k, v)
     if payload.items is not None:
+        # Replacing the item set means deleting every existing ChecklistItem first --
+        # but inspection_items.checklist_item_id is a real foreign key with no cascade,
+        # so once any item has actually been answered in a real inspection, that delete
+        # fails at the database level (this crashed as an unhandled 500, which shows up
+        # in the browser as a misleading CORS error rather than the real cause). Block it
+        # with a clear message instead, same protection delete_template already has.
+        existing_item_ids = [i.id for i in t.items]
+        if existing_item_ids and db.query(InspectionItem).filter(
+            InspectionItem.checklist_item_id.in_(existing_item_ids)
+        ).first():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot replace {t.name}'s items -- they've already been used in a real "
+                       f"inspection, and that compliance history must be preserved. Clone this "
+                       f"template to make changes, or deactivate it and create a new one.",
+            )
         db.query(ChecklistItem).filter(ChecklistItem.template_id == template_id).delete()
         for idx, item_data in enumerate(payload.items):
             data = item_data.model_dump()
