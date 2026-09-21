@@ -98,6 +98,10 @@ function buildItemPayload(item: ItemDraft) {
     cfg.options = (item.type_config.options ?? '').split('\n').map(s => s.trim()).filter(Boolean)
   }
   return {
+    // Existing items keep their id, so the backend can update them in place instead of
+    // deleting and recreating -- that's what lets an edit to an already-used template
+    // (real inspection history recorded against its items) actually save.
+    id: item.id ?? null,
     question: item.question,
     category: item.category,
     is_critical: item.is_critical,

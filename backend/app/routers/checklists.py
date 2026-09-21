@@ -41,6 +41,10 @@ class SectionIn(BaseModel):
 
 
 class ItemIn(BaseModel):
+    # Set when this item already exists (editing a template) so the backend can update
+    # it in place instead of deleting and recreating it -- that's what preserves any real
+    # inspection history already recorded against it. Left null for a brand-new item.
+    id: Optional[int] = None
     section_id: Optional[int] = None
     item_type: ItemType = ItemType.pass_fail_na
     category: ItemCategory = ItemCategory.other
@@ -275,7 +279,7 @@ def create_template(payload: TemplateCreate, db: Session = Depends(get_db),
         section_map[idx] = sec.id
 
     for item_data in payload.items:
-        item = ChecklistItem(template_id=t.id, **item_data.model_dump())
+        item = ChecklistItem(template_id=t.id, **item_data.model_dump(exclude={'id'}))
         db.add(item)
 
     db.commit()
@@ -304,28 +308,44 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
     for k, v in payload.model_dump(exclude_none=True, exclude={'items'}).items():
         setattr(t, k, v)
     if payload.items is not None:
-        # Replacing the item set means deleting every existing ChecklistItem first --
-        # but inspection_items.checklist_item_id is a real foreign key with no cascade,
-        # so once any item has actually been answered in a real inspection, that delete
-        # fails at the database level (this crashed as an unhandled 500, which shows up
-        # in the browser as a misleading CORS error rather than the real cause). Block it
-        # with a clear message instead, same protection delete_template already has.
-        existing_item_ids = [i.id for i in t.items]
-        if existing_item_ids and db.query(InspectionItem).filter(
-            InspectionItem.checklist_item_id.in_(existing_item_ids)
-        ).first():
+        # Items carrying an id are updated in place (their row, and its id, survives --
+        # so any real inspection history recorded against it stays intact). Items with no
+        # id are new. Existing items missing from the payload entirely are being removed;
+        # that's only safe for ones nothing has actually answered yet -- deleting one that
+        # inspection_items.checklist_item_id (a real FK, no cascade) still points to would
+        # fail at the database level. Block just those, instead of refusing the whole save.
+        existing_by_id = {i.id: i for i in t.items}
+        incoming_ids = {item.id for item in payload.items if item.id is not None}
+        removed_ids = set(existing_by_id) - incoming_ids
+
+        in_use_ids = set()
+        if removed_ids:
+            in_use_ids = {
+                row[0] for row in db.query(InspectionItem.checklist_item_id)
+                .filter(InspectionItem.checklist_item_id.in_(removed_ids)).distinct().all()
+            }
+        blocked = removed_ids & in_use_ids
+        if blocked:
+            names = [existing_by_id[i].question for i in blocked]
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot replace {t.name}'s items -- they've already been used in a real "
-                       f"inspection, and that compliance history must be preserved. Clone this "
-                       f"template to make changes, or deactivate it and create a new one.",
+                detail=f"Cannot remove these items -- they've already been used in a real "
+                       f"inspection, and that compliance history must be preserved: "
+                       f"{', '.join(names)}. Leave them in place (you can still edit their "
+                       f"wording) instead of deleting them.",
             )
-        db.query(ChecklistItem).filter(ChecklistItem.template_id == template_id).delete()
+
+        for i in removed_ids - in_use_ids:
+            db.delete(existing_by_id[i])
+
         for idx, item_data in enumerate(payload.items):
-            data = item_data.model_dump()
+            data = item_data.model_dump(exclude={'id'})
             data['order_index'] = idx
-            item = ChecklistItem(template_id=template_id, **data)
-            db.add(item)
+            if item_data.id is not None and item_data.id in existing_by_id:
+                for k, v in data.items():
+                    setattr(existing_by_id[item_data.id], k, v)
+            else:
+                db.add(ChecklistItem(template_id=template_id, **data))
     db.commit()
     db.refresh(t)
     return template_out(t)
