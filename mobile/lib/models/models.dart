@@ -80,10 +80,12 @@ class ChecklistItem {
   final String? answeredByName;
   final String? reviewNotes;
   final bool isFlagged;
+  final String? sectionTitle;
   ChecklistItem({
     required this.id, required this.question, this.answer, this.notes, required this.isRequired,
     this.itemType = 'pass_fail_na', this.reviewerOnly = false, this.canReviewerSign = false,
     this.secondSignerName, this.answeredByName, this.reviewNotes, this.isFlagged = false,
+    this.sectionTitle,
   });
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
         id: (j['id'] as num).toInt(), question: j['question'] ?? '',
@@ -96,6 +98,7 @@ class ChecklistItem {
         answeredByName: j['answered_by_name'],
         reviewNotes: j['review_notes'],
         isFlagged: j['is_flagged'] == true,
+        sectionTitle: j['section_title'],
       );
 }
 

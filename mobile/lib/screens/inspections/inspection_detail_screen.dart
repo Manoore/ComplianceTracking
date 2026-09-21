@@ -128,7 +128,11 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
               itemCount: insp.items.length,
               itemBuilder: (_, i) {
                 final item = insp.items[i];
-                return Card(
+                // A long checklist (e.g. a site-visit audit) is unusable as one flat
+                // list -- show a header whenever the section changes from the item above.
+                final showHeader = item.sectionTitle != null &&
+                    (i == 0 || insp.items[i - 1].sectionTitle != item.sectionTitle);
+                final card = Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
@@ -175,6 +179,14 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                     ]),
                   ),
                 );
+                if (!showHeader) return card;
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : 8, bottom: 6, left: 4),
+                    child: Text(item.sectionTitle!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kBrand)),
+                  ),
+                  card,
+                ]);
               },
             ),
           ),

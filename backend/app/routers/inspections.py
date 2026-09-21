@@ -165,6 +165,8 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
                 "checklist_item_id": i.checklist_item_id,
                 "question": i.checklist_item.question if i.checklist_item else None,
                 "category": i.checklist_item.category.value if i.checklist_item and i.checklist_item.category else None,
+                "section_id": i.checklist_item.section_id if i.checklist_item else None,
+                "section_title": i.checklist_item.section.title if i.checklist_item and i.checklist_item.section else None,
                 "is_critical": i.checklist_item.is_critical if i.checklist_item else False,
                 "item_type": i.checklist_item.item_type.value if i.checklist_item and i.checklist_item.item_type else "pass_fail_na",
                 "type_config": i.checklist_item.type_config if i.checklist_item else None,

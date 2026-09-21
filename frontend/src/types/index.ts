@@ -101,6 +101,8 @@ export interface InspectionItem {
   checklist_item_id: number
   question: string
   category: string
+  section_id?: number | null
+  section_title?: string | null
   is_critical: boolean
   item_type: ItemType
   type_config?: TypeConfig

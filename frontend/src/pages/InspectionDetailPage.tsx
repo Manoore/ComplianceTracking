@@ -432,10 +432,13 @@ export function InspectionDetailPage() {
   const total = answerableItems.length
   const failedCount = insp.items.filter(i => i.result === 'fail').length
 
+  // Group by the template's own sections when it has them (a long checklist like a
+  // site-visit audit is unusable as one flat bucket); fall back to the coarse category
+  // enum for templates that don't use sections, same as before.
   const grouped = insp.items.reduce((acc, item) => {
-    const cat = item.category || 'other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(item)
+    const key = item.section_title || item.category || 'other'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
     return acc
   }, {} as Record<string, InspectionItem[]>)
 
