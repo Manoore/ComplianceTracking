@@ -592,9 +592,13 @@ export function ChecklistsPage() {
   })
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
 
-  const visibleTemplates = filterDept
+  // Your own templates first, preset (shared, reference-only) templates at the bottom --
+  // presets aren't owned by any one tenant, so they're not what you're usually looking
+  // for when managing your own checklists.
+  const visibleTemplates = (filterDept
     ? (templates ?? []).filter(t => t.department_id?.toString() === filterDept)
     : (templates ?? [])
+  ).slice().sort((a, b) => Number((a as any).is_preset) - Number((b as any).is_preset))
 
   const cloneTemplate = useMutation({
     mutationFn: (id: number) => api.post(`/checklists/${id}/clone`),
@@ -654,7 +658,9 @@ export function ChecklistsPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-gray-900">{t.name}</p>
                       {(t as any).is_preset && (
-                        <span className="badge bg-brand-100 text-brand-700 text-xs">Preset</span>
+                        <span className="badge bg-gray-100 text-gray-600 text-xs" title="Shared across every organization on this platform -- clone it to create your own editable copy">
+                          Reference only
+                        </span>
                       )}
                       {t.department_name && (
                         <span className="badge bg-gray-100 text-gray-600 text-xs">{t.department_name}</span>
@@ -678,12 +684,15 @@ export function ChecklistsPage() {
                   </button>
                 )}
                 <button
-                  className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
-                  title="Clone template"
+                  className={(t as any).is_preset
+                    ? "flex items-center gap-1.5 mr-3 px-3 py-2 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                    : "p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"}
+                  title={(t as any).is_preset ? "Make your own editable copy of this reference template" : "Clone template"}
                   onClick={() => cloneTemplate.mutate(t.id)}
                   disabled={cloneTemplate.isPending}
                 >
                   <Copy size={16} />
+                  {(t as any).is_preset && 'Clone to Edit'}
                 </button>
                 {t.tenant_id != null && (
                   <button
