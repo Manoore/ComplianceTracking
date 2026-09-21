@@ -282,6 +282,11 @@ def pending_review(db: Session = Depends(get_db), current_user: User = Depends(g
              Inspection.status != InspectionStatus.in_progress,
              ChecklistItem.reviewer_only == True,  # noqa: E712
              InspectionItem.second_signer_id.is_(None),
+             # second_sign() itself refuses to let someone countersign their own
+             # submission -- so don't show it in their queue at all, that's just a
+             # dead end (mainly hits admins, who both can review anything and often
+             # also submitted the test inspections themselves).
+             Inspection.inspector_id != current_user.id,
          ))
     if clinic_ids is not None:
         q = q.filter(Inspection.clinic_id.in_(clinic_ids))
