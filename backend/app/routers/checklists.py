@@ -327,12 +327,21 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
         blocked = removed_ids & in_use_ids
         if blocked:
             names = [existing_by_id[i].question for i in blocked]
+            count = len(names)
+            # Structured (message + blocked_items), not just one long sentence, so the
+            # frontend can render the item list as an actual list instead of cramming it
+            # into a single-line toast -- apiError() still falls back to `message` for any
+            # caller that only handles a plain string.
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot remove these items -- they've already been used in a real "
-                       f"inspection, and that compliance history must be preserved: "
-                       f"{', '.join(names)}. Leave them in place (you can still edit their "
-                       f"wording) instead of deleting them.",
+                detail={
+                    "message": f"Can't save -- {count} item{'s' if count != 1 else ''} below "
+                                f"{'have' if count != 1 else 'has'} already been answered in a real "
+                                f"inspection, and removing them would destroy that compliance record. "
+                                f"Leave them in the list (you can still reword them) instead of deleting them, "
+                                f"then save again.",
+                    "blocked_items": names,
+                },
             )
 
         for i in removed_ids - in_use_ids:

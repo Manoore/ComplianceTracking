@@ -8,6 +8,9 @@ export function apiError(err: any, fallback = 'An error occurred'): string {
   if (!detail) return fallback
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((d: any) => d.msg ?? String(d)).join(', ')
+  // Structured errors (e.g. { message, blocked_items }) -- callers that want the list
+  // itself (to render as an actual list) read err.response.data.detail directly instead.
+  if (typeof detail === 'object' && typeof detail.message === 'string') return detail.message
   return fallback
 }
 

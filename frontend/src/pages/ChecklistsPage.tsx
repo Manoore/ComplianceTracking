@@ -381,10 +381,20 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
     }))
   )
 
+  const [blockedItems, setBlockedItems] = useState<string[] | null>(null)
+
   const mutation = useMutation({
     mutationFn: (data: any) => api.put(`/checklists/${template.id}`, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['checklists'] }); toast.success('Template updated'); onClose() },
-    onError: (e: any) => toast.error(apiError(e)),
+    onError: (e: any) => {
+      const blocked = e?.response?.data?.detail?.blocked_items
+      if (Array.isArray(blocked) && blocked.length > 0) {
+        setBlockedItems(blocked)
+      } else {
+        setBlockedItems(null)
+        toast.error(apiError(e))
+      }
+    },
   })
 
   const addItem = () => setItems(i => [...i, emptyItem(i.length)])
@@ -398,6 +408,21 @@ function EditTemplateModal({ template, onClose }: { template: ChecklistTemplate;
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">Edit Template</h2>
         </div>
+        {blockedItems && (
+          <div className="mx-6 mt-4 p-4 rounded-lg bg-red-50 border border-red-200">
+            <p className="text-sm font-medium text-red-800">
+              Can't save — {blockedItems.length} item{blockedItems.length !== 1 ? 's' : ''} below{' '}
+              {blockedItems.length !== 1 ? 'have' : 'has'} already been answered in a real inspection.
+              Removing {blockedItems.length !== 1 ? 'them' : 'it'} would destroy that compliance record.
+            </p>
+            <ul className="mt-2 text-sm text-red-700 list-disc list-inside space-y-0.5">
+              {blockedItems.map(name => <li key={name}>{name}</li>)}
+            </ul>
+            <p className="mt-2 text-xs text-red-600">
+              Leave {blockedItems.length !== 1 ? 'these items' : 'this item'} in the list below (you can still reword {blockedItems.length !== 1 ? 'them' : 'it'}) instead of deleting {blockedItems.length !== 1 ? 'them' : 'it'}, then save again.
+            </p>
+          </div>
+        )}
         <div className="p-6 space-y-5">
           <div>
             <label className="label">Template Name *</label>
