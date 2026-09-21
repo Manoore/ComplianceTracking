@@ -116,6 +116,11 @@ export interface InspectionItem {
   second_signer_id?: number | null
   second_signed_at?: string | null
   second_signer_name?: string | null
+  answered_by?: number | null
+  answered_by_name?: string | null
+  answered_at?: string | null
+  review_notes?: string | null
+  is_flagged?: boolean
 }
 
 export interface Inspection {
@@ -135,6 +140,8 @@ export interface Inspection {
   checkin_lat?: number
   checkin_lng?: number
   notes?: string
+  is_priority?: boolean
+  priority_note?: string | null
   submitted_at?: string
   created_at?: string
   items: InspectionItem[]

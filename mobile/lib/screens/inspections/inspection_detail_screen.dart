@@ -20,12 +20,14 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
   final Map<int, String> _answers = {};
   final Map<int, TextEditingController> _notes = {};
   bool _submitting = false;
+  bool _isPriority = false;
+  final _priorityNoteController = TextEditingController();
 
   @override
   void initState() { super.initState(); _load(); }
 
   @override
-  void dispose() { _notes.values.forEach((c) => c.dispose()); super.dispose(); }
+  void dispose() { _notes.values.forEach((c) => c.dispose()); _priorityNoteController.dispose(); super.dispose(); }
 
   Future<void> _load() async {
     try {
@@ -55,7 +57,10 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
   Future<void> _submit() async {
     setState(() => _submitting = true);
     try {
-      await ApiService().post('/inspections/${widget.id}/submit', {});
+      await ApiService().post('/inspections/${widget.id}/submit', {
+        'is_priority': _isPriority,
+        if (_priorityNoteController.text.trim().isNotEmpty) 'priority_note': _priorityNoteController.text.trim(),
+      });
       await _load();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inspection submitted!'), backgroundColor: kSuccess));
     } catch (e) {
@@ -163,6 +168,10 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                           statusBadge(_answers[item.id] ?? item.answer ?? 'unanswered'),
                           if (item.notes != null) ...[const SizedBox(width: 8), Expanded(child: Text(item.notes!, style: const TextStyle(fontSize: 12, color: Colors.grey)))],
                         ]),
+                      if (!item.reviewerOnly && item.answeredByName != null) Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text('Answered by ${item.answeredByName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      ),
                     ]),
                   ),
                 );
@@ -171,15 +180,33 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
           ),
           if (isDraft) SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.send_outlined),
-                  label: Text(_submitting ? 'Submitting…' : 'Submit Inspection'),
-                  onPressed: _submitting ? null : _submit,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                CheckboxListTile(
+                  value: _isPriority,
+                  onChanged: (v) => setState(() => _isPriority = v ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  title: const Text('Mark as priority for your Clinic Lead / Regional Manager', style: TextStyle(fontSize: 13)),
+                  secondary: Icon(Icons.priority_high, size: 18, color: _isPriority ? kWarning : Colors.grey),
                 ),
-              ),
+                if (_isPriority) Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextField(
+                    controller: _priorityNoteController,
+                    decoration: const InputDecoration(hintText: 'Why is this priority? (optional)', isDense: true),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.send_outlined),
+                    label: Text(_submitting ? 'Submitting…' : 'Submit Inspection'),
+                    onPressed: _submitting ? null : _submit,
+                  ),
+                ),
+              ]),
             ),
           ),
         ],
@@ -189,10 +216,20 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
 
   Widget _reviewerOnlyRow(ChecklistItem item) {
     if (item.secondSignerName != null) {
-      return Row(children: [
-        const Icon(Icons.groups_outlined, size: 16, color: kSuccess),
-        const SizedBox(width: 6),
-        Text('Reviewed by ${item.secondSignerName}', style: const TextStyle(fontSize: 13, color: kSuccess)),
+      final flagged = item.isFlagged;
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(flagged ? Icons.flag : Icons.groups_outlined, size: 16, color: flagged ? kDanger : kSuccess),
+          const SizedBox(width: 6),
+          Expanded(child: Text(
+            'Reviewed by ${item.secondSignerName}${flagged ? ' — flagged for Regional Manager' : ''}',
+            style: TextStyle(fontSize: 13, color: flagged ? kDanger : kSuccess),
+          )),
+        ]),
+        if (item.reviewNotes != null) Padding(
+          padding: const EdgeInsets.only(left: 22, top: 2),
+          child: Text(item.reviewNotes!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ),
       ]);
     }
     if (item.canReviewerSign) {

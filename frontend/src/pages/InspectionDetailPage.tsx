@@ -93,8 +93,12 @@ function ItemInput({ item, inspId, isEditable }: { item: InspectionItem; inspId:
   if (item.reviewer_only) {
     if (item.second_signer_id) {
       return (
-        <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
-          <Users size={14} /> Reviewed by {item.second_signer_name}
+        <div className="mt-2 space-y-1">
+          <div className={clsx('flex items-center gap-2 text-sm', item.is_flagged ? 'text-red-600' : 'text-green-600')}>
+            {item.is_flagged ? <AlertTriangle size={14} /> : <Users size={14} />}
+            Reviewed by {item.second_signer_name}{item.is_flagged && ' — flagged for Regional Manager'}
+          </div>
+          {item.review_notes && <p className="text-xs text-gray-500 pl-6">{item.review_notes}</p>}
         </div>
       )
     }
@@ -385,6 +389,8 @@ export function InspectionDetailPage() {
   const confirmDialog = useConfirm()
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
+  const [isPriority, setIsPriority] = useState(false)
+  const [priorityNote, setPriorityNote] = useState('')
 
   const { data: insp, isLoading } = useQuery<Inspection>({
     queryKey: ['inspection', id],
@@ -392,7 +398,7 @@ export function InspectionDetailPage() {
   })
 
   const submitInspection = useMutation({
-    mutationFn: () => api.post(`/inspections/${id}/submit`),
+    mutationFn: () => api.post(`/inspections/${id}/submit`, { is_priority: isPriority, priority_note: priorityNote || null }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inspection', id] })
       qc.invalidateQueries({ queryKey: ['inspections'] })
@@ -519,6 +525,9 @@ export function InspectionDetailPage() {
                       {!isEditable && item.notes && (
                         <p className="text-xs text-gray-500 mt-1">{item.notes}</p>
                       )}
+                      {!item.reviewer_only && item.answered_by_name && (
+                        <p className="text-xs text-gray-400 mt-1">Answered by {item.answered_by_name}</p>
+                      )}
                     </div>
 
                     {/* Right: result indicator for simple types */}
@@ -542,22 +551,34 @@ export function InspectionDetailPage() {
       ))}
 
       {isEditable && (
-        <div className="flex justify-end">
-          <button disabled={submitInspection.isPending} className="btn-primary"
-            onClick={async () => {
-              if (answered < total) {
-                const ok = await confirmDialog({
-                  message: `${total - answered} items not yet answered. Submit anyway?`,
-                  confirmLabel: 'Submit Anyway',
-                  danger: false,
-                })
-                if (!ok) return
-              }
-              submitInspection.mutate()
-            }}>
-            <Send size={16} />
-            {submitInspection.isPending ? 'Submitting…' : 'Submit Inspection'}
-          </button>
+        <div className="card p-4 space-y-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={isPriority} onChange={e => setIsPriority(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+            <AlertTriangle size={15} className={isPriority ? 'text-amber-500' : 'text-gray-400'} />
+            Mark as priority for your Clinic Lead / Regional Manager to review first
+          </label>
+          {isPriority && (
+            <input className="input text-sm" placeholder="Why is this priority? (optional)"
+              value={priorityNote} onChange={e => setPriorityNote(e.target.value)} />
+          )}
+          <div className="flex justify-end">
+            <button disabled={submitInspection.isPending} className="btn-primary"
+              onClick={async () => {
+                if (answered < total) {
+                  const ok = await confirmDialog({
+                    message: `${total - answered} items not yet answered. Submit anyway?`,
+                    confirmLabel: 'Submit Anyway',
+                    danger: false,
+                  })
+                  if (!ok) return
+                }
+                submitInspection.mutate()
+              }}>
+              <Send size={16} />
+              {submitInspection.isPending ? 'Submitting…' : 'Submit Inspection'}
+            </button>
+          </div>
         </div>
       )}
     </div>

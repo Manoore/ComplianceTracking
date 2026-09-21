@@ -39,21 +39,25 @@ class Inspection {
   final String clinicName, inspectorName, status;
   final double? complianceScore;
   final String? riskLevel, submittedAt, createdAt;
-  Inspection({required this.id, required this.clinicName, required this.inspectorName, required this.status, this.complianceScore, this.riskLevel, this.submittedAt, this.createdAt});
+  final bool isPriority;
+  final String? priorityNote;
+  Inspection({required this.id, required this.clinicName, required this.inspectorName, required this.status, this.complianceScore, this.riskLevel, this.submittedAt, this.createdAt, this.isPriority = false, this.priorityNote});
   factory Inspection.fromJson(Map<String, dynamic> j) => Inspection(
         id: (j['id'] as num).toInt(), clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
         status: j['status'] ?? 'draft', complianceScore: (j['compliance_score'] as num?)?.toDouble(),
         riskLevel: j['risk_level'], submittedAt: j['submitted_at'], createdAt: j['created_at'],
+        isPriority: j['is_priority'] == true, priorityNote: j['priority_note'],
       );
 }
 
 class InspectionDetail extends Inspection {
   final List<ChecklistItem> items;
-  InspectionDetail({required super.id, required super.clinicName, required super.inspectorName, required super.status, super.complianceScore, super.riskLevel, super.submittedAt, super.createdAt, required this.items});
+  InspectionDetail({required super.id, required super.clinicName, required super.inspectorName, required super.status, super.complianceScore, super.riskLevel, super.submittedAt, super.createdAt, super.isPriority, super.priorityNote, required this.items});
   factory InspectionDetail.fromJson(Map<String, dynamic> j) => InspectionDetail(
         id: (j['id'] as num).toInt(), clinicName: j['clinic_name'] ?? '', inspectorName: j['inspector_name'] ?? '',
         status: j['status'] ?? 'draft', complianceScore: (j['compliance_score'] as num?)?.toDouble(),
         riskLevel: j['risk_level'], submittedAt: j['submitted_at'], createdAt: j['created_at'],
+        isPriority: j['is_priority'] == true, priorityNote: j['priority_note'],
         items: (j['items'] as List? ?? []).map((i) => ChecklistItem.fromJson(i)).toList(),
       );
 }
@@ -73,10 +77,13 @@ class ChecklistItem {
   final bool reviewerOnly;
   final bool canReviewerSign;
   final String? secondSignerName;
+  final String? answeredByName;
+  final String? reviewNotes;
+  final bool isFlagged;
   ChecklistItem({
     required this.id, required this.question, this.answer, this.notes, required this.isRequired,
     this.itemType = 'pass_fail_na', this.reviewerOnly = false, this.canReviewerSign = false,
-    this.secondSignerName,
+    this.secondSignerName, this.answeredByName, this.reviewNotes, this.isFlagged = false,
   });
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
         id: (j['id'] as num).toInt(), question: j['question'] ?? '',
@@ -86,6 +93,9 @@ class ChecklistItem {
         reviewerOnly: j['reviewer_only'] == true,
         canReviewerSign: j['can_reviewer_sign'] == true,
         secondSignerName: j['second_signer_name'],
+        answeredByName: j['answered_by_name'],
+        reviewNotes: j['review_notes'],
+        isFlagged: j['is_flagged'] == true,
       );
 }
 
