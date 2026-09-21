@@ -82,6 +82,8 @@ def _apply_migrations():
         "ALTER TABLE inspection_items ADD COLUMN answered_by INTEGER REFERENCES users(id)",
         "ALTER TABLE inspection_items ADD COLUMN review_notes TEXT",
         "ALTER TABLE inspection_items ADD COLUMN is_flagged BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE inspection_items ADD COLUMN ma_flagged BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE inspection_items ADD COLUMN ma_flag_note TEXT",
     ]
     for stmt in stmts:
         with engine.connect() as conn:

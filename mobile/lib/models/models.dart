@@ -81,11 +81,15 @@ class ChecklistItem {
   final String? reviewNotes;
   final bool isFlagged;
   final String? sectionTitle;
+  // MA/PCT's own flag on this specific item, raised while filling it out.
+  // Distinct from isFlagged (the Clinic Lead/reviewer's flag on a reviewer_only item).
+  final bool maFlagged;
+  final String? maFlagNote;
   ChecklistItem({
     required this.id, required this.question, this.answer, this.notes, required this.isRequired,
     this.itemType = 'pass_fail_na', this.reviewerOnly = false, this.canReviewerSign = false,
     this.secondSignerName, this.answeredByName, this.reviewNotes, this.isFlagged = false,
-    this.sectionTitle,
+    this.sectionTitle, this.maFlagged = false, this.maFlagNote,
   });
   factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
         id: (j['id'] as num).toInt(), question: j['question'] ?? '',
@@ -99,6 +103,8 @@ class ChecklistItem {
         reviewNotes: j['review_notes'],
         isFlagged: j['is_flagged'] == true,
         sectionTitle: j['section_title'],
+        maFlagged: j['ma_flagged'] == true,
+        maFlagNote: j['ma_flag_note'],
       );
 }
 

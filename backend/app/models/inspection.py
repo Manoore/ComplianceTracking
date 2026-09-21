@@ -91,6 +91,12 @@ class InspectionItem(Base):
     # checklist, this is how a real problem gets their attention.
     review_notes = Column(Text, nullable=True)
     is_flagged = Column(Boolean, default=False)
+    # MA/PCT's own flag, raised on a specific item while filling out the
+    # checklist (e.g. something concerning they noticed). Recorded as they
+    # work, but Clinic Lead + Regional Manager are only notified once the
+    # whole inspection is submitted -- not the moment this is set.
+    ma_flagged = Column(Boolean, default=False)
+    ma_flag_note = Column(Text, nullable=True)
 
     inspection = relationship("Inspection", back_populates="items")
     checklist_item = relationship("ChecklistItem")

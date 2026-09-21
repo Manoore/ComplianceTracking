@@ -19,6 +19,8 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
   bool _loading = true;
   final Map<int, String> _answers = {};
   final Map<int, TextEditingController> _notes = {};
+  final Map<int, bool> _flagged = {};
+  final Map<int, TextEditingController> _flagNotes = {};
   bool _submitting = false;
   bool _isPriority = false;
   final _priorityNoteController = TextEditingController();
@@ -27,7 +29,12 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
   void initState() { super.initState(); _load(); }
 
   @override
-  void dispose() { _notes.values.forEach((c) => c.dispose()); _priorityNoteController.dispose(); super.dispose(); }
+  void dispose() {
+    _notes.values.forEach((c) => c.dispose());
+    _flagNotes.values.forEach((c) => c.dispose());
+    _priorityNoteController.dispose();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {
@@ -39,6 +46,8 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
           if (item.reviewerOnly) continue; // never editable by the MA, nothing to preload
           if (item.answer != null) _answers[item.id] = item.answer!;
           _notes[item.id] = TextEditingController(text: item.notes ?? '');
+          _flagged[item.id] = item.maFlagged;
+          _flagNotes[item.id] = TextEditingController(text: item.maFlagNote ?? '');
         }
       }
     } catch (_) { if (mounted) setState(() => _loading = false); }
@@ -51,6 +60,20 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
         if (kAnswerToResult.containsKey(answer)) 'result': kAnswerToResult[answer],
         'notes': _notes[itemId]?.text ?? '',
       });
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFlag(int itemId) async {
+    final next = !(_flagged[itemId] ?? false);
+    setState(() => _flagged[itemId] = next);
+    try {
+      await ApiService().put('/inspections/${widget.id}/items/$itemId', {'flagged': next});
+    } catch (_) {}
+  }
+
+  Future<void> _saveFlagNote(int itemId) async {
+    try {
+      await ApiService().put('/inspections/${widget.id}/items/$itemId', {'flag_note': _flagNotes[itemId]?.text ?? ''});
     } catch (_) {}
   }
 
@@ -167,6 +190,29 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                           label: const Text('Add Photo'),
                           onPressed: () => _pickPhoto(item.id),
                         ),
+                        // MA/PCT flag on this item -- recorded now, but Clinic Lead/Regional
+                        // Manager are only notified once the whole checklist is submitted.
+                        InkWell(
+                          onTap: () => _toggleFlag(item.id),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(children: [
+                              Icon(Icons.flag, size: 14, color: (_flagged[item.id] ?? false) ? kDanger : Colors.grey),
+                              const SizedBox(width: 6),
+                              Text((_flagged[item.id] ?? false) ? 'Flagged' : 'Flag this item',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                                      color: (_flagged[item.id] ?? false) ? kDanger : Colors.grey)),
+                            ]),
+                          ),
+                        ),
+                        if (_flagged[item.id] ?? false) TextField(
+                          controller: _flagNotes[item.id],
+                          decoration: const InputDecoration(hintText: "What's the concern? (optional)", isDense: true),
+                          style: const TextStyle(fontSize: 13),
+                          onChanged: (_) {},
+                          onSubmitted: (_) => _saveFlagNote(item.id),
+                          onTapOutside: (_) => _saveFlagNote(item.id),
+                        ),
                       ] else
                         Row(children: [
                           statusBadge(_answers[item.id] ?? item.answer ?? 'unanswered'),
@@ -175,6 +221,17 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
                       if (!item.reviewerOnly && item.answeredByName != null) Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text('Answered by ${item.answeredByName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      ),
+                      if (!isDraft && !item.reviewerOnly && item.maFlagged) Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Icon(Icons.flag, size: 13, color: kDanger),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(
+                            'Flagged by ${item.answeredByName ?? 'MA/PCT'}${item.maFlagNote != null ? ' — ${item.maFlagNote}' : ''}',
+                            style: const TextStyle(fontSize: 12, color: kDanger),
+                          )),
+                        ]),
                       ),
                     ]),
                   ),

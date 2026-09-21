@@ -123,6 +123,8 @@ export interface InspectionItem {
   answered_at?: string | null
   review_notes?: string | null
   is_flagged?: boolean
+  ma_flagged?: boolean
+  ma_flag_note?: string | null
 }
 
 export interface Inspection {

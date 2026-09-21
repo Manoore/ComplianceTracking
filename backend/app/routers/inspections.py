@@ -35,6 +35,11 @@ class ItemUpdate(BaseModel):
     text_value: Optional[str] = None
     numeric_value: Optional[float] = None
     signature: Optional[str] = None   # base64 for signature type
+    # MA/PCT flagging this specific item as concerning while filling it out.
+    # Recorded immediately, but Clinic Lead/Regional Manager are only
+    # notified once the whole inspection is submitted.
+    flagged: Optional[bool] = None
+    flag_note: Optional[str] = None
 
 
 class SecondSignPayload(BaseModel):
@@ -117,6 +122,49 @@ def _notify_regional_managers(db: Session, clinic: Optional[Clinic], insp: Inspe
                resource_type="inspection", resource_id=insp.id)
 
 
+def _notify_flagged_items_on_submit(db: Session, clinic: Optional[Clinic], insp: Inspection,
+                                    flagged_items: list, submitted_by: User):
+    """An MA/PCT flagged one or more specific items while filling out the checklist.
+    Those flags don't alert anyone in real time -- only once the whole inspection is
+    actually submitted, at which point both this clinic's Lead and its Regional
+    Manager(s) need to know, since neither can personally look at every checklist."""
+    if not clinic or not flagged_items:
+        return
+    recipients = {}
+    if clinic.manager_id:
+        lead = db.query(User).filter(User.id == clinic.manager_id, User.is_active == True).first()
+        if lead:
+            recipients[lead.id] = lead
+    rms = db.query(User).filter(
+        User.tenant_id == clinic.tenant_id, User.is_active == True,
+        User.custom_role == "regional_manager", User.managed_region == clinic.region,
+    ).all() if clinic.region else []
+    if not rms:
+        rms = db.query(User).filter(
+            User.tenant_id == clinic.tenant_id, User.is_active == True,
+        ).filter(
+            (User.role == UserRole.admin) | (User.custom_role.in_(["director_of_operations", "executive"]))
+        ).all()
+    for r in rms:
+        recipients[r.id] = r
+
+    count = len(flagged_items)
+    title = f"Flagged item{'s' if count != 1 else ''} submitted: {clinic.name}"
+    questions = [i.checklist_item.question for i in flagged_items[:3] if i.checklist_item]
+    message = f"{submitted_by.full_name} flagged {count} item{'s' if count != 1 else ''} while completing " \
+              f"the checklist at {clinic.name}."
+    if questions:
+        message += " Flagged: " + "; ".join(questions)
+        if count > len(questions):
+            message += f" (+{count - len(questions)} more)"
+
+    for r in recipients.values():
+        if r.id == submitted_by.id:
+            continue
+        notify(db, r.id, NotificationType.critical_finding, title=title, message=message,
+               resource_type="inspection", resource_id=insp.id)
+
+
 def _reviewable_clinic_ids(db: Session, user: User) -> Optional[list]:
     """Clinic IDs whose reviewer_only items `user` may countersign, or None for
     "every clinic in the tenant". Mirrors _can_countersign's role logic exactly
@@ -187,6 +235,8 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
                 "second_signer_name": i.second_signer.full_name if i.second_signer else None,
                 "review_notes": i.review_notes,
                 "is_flagged": bool(i.is_flagged),
+                "ma_flagged": bool(i.ma_flagged),
+                "ma_flag_note": i.ma_flag_note,
             }
             for i in (insp.items or [])
         ],
@@ -388,6 +438,10 @@ def update_item(inspection_id: int, item_id: int, payload: ItemUpdate,
 
     if payload.notes is not None:
         item.notes = payload.notes
+    if payload.flagged is not None:
+        item.ma_flagged = payload.flagged
+    if payload.flag_note is not None:
+        item.ma_flag_note = payload.flag_note
     item.answered_at = datetime.utcnow()
     item.answered_by = current_user.id
     db.commit()
@@ -570,6 +624,11 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks,
     log_action(db, "inspection.submit", user_id=current_user.id, resource_type="inspection", resource_id=inspection_id,
                details={"score": result["score"], "risk": result["risk_level"]})
     db.commit()
+
+    flagged_items = [item for item in insp.items if item.ma_flagged]
+    if flagged_items:
+        _notify_flagged_items_on_submit(db, insp.clinic, insp, flagged_items, current_user)
+        db.commit()
 
     # Notify auditors/admins about the submitted inspection
     try:

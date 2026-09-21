@@ -9,7 +9,7 @@ import { ScoreRing } from '../components/ui/ScoreRing'
 import {
   ArrowLeft, Camera, Send, CheckCircle, XCircle, MinusCircle,
   Thermometer, FileText, PenLine, Users, Upload, Hash, Calendar,
-  AlertTriangle, ChevronDown, ChevronUp,
+  AlertTriangle, ChevronDown, ChevronUp, Flag,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -388,6 +388,7 @@ export function InspectionDetailPage() {
   const { user } = useAuth()
   const confirmDialog = useConfirm()
   const [notes, setNotes] = useState<Record<number, string>>({})
+  const [flagNotes, setFlagNotes] = useState<Record<number, string>>({})
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const [isPriority, setIsPriority] = useState(false)
   const [priorityNote, setPriorityNote] = useState('')
@@ -410,6 +411,19 @@ export function InspectionDetailPage() {
   const saveNote = useMutation({
     mutationFn: ({ itemId, note }: { itemId: number; note: string }) =>
       api.put(`/inspections/${id}/items/${itemId}`, { notes: note }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inspection', id] }),
+  })
+
+  const toggleFlag = useMutation({
+    mutationFn: ({ itemId, flagged, flagNote }: { itemId: number; flagged: boolean; flagNote?: string }) =>
+      api.put(`/inspections/${id}/items/${itemId}`, { flagged, ...(flagNote !== undefined ? { flag_note: flagNote } : {}) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inspection', id] }),
+    onError: (e: any) => toast.error(apiError(e)),
+  })
+
+  const saveFlagNote = useMutation({
+    mutationFn: ({ itemId, flagNote }: { itemId: number; flagNote: string }) =>
+      api.put(`/inspections/${id}/items/${itemId}`, { flag_note: flagNote }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inspection', id] }),
   })
 
@@ -530,6 +544,33 @@ export function InspectionDetailPage() {
                       )}
                       {!item.reviewer_only && item.answered_by_name && (
                         <p className="text-xs text-gray-400 mt-1">Answered by {item.answered_by_name}</p>
+                      )}
+
+                      {/* MA/PCT flag on this item -- recorded now, but Clinic Lead/Regional
+                          Manager are only notified once the whole checklist is submitted. */}
+                      {isEditable && !item.reviewer_only && (
+                        <div className="mt-2">
+                          <button type="button"
+                            onClick={() => toggleFlag.mutate({ itemId: item.id, flagged: !item.ma_flagged })}
+                            disabled={toggleFlag.isPending}
+                            className={clsx('flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md transition-colors',
+                              item.ma_flagged ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:text-red-600 hover:bg-red-50')}>
+                            <Flag size={12} /> {item.ma_flagged ? 'Flagged' : 'Flag this item'}
+                          </button>
+                          {item.ma_flagged && (
+                            <input className="input text-xs mt-1.5" placeholder="What's the concern? (optional)"
+                              value={flagNotes[item.id] ?? item.ma_flag_note ?? ''}
+                              onChange={e => setFlagNotes(n => ({ ...n, [item.id]: e.target.value }))}
+                              onBlur={() => { if (flagNotes[item.id] !== undefined) saveFlagNote.mutate({ itemId: item.id, flagNote: flagNotes[item.id] }) }}
+                            />
+                          )}
+                        </div>
+                      )}
+                      {!isEditable && item.ma_flagged && (
+                        <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600">
+                          <Flag size={12} className="mt-0.5 flex-shrink-0" />
+                          <span>Flagged by {item.answered_by_name ?? 'MA/PCT'}{item.ma_flag_note ? ` — ${item.ma_flag_note}` : ''}</span>
+                        </div>
                       )}
                     </div>
 
