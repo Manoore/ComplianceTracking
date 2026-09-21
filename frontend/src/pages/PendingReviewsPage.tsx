@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
-import { ClipboardCheck, PenLine, Building2, User, Calendar, AlertTriangle, Flag } from 'lucide-react'
+import { ClipboardCheck, PenLine, Building2, User, Calendar, AlertTriangle, Flag, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 
@@ -47,10 +47,10 @@ function ReviewRow({ review }: { review: PendingReview }) {
               <AlertTriangle size={13} /> Priority{review.priority_note ? ` — ${review.priority_note}` : ''}
             </div>
           )}
-          <Link to={`/inspections/${review.inspection_id}`} className="font-medium text-gray-900 hover:text-brand-700 flex items-center gap-1.5">
+          <div className="font-medium text-gray-900 flex items-center gap-1.5">
             <Building2 size={15} className="text-gray-400 flex-shrink-0" />
             {review.clinic_name ?? 'Unknown clinic'}
-          </Link>
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
             {review.template_name && <span>{review.template_name}</span>}
             <span className="flex items-center gap-1"><User size={12} /> {review.inspector_name ?? 'Unknown'}</span>
@@ -59,6 +59,12 @@ function ReviewRow({ review }: { review: PendingReview }) {
             )}
           </div>
         </div>
+        {/* Opens in a new tab so reviewing the full checklist doesn't lose the notes/flag
+            you may have already started typing below for this row. */}
+        <Link to={`/inspections/${review.inspection_id}`} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-sm text-brand-700 hover:underline flex-shrink-0 whitespace-nowrap">
+          <ExternalLink size={14} /> View Checklist
+        </Link>
       </div>
 
       <input className="input text-sm w-full" placeholder="Review notes (optional)"

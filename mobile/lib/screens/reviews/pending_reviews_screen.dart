@@ -124,13 +124,22 @@ class _PendingReviewsScreenState extends State<PendingReviewsScreen> {
                                 )),
                               ]),
                             ),
-                            GestureDetector(
-                              onTap: () => context.push('/inspections/${r['inspection_id']}'),
-                              child: Text(
+                            Row(children: [
+                              Expanded(child: Text(
                                 r['clinic_name'] ?? 'Unknown clinic',
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: kBrand),
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                              )),
+                              TextButton.icon(
+                                onPressed: () => context.push('/inspections/${r['inspection_id']}'),
+                                icon: const Icon(Icons.open_in_new, size: 14),
+                                label: const Text('View', style: TextStyle(fontSize: 13)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
                               ),
-                            ),
+                            ]),
                             const SizedBox(height: 4),
                             Text(
                               [
