@@ -9,6 +9,88 @@ import { FileText, CheckCircle, XCircle, Download, Trash2 } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
+// Turns a raw audit-log entry (dotted action code + resource_type/id + details)
+// into one plain-language sentence a non-technical person can read at a glance.
+// The raw action code is still available on hover (title attribute) for anyone
+// who does want the technical form.
+interface TrailEntry {
+  id: number
+  user_name: string
+  action: string
+  resource_type?: string | null
+  resource_id?: number | null
+  details?: Record<string, any> | null
+  ip_address?: string | null
+  timestamp: string
+}
+
+const RESOURCE_LABELS: Record<string, string> = {
+  checklist_template: 'checklist template',
+  audit_review: 'audit review',
+  corrective_action: 'corrective action',
+  inspection: 'inspection',
+  clinic: 'clinic',
+  course: 'training course',
+  user: 'user account',
+  announcement: 'announcement',
+}
+
+const idSuffix = (e: TrailEntry) => (e.resource_id ? ` (#${e.resource_id})` : '')
+const humanize = (s: string) => s.replace(/[._]/g, ' ')
+
+const ACTION_DESCRIPTIONS: Record<string, (e: TrailEntry) => string> = {
+  'user.login': () => 'Logged in',
+  'user.login_firebase': () => 'Logged in from the mobile app',
+  'user.logout': () => 'Logged out',
+  'user.create': (e) => `Created a new user account${idSuffix(e)}`,
+  'user.update': (e) => `Updated a user account${idSuffix(e)}`,
+  'user.deactivate': (e) => `Deactivated a user account${idSuffix(e)}`,
+  'user.delete_account': () => 'Deleted their own account',
+  'user.change_password': () => 'Changed their password',
+  'user.forgot_password': () => 'Requested a password reset',
+  'user.password_reset': () => 'Reset their password',
+  'checklist.create': (e) => `Created a checklist template${idSuffix(e)}`,
+  'checklist.clone': (e) => `Cloned a checklist template${idSuffix(e)}${e.details?.cloned_from ? ` from template #${e.details.cloned_from}` : ''}`,
+  'checklist.delete': (e) => `Deleted the checklist template "${e.details?.name ?? `#${e.resource_id}`}"`,
+  'checklist.deploy_preset': (e) => `Added a reference checklist as a new template${idSuffix(e)}${e.details?.category ? ` (${e.details.category})` : ''}`,
+  'inspection.create': (e) => `Started a new inspection${idSuffix(e)}`,
+  'inspection.submit': (e) => `Submitted an inspection${idSuffix(e)}${e.details?.score != null ? ` — score ${e.details.score}%` : ''}${e.details?.risk ? `, risk: ${e.details.risk}` : ''}`,
+  'inspection.delete': (e) => `Deleted an inspection${e.details?.clinic ? ` at ${e.details.clinic}` : idSuffix(e)}`,
+  'clinic.create': (e) => `Added a new clinic${idSuffix(e)}`,
+  'clinic.update': (e) => `Updated a clinic's details${idSuffix(e)}`,
+  'clinic.deactivate': (e) => `Deactivated a clinic${idSuffix(e)}`,
+  'clinic.delete': (e) => `Deleted the clinic "${e.details?.name ?? `#${e.resource_id}`}"`,
+  'clinic.bulk_import': (e) => `Imported clinics from a file (${e.details?.created ?? 0} added${e.details?.errors ? `, ${e.details.errors} had errors` : ''})`,
+  'corrective_action.create_manual': (e) => `Created a corrective action${idSuffix(e)}`,
+  'corrective_action.update': (e) => `Updated a corrective action${idSuffix(e)}`,
+  'corrective_action.verify': (e) => `Verified a corrective action${idSuffix(e)}`,
+  'corrective_action.delete': (e) => `Deleted the corrective action "${e.details?.title ?? `#${e.resource_id}`}"`,
+  'course.create': (e) => `Created a training course${idSuffix(e)}`,
+  'course.update': (e) => `Updated a training course${idSuffix(e)}`,
+  'course.delete': (e) => `Deleted a training course${idSuffix(e)}`,
+  'announcement.create': (e) => `Posted an announcement${idSuffix(e)}`,
+  'audit.review.create': (e) => `Started an audit review${idSuffix(e)}`,
+  'audit.review.delete': (e) => `Cancelled an audit review${idSuffix(e)}`,
+  'audit.report.generate': (e) => `Generated a PDF report for an audit review${idSuffix(e)}`,
+}
+
+function describeEntry(e: TrailEntry): string {
+  const known = ACTION_DESCRIPTIONS[e.action]
+  if (known) return known(e)
+  // Any other audit.review.<status> (pending/in_review/approved/rejected/escalated)
+  // set via the review's status field, rather than a dedicated action above.
+  if (e.action.startsWith('audit.review.')) {
+    const status = humanize(e.action.replace('audit.review.', ''))
+    return `Marked an audit review as ${status}${idSuffix(e)}`
+  }
+  // Fallback for any action code not covered above: still plain language, just
+  // built generically from the code and resource type instead of a fixed phrase.
+  const verb = humanize(e.action)
+  const resource = e.resource_type ? (RESOURCE_LABELS[e.resource_type] ?? humanize(e.resource_type)) : ''
+  const sentence = `${verb}${resource ? ` — ${resource}` : ''}${idSuffix(e)}`
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1)
+}
+
 function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => void }) {
   const qc = useQueryClient()
   const [findings, setFindings] = useState(review.findings ?? '')
@@ -237,28 +319,26 @@ export function AuditsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left py-3 px-4 text-gray-500 font-medium">Time</th>
-                <th className="text-left py-3 px-4 text-gray-500 font-medium">User</th>
-                <th className="text-left py-3 px-4 text-gray-500 font-medium">Action</th>
-                <th className="text-left py-3 px-4 text-gray-500 font-medium">Resource</th>
-                <th className="text-left py-3 px-4 text-gray-500 font-medium">IP</th>
+                <th className="text-left py-3 px-4 text-gray-500 font-medium">Who</th>
+                <th className="text-left py-3 px-4 text-gray-500 font-medium">What happened</th>
+                <th className="text-left py-3 px-4 text-gray-500 font-medium">IP Address</th>
               </tr>
             </thead>
             <tbody>
-              {(trail ?? []).map((entry: any) => (
+              {(trail ?? []).map((entry: TrailEntry) => (
                 <tr key={entry.id} className="border-b border-gray-100">
-                  <td className="py-2 px-4 text-gray-500 text-xs whitespace-nowrap">
+                  <td className="py-2.5 px-4 text-gray-500 text-xs whitespace-nowrap">
                     {new Date(entry.timestamp).toLocaleString()}
                   </td>
-                  <td className="py-2 px-4">{entry.user_name}</td>
-                  <td className="py-2 px-4 font-mono text-xs text-brand-700">{entry.action}</td>
-                  <td className="py-2 px-4 text-gray-500 text-xs">
-                    {entry.resource_type} {entry.resource_id ? `#${entry.resource_id}` : ''}
+                  <td className="py-2.5 px-4 font-medium text-gray-900">{entry.user_name}</td>
+                  <td className="py-2.5 px-4 text-gray-700" title={entry.action}>
+                    {describeEntry(entry)}
                   </td>
-                  <td className="py-2 px-4 text-gray-400 text-xs">{entry.ip_address}</td>
+                  <td className="py-2.5 px-4 text-gray-400 text-xs">{entry.ip_address || '—'}</td>
                 </tr>
               ))}
               {(trail?.length ?? 0) === 0 && (
-                <tr><td colSpan={5} className="text-center py-12 text-gray-400">No audit trail entries</td></tr>
+                <tr><td colSpan={4} className="text-center py-12 text-gray-400">No audit trail entries</td></tr>
               )}
             </tbody>
           </table>
