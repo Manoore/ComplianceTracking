@@ -80,8 +80,10 @@ export interface ChecklistTemplate {
   is_active: boolean
   is_preset?: boolean
   created_by: number
+  created_by_name?: string | null
   items: ChecklistItem[]
   created_at?: string
+  updated_at?: string
 }
 
 export type ItemType =

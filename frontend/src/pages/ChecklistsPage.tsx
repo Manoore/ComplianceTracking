@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { ChecklistTemplate, AccreditationStandard, Department } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X, User, Calendar } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
@@ -696,6 +696,19 @@ export function ChecklistsPage() {
                     </div>
                     {t.description && <p className="text-sm text-gray-500 mt-0.5">{t.description}</p>}
                     <p className="text-xs text-gray-400 mt-1">{t.items.length} items · {t.items.filter(i => i.is_critical).length} critical</p>
+                    {!(t as any).is_preset && (t.created_by_name || t.created_at) && (
+                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-3">
+                        {t.created_by_name && (
+                          <span className="flex items-center gap-1"><User size={11} /> Created by {t.created_by_name}</span>
+                        )}
+                        {t.created_at && (
+                          <span className="flex items-center gap-1"><Calendar size={11} /> {new Date(t.created_at).toLocaleDateString()}</span>
+                        )}
+                        {t.updated_at && t.updated_at !== t.created_at && (
+                          <span>· updated {new Date(t.updated_at).toLocaleDateString()}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                   {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                 </button>

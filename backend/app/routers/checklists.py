@@ -1,5 +1,6 @@
 import re
 import io
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import or_, and_
@@ -122,9 +123,11 @@ def template_out(t: ChecklistTemplate) -> dict:
         "version": t.version,
         "parent_template_id": t.parent_template_id,
         "created_by": t.created_by,
+        "created_by_name": t.creator.full_name if t.creator else None,
         "sections": [section_out(s) for s in (t.sections or [])],
         "items": [item_out(i) for i in (t.items or [])],
         "created_at": str(t.created_at) if t.created_at else None,
+        "updated_at": str(t.updated_at) if t.updated_at else None,
     }
 
 
@@ -355,6 +358,10 @@ def update_template(template_id: int, payload: TemplateUpdate, db: Session = Dep
                     setattr(existing_by_id[item_data.id], k, v)
             else:
                 db.add(ChecklistItem(template_id=template_id, **data))
+    # Touch this explicitly -- SQLAlchemy's onupdate only fires when the
+    # template row's own columns change, so an items-only edit wouldn't
+    # otherwise bump it, and this timestamp is part of the audit trail.
+    t.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(t)
     return template_out(t)
