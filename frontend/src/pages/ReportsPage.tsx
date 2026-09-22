@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 import type {
   ComplianceFilterOptions, ClinicComplianceRow, ChecklistComplianceRow, PersonComplianceReport,
 } from '../types'
@@ -98,6 +99,12 @@ function FilterBar({ options, filters, onChange }: {
 
 export function ReportsPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  // The export/CSV endpoints are still admin/auditor-only on the backend (a Clinic
+  // Lead/Regional Manager/Director/Executive is always base role team_member, so they'd
+  // never pass that check) -- hide the tab entirely for them rather than show buttons
+  // that always fail.
+  const canExport = user?.role === 'admin' || user?.role === 'auditor'
   const [tab, setTab] = useState<'overview' | 'exports'>('overview')
   const [filters, setFilters] = useState<Filters>({})
   const [asUserId, setAsUserId] = useState<number | null>(null)
@@ -144,7 +151,7 @@ export function ReportsPage() {
   const { data: trends } = useQuery({
     queryKey: ['compliance-trends'],
     queryFn: () => api.get('/reports/compliance-trends').then(r => r.data),
-    enabled: tab === 'exports',
+    enabled: tab === 'exports' && canExport,
   })
 
   const drillInto = (id: number, name: string) => {
@@ -193,8 +200,10 @@ export function ReportsPage() {
       <div className="flex gap-2">
         <button className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'overview' ? 'bg-brand-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}
           onClick={() => setTab('overview')}>Compliance Overview</button>
-        <button className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'exports' ? 'bg-brand-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}
-          onClick={() => setTab('exports')}>Exports</button>
+        {canExport && (
+          <button className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'exports' ? 'bg-brand-600 text-white' : 'bg-white border border-gray-300 text-gray-700'}`}
+            onClick={() => setTab('exports')}>Exports</button>
+        )}
       </div>
 
       {tab === 'overview' && (
@@ -332,7 +341,7 @@ export function ReportsPage() {
         </div>
       )}
 
-      {tab === 'exports' && (
+      {tab === 'exports' && canExport && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* CSV Exports */}

@@ -38,6 +38,7 @@ import { PendingReviewsPage } from './pages/PendingReviewsPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { HIERARCHY_ROLES } from './utils/hierarchy'
 
 function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('sa_access_token')
@@ -45,24 +46,29 @@ function SuperAdminPrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function PrivateRoute({ children, roles, module }: { children: React.ReactNode; roles?: string[]; module?: string }) {
+function PrivateRoute({ children, roles, module, customRoles }: {
+  children: React.ReactNode; roles?: string[]; module?: string; customRoles?: string[]
+}) {
   const { user, loading } = useAuth()
   const { canView, isLoading: permissionsLoading } = usePermissions()
   // A custom role (Clinic Lead, Regional Manager, ...) always has its base `role` forced to
   // team_member, so the `roles` array alone would lock these users out. `module` checks what
-  // their custom role was actually granted in Roles & Permissions instead -- either path in.
-  // Until that real permissions data has loaded, canView() falls back to a base-role-only
-  // guess that's wrong for exactly these users -- wait for it rather than redirect on a
-  // guess that's about to be replaced by the real answer.
+  // their custom role was actually granted in Roles & Permissions instead, and `customRoles`
+  // grants access outright to specific custom roles (e.g. every hierarchy role, the same way
+  // the Dashboard is open to everyone) without needing an admin to grant anything -- any of
+  // the three paths in is enough. Until the async permissions data has loaded, canView()
+  // falls back to a base-role-only guess that's wrong for exactly these users -- wait for it
+  // rather than redirect on a guess that's about to be replaced by the real answer.
   const allowedByBaseRole = !roles || roles.includes(user?.role ?? '')
-  if (loading || (!!module && !allowedByBaseRole && permissionsLoading)) return (
+  const allowedByCustomRole = !!customRoles && !!user?.custom_role && customRoles.includes(user.custom_role)
+  if (loading || (!!module && !allowedByBaseRole && !allowedByCustomRole && permissionsLoading)) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-600" />
     </div>
   )
   if (!user) return <Navigate to="/home" replace />
   const allowedByModule = !!module && canView(module)
-  if (roles && !allowedByBaseRole && !allowedByModule) return <Navigate to="/" replace />
+  if (roles && !allowedByBaseRole && !allowedByModule && !allowedByCustomRole) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -92,8 +98,8 @@ function AppRoutes() {
         <Route path="audits" element={<PrivateRoute roles={['admin', 'auditor', 'manager']} module="audits"><AuditsPage /></PrivateRoute>} />
         <Route path="certifications" element={<CertificationsPage />} />
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
-        <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']} module="reports"><ReportsPage /></PrivateRoute>} />
-        <Route path="reports/checklists/:templateId" element={<PrivateRoute roles={['admin', 'auditor']} module="reports"><ChecklistReportPage /></PrivateRoute>} />
+        <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']} module="reports" customRoles={HIERARCHY_ROLES}><ReportsPage /></PrivateRoute>} />
+        <Route path="reports/checklists/:templateId" element={<PrivateRoute roles={['admin', 'auditor']} module="reports" customRoles={HIERARCHY_ROLES}><ChecklistReportPage /></PrivateRoute>} />
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />

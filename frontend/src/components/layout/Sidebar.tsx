@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 import { NotificationBell } from '../ui/NotificationBell'
 import { CompliNowMark } from '../ui/CompliNowMark'
 import api from '../../services/api'
+import { HIERARCHY_ROLES } from '../../utils/hierarchy'
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' },
@@ -48,14 +49,18 @@ export function Sidebar() {
     retry: false,
   })
 
-  const visible = allNavItems.filter(item => canView(item.module))
-
   // Gated by the same role logic the backend uses for who may countersign a
   // reviewer_only item (_can_countersign), not the modules permission system --
   // this isn't a module a tenant admin configures, it's inherent to the role.
   const customRole = (user?.custom_role ?? '').toLowerCase()
   const canReview = user?.role === 'admin' || user?.role === 'manager' ||
     ['clinic_lead', 'regional_manager', 'director_of_operations', 'executive'].includes(customRole)
+
+  // Every hierarchy role (Clinic Lead/Regional Manager/Director/Executive) gets Reports
+  // outright, same as PrivateRoute's customRoles check on the /reports route itself --
+  // each sees only their own scoped clinics/checklists/people, so no admin grant needed.
+  const canViewReports = canView('reports') || HIERARCHY_ROLES.includes(customRole)
+  const visible = allNavItems.filter(item => item.module === 'reports' ? canViewReports : canView(item.module))
 
   const displayRole = user?.custom_role
     ? user.custom_role.replace(/_/g, ' ')
