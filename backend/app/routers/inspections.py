@@ -246,7 +246,8 @@ def inspection_out(insp: Inspection, current_user: Optional[User] = None) -> dic
 @router.get("")
 def list_inspections(db: Session = Depends(get_db), current_user: User = Depends(get_current_user),
                      clinic_id: Optional[int] = None, status: Optional[str] = None,
-                     user_id: Optional[int] = None, frequency: Optional[str] = None):
+                     user_id: Optional[int] = None, frequency: Optional[str] = None,
+                     template_id: Optional[int] = None):
     q = db.query(Inspection).filter(Inspection.tenant_id == current_user.tenant_id)
 
     # A hierarchy custom role (Clinic Lead, Regional Manager, Director of Operations,
@@ -268,6 +269,8 @@ def list_inspections(db: Session = Depends(get_db), current_user: User = Depends
         q = q.filter(Inspection.status == status)
     if user_id:
         q = q.filter(Inspection.inspector_id == user_id)
+    if template_id:
+        q = q.filter(Inspection.template_id == template_id)
     if frequency:
         from ..models.checklist import ChecklistTemplate
         template_ids = db.query(ChecklistTemplate.id).filter(

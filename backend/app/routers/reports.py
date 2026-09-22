@@ -13,9 +13,131 @@ from ..models.audit import AuditReview, AuditStatus
 from ..models.clinic import Clinic
 from ..models.user import User, UserRole
 from ..utils.hierarchy_scope import scoped_clinic_ids as get_scoped_clinic_ids
+from ..services.hierarchy_score import clinic_compliance_score, person_compliance_score
 from .deps import get_current_user, require_admin_or_auditor
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+def _parse_date(s: Optional[str], end_of_day: bool = False) -> Optional[datetime]:
+    if not s:
+        return None
+    d = datetime.strptime(s, "%Y-%m-%d")
+    if end_of_day:
+        d = d.replace(hour=23, minute=59, second=59)
+    return d
+
+
+def _role_label(user: User) -> str:
+    labels = {
+        "clinic_lead": "Clinic Lead", "regional_manager": "Regional Manager",
+        "director_of_operations": "Director of Operations", "executive": "Executive",
+    }
+    custom_role = (user.custom_role or "").strip().lower()
+    if custom_role in labels:
+        return labels[custom_role]
+    if user.role == UserRole.admin:
+        return "Admin"
+    return "MA/PCT"
+
+
+def _direct_reports(db: Session, subject: User) -> list:
+    """People one level below `subject` in the review hierarchy. There's no formal
+    reporting-line field in this app, so this is inferred the same way the rest of
+    the app already infers it: a Regional Manager's reports are the Clinic Leads
+    managing a clinic in their region; a Clinic Lead's reports are the MAs/PCTs who
+    have actually inspected at one of their clinics (same idea as the shared-checklist
+    model -- "who's done work here" rather than a formal roster); Director of
+    Operations/Executive/Admin's reports are the tenant's Regional Managers. A plain
+    MA/PCT has no reports -- they're the leaf of the hierarchy."""
+    custom_role = (subject.custom_role or "").strip().lower()
+    tenant_id = subject.tenant_id
+
+    if subject.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+        return db.query(User).filter(
+            User.tenant_id == tenant_id, User.is_active == True, User.custom_role == "regional_manager",
+        ).order_by(User.full_name).all()
+
+    if custom_role == "regional_manager" and subject.managed_region:
+        clinic_ids = [i for (i,) in db.query(Clinic.id).filter(
+            Clinic.tenant_id == tenant_id, Clinic.region == subject.managed_region).all()]
+        if not clinic_ids:
+            return []
+        manager_ids = {i for (i,) in db.query(Clinic.manager_id).filter(
+            Clinic.id.in_(clinic_ids), Clinic.manager_id.isnot(None)).all()}
+        if not manager_ids:
+            return []
+        return db.query(User).filter(
+            User.id.in_(manager_ids), User.tenant_id == tenant_id, User.is_active == True,
+            User.custom_role == "clinic_lead",
+        ).order_by(User.full_name).all()
+
+    if custom_role == "clinic_lead" or subject.role == UserRole.manager:
+        clinic_ids = [i for (i,) in db.query(Clinic.id).filter(Clinic.manager_id == subject.id).all()]
+        if not clinic_ids:
+            return []
+        inspector_ids = {i for (i,) in db.query(Inspection.inspector_id).filter(
+            Inspection.clinic_id.in_(clinic_ids)).distinct().all()}
+        if not inspector_ids:
+            return []
+        return db.query(User).filter(
+            User.id.in_(inspector_ids), User.tenant_id == tenant_id, User.is_active == True,
+        ).order_by(User.full_name).all()
+
+    return []
+
+
+def _can_view_person(db: Session, current_user: User, target: User) -> bool:
+    """Whether current_user may view target's rollup: themself, an admin/Director of
+    Operations/Executive (see everyone in the tenant), or anyone reachable by walking
+    down current_user's own _direct_reports chain -- so a Regional Manager can view a
+    Clinic Lead's report, and through them an MA's, but not another region's."""
+    if target.id == current_user.id:
+        return True
+    if target.tenant_id != current_user.tenant_id:
+        return False
+    custom_role = (current_user.custom_role or "").strip().lower()
+    if current_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+        return True
+    frontier = _direct_reports(db, current_user)
+    seen = set()
+    while frontier:
+        nxt = []
+        for u in frontier:
+            if u.id == target.id:
+                return True
+            if u.id in seen:
+                continue
+            seen.add(u.id)
+            nxt.extend(_direct_reports(db, u))
+        frontier = nxt
+    return False
+
+
+def _visible_assignees(db: Session, current_user: User) -> list:
+    """People the current user could reasonably filter a report by: everyone in the
+    tenant for an oversight role that sees everything, or -- for a scoped role --
+    whoever has actually inspected or manages within that scope, plus themselves."""
+    custom_role = (current_user.custom_role or "").strip().lower()
+    if current_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
+        return db.query(User).filter(
+            User.tenant_id == current_user.tenant_id, User.is_active == True,
+        ).order_by(User.full_name).all()
+    clinic_ids, _ = get_scoped_clinic_ids(db, current_user)
+    if clinic_ids is None:
+        return db.query(User).filter(
+            User.tenant_id == current_user.tenant_id, User.is_active == True,
+        ).order_by(User.full_name).all()
+    if not clinic_ids:
+        return [current_user]
+    inspector_ids = {i for (i,) in db.query(Inspection.inspector_id).filter(
+        Inspection.clinic_id.in_(clinic_ids)).distinct().all()}
+    manager_ids = {i for (i,) in db.query(Clinic.manager_id).filter(
+        Clinic.id.in_(clinic_ids), Clinic.manager_id.isnot(None)).all()}
+    ids = inspector_ids | manager_ids | {current_user.id}
+    return db.query(User).filter(
+        User.id.in_(ids), User.is_active == True,
+    ).order_by(User.full_name).all()
 
 
 _FREQUENCY_PERIODS = {
@@ -368,17 +490,192 @@ def my_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_cur
     }
 
 
+@router.get("/compliance/filters")
+def compliance_filters(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Options for the Reports page's filter bar: clinic, region ("location"),
+    checklist template, and assignee -- all narrowed to what current_user is
+    actually allowed to see, same scoping every other endpoint here uses."""
+    from ..models.checklist import ChecklistTemplate
+    clinic_ids, scope_label = get_scoped_clinic_ids(db, current_user)
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+    if clinic_ids is not None:
+        clinics_q = clinics_q.filter(Clinic.id.in_(clinic_ids))
+    clinics = clinics_q.order_by(Clinic.name).all()
+    regions = sorted({c.region for c in clinics if c.region})
+    templates = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.tenant_id == current_user.tenant_id, ChecklistTemplate.is_active == True,
+    ).order_by(ChecklistTemplate.name).all()
+    assignees = _visible_assignees(db, current_user)
+    return {
+        "scope_label": scope_label,
+        "clinics": [{"id": c.id, "name": c.name, "region": c.region} for c in clinics],
+        "regions": regions,
+        "templates": [{"id": t.id, "name": t.name} for t in templates],
+        "assignees": [{"id": u.id, "name": u.full_name} for u in assignees],
+    }
+
+
+@router.get("/compliance/clinics")
+def compliance_clinics(clinic_id: Optional[int] = None, region: Optional[str] = None,
+                       date_from: Optional[str] = None, date_to: Optional[str] = None,
+                       assignee_id: Optional[int] = None, template_id: Optional[int] = None,
+                       db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every clinic current_user can see, each with its own compliance score
+    (avg of its inspections' scores) -- the "compliance score on each clinic"
+    row of the report, filterable and click-through-able to that clinic's
+    existing profile page on the frontend."""
+    scoped_ids, scope_label = get_scoped_clinic_ids(db, current_user)
+    q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+    if scoped_ids is not None:
+        q = q.filter(Clinic.id.in_(scoped_ids))
+    if clinic_id:
+        q = q.filter(Clinic.id == clinic_id)
+    if region:
+        q = q.filter(Clinic.region == region)
+
+    df, dt = _parse_date(date_from), _parse_date(date_to, end_of_day=True)
+
+    if assignee_id:
+        insp_q = db.query(Inspection.clinic_id).filter(Inspection.inspector_id == assignee_id)
+        if df:
+            insp_q = insp_q.filter(Inspection.submitted_at >= df)
+        if dt:
+            insp_q = insp_q.filter(Inspection.submitted_at <= dt)
+        matching = {i for (i,) in insp_q.distinct().all()}
+        matching |= {i for (i,) in db.query(CorrectiveAction.clinic_id).filter(
+            CorrectiveAction.assigned_to == assignee_id).distinct().all()}
+        q = q.filter(Clinic.id.in_(matching)) if matching else q.filter(Clinic.id.in_([]))
+
+    clinics = q.order_by(Clinic.region, Clinic.name).all()
+    rows = []
+    for c in clinics:
+        result = clinic_compliance_score(db, c, date_from=df, date_to=dt, template_id=template_id)
+        rows.append({
+            "clinic_id": c.id, "clinic_name": c.name, "region": c.region,
+            "manager_name": c.manager.full_name if c.manager else None,
+            "score": result["score"], "inspection_count": result["inspection_count"],
+        })
+    return {"scope_label": scope_label, "clinics": rows}
+
+
+@router.get("/compliance/checklists")
+def compliance_checklists(clinic_id: Optional[int] = None, region: Optional[str] = None,
+                          date_from: Optional[str] = None, date_to: Optional[str] = None,
+                          assignee_id: Optional[int] = None, template_id: Optional[int] = None,
+                          db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Every checklist template actually used within current_user's scope and the
+    given filters, each with its own compliance score (avg across every inspection
+    that used it) -- the "compliance score on each checklist" row of the report.
+    template_id narrows this to a single template's own score/trend, for a
+    checklist's drill-down page."""
+    from ..models.checklist import ChecklistTemplate
+    scoped_ids, _ = get_scoped_clinic_ids(db, current_user)
+    q = db.query(Inspection).filter(
+        Inspection.tenant_id == current_user.tenant_id, Inspection.compliance_score.isnot(None))
+    if scoped_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(scoped_ids))
+    if clinic_id:
+        q = q.filter(Inspection.clinic_id == clinic_id)
+    if template_id:
+        q = q.filter(Inspection.template_id == template_id)
+    if region:
+        q = q.join(Clinic, Inspection.clinic_id == Clinic.id).filter(Clinic.region == region)
+    df, dt = _parse_date(date_from), _parse_date(date_to, end_of_day=True)
+    if df:
+        q = q.filter(Inspection.submitted_at >= df)
+    if dt:
+        q = q.filter(Inspection.submitted_at <= dt)
+    if assignee_id:
+        action_insp_ids = {i for (i,) in db.query(CorrectiveAction.inspection_id).filter(
+            CorrectiveAction.assigned_to == assignee_id, CorrectiveAction.inspection_id.isnot(None)).all()}
+        if action_insp_ids:
+            q = q.filter((Inspection.inspector_id == assignee_id) | (Inspection.id.in_(action_insp_ids)))
+        else:
+            q = q.filter(Inspection.inspector_id == assignee_id)
+
+    by_template: dict = {}
+    for i in q.all():
+        by_template.setdefault(i.template_id, []).append(i)
+
+    tmap = {}
+    if by_template:
+        tmap = {t.id: t for t in db.query(ChecklistTemplate).filter(
+            ChecklistTemplate.id.in_(by_template.keys())).all()}
+
+    rows = []
+    for tid, insps in by_template.items():
+        scores = [i.compliance_score for i in insps if i.compliance_score is not None]
+        t = tmap.get(tid)
+        rows.append({
+            "template_id": tid,
+            "template_name": t.name if t else f"Template #{tid}",
+            "score": round(sum(scores) / len(scores), 1) if scores else None,
+            "inspection_count": len(insps),
+            "clinic_count": len({i.clinic_id for i in insps}),
+        })
+    rows.sort(key=lambda r: r["template_name"])
+    return {"checklists": rows}
+
+
+@router.get("/compliance/people")
+def compliance_people(as_user_id: Optional[int] = None, region: Optional[str] = None,
+                      date_from: Optional[str] = None, date_to: Optional[str] = None,
+                      template_id: Optional[int] = None,
+                      db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """The hierarchical "compliance score on each Regional Manager/Clinic Lead/MA"
+    view: one person's own score plus the people directly below them, each already
+    carrying their own score -- click one of `reports` and call this again with
+    as_user_id set to drill further down, same pattern as clicking into a clinic."""
+    subject = current_user
+    if as_user_id is not None and as_user_id != current_user.id:
+        target = db.query(User).filter(User.id == as_user_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not _can_view_person(db, current_user, target):
+            raise HTTPException(status_code=403, detail="You can't view this person's report")
+        subject = target
+
+    df, dt = _parse_date(date_from), _parse_date(date_to, end_of_day=True)
+    own = person_compliance_score(db, subject, date_from=df, date_to=dt, template_id=template_id, region=region)
+    reports = []
+    for u in _direct_reports(db, subject):
+        r = person_compliance_score(db, u, date_from=df, date_to=dt, template_id=template_id, region=region)
+        reports.append({"id": u.id, "name": u.full_name, "role_label": _role_label(u), **r})
+
+    return {
+        "subject": {
+            "id": subject.id, "name": subject.full_name, "role_label": _role_label(subject),
+            "region": subject.managed_region, **own,
+        },
+        "reports": reports,
+    }
+
+
 @router.get("/compliance-trends")
 def compliance_trends(clinic_id: Optional[int] = None, days: int = 180,
-                      db: Session = Depends(get_db), _=Depends(get_current_user)):
+                      template_id: Optional[int] = None, region: Optional[str] = None,
+                      assignee_id: Optional[int] = None,
+                      db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     now = datetime.utcnow()
     since = now - timedelta(days=days)
+    # Was previously unscoped by tenant or hierarchy -- any authenticated user could
+    # see every tenant's trend data. Scope it like every other report endpoint here.
+    scoped_ids, _ = get_scoped_clinic_ids(db, current_user)
     q = db.query(Inspection).filter(
+        Inspection.tenant_id == current_user.tenant_id,
         Inspection.submitted_at >= since,
         Inspection.compliance_score.isnot(None),
     )
+    if scoped_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(scoped_ids))
     if clinic_id:
         q = q.filter(Inspection.clinic_id == clinic_id)
+    if template_id:
+        q = q.filter(Inspection.template_id == template_id)
+    if assignee_id:
+        q = q.filter(Inspection.inspector_id == assignee_id)
+    if region:
+        q = q.join(Clinic, Inspection.clinic_id == Clinic.id).filter(Clinic.region == region)
     inspections = q.order_by(Inspection.submitted_at).all()
     return [
         {"date": str(i.submitted_at.date()), "score": i.compliance_score,

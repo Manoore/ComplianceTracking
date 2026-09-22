@@ -16,6 +16,7 @@ import { TakeCertificationPage } from './pages/TakeCertificationPage'
 import { VerifyCertificatePage } from './pages/VerifyCertificatePage'
 import { CorrectiveActionsPage } from './pages/CorrectiveActionsPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { ChecklistReportPage } from './pages/ChecklistReportPage'
 import { UsersPage } from './pages/UsersPage'
 import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -92,6 +93,7 @@ function AppRoutes() {
         <Route path="certifications" element={<CertificationsPage />} />
         <Route path="corrective-actions" element={<CorrectiveActionsPage />} />
         <Route path="reports" element={<PrivateRoute roles={['admin', 'auditor']} module="reports"><ReportsPage /></PrivateRoute>} />
+        <Route path="reports/checklists/:templateId" element={<PrivateRoute roles={['admin', 'auditor']} module="reports"><ChecklistReportPage /></PrivateRoute>} />
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />

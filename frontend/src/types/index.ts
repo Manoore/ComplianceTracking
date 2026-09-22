@@ -371,3 +371,46 @@ export interface DashboardData {
     submitted_at?: string
   }>
 }
+
+// The unified compliance report: filter options plus clinic/checklist/person
+// score rollups, each following the same clinic -> Clinic Lead -> Regional
+// Manager -> Director/Executive hierarchy.
+export interface ComplianceFilterOptions {
+  scope_label: string
+  clinics: Array<{ id: number; name: string; region: string | null }>
+  regions: string[]
+  templates: Array<{ id: number; name: string }>
+  assignees: Array<{ id: number; name: string }>
+}
+
+export interface ClinicComplianceRow {
+  clinic_id: number
+  clinic_name: string
+  region: string | null
+  manager_name: string | null
+  score: number | null
+  inspection_count: number
+}
+
+export interface ChecklistComplianceRow {
+  template_id: number
+  template_name: string
+  score: number | null
+  inspection_count: number
+  clinic_count: number
+}
+
+export interface PersonComplianceRow {
+  id: number
+  name: string
+  role_label: string
+  score: number | null
+  inspection_count: number
+  clinic_count: number | null
+  basis: 'own_inspections' | 'clinic_average'
+}
+
+export interface PersonComplianceReport {
+  subject: PersonComplianceRow & { region?: string | null }
+  reports: PersonComplianceRow[]
+}
