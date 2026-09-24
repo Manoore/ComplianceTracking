@@ -37,6 +37,11 @@ function suspectedTypoOf(roleName: string): string | null {
   return null
 }
 
+// Every module the backend actually recognizes (see ALL_MODULES in
+// backend/app/models/role.py) -- this list previously only had 8 of the 14,
+// so 6 real permission areas (Departments/Credentialing/Document Hub/
+// Standards/Policies/Executive View) were granted or withheld with no
+// checkbox anywhere to see or control it.
 const ALL_MODULES = [
   { key: 'clinics', label: 'Clinics' },
   { key: 'checklists', label: 'Checklists' },
@@ -46,6 +51,12 @@ const ALL_MODULES = [
   { key: 'corrective_actions', label: 'Corrective Actions' },
   { key: 'announcements', label: 'Announcements' },
   { key: 'reports', label: 'Reports' },
+  { key: 'executive', label: 'Executive View' },
+  { key: 'departments', label: 'Departments' },
+  { key: 'credentials', label: 'Credentialing' },
+  { key: 'document_hub', label: 'Document Hub' },
+  { key: 'standards', label: 'Standards' },
+  { key: 'policies', label: 'Policies' },
 ]
 
 function NewRoleModal({ onClose }: { onClose: () => void }) {
