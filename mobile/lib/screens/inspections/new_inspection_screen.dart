@@ -114,7 +114,9 @@ class _NewInspectionScreenState extends State<NewInspectionScreen> {
             key: ValueKey(_clinicId),
             decoration: InputDecoration(hintText: _clinicId == null ? 'Choose a clinic first…' : 'Choose a template…'),
             initialValue: _templateId,
-            items: _availableTemplates.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))).toList(),
+            items: _availableTemplates
+                .map((t) => DropdownMenuItem(value: t.id, child: Text(t.pickerLabel, overflow: TextOverflow.ellipsis)))
+                .toList(),
             onChanged: _clinicId == null ? null : (v) => setState(() => _templateId = v),
           ),
           if (_clinicId != null && _availableTemplates.isEmpty)

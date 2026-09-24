@@ -95,9 +95,15 @@ function NewInspectionModal({ onClose }: { onClose: () => void }) {
             <select required className="input" value={templateId} onChange={e => setTemplateId(e.target.value)}
               disabled={!clinicId}>
               <option value="">{clinicId ? 'Select template…' : 'Select a clinic first…'}</option>
-              {availableTemplates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {availableTemplates.map(t => {
+                // Plain <option> text can't carry badges, so spell out frequency/department
+                // inline -- two templates named almost the same (e.g. two "Daily" checklists
+                // for different departments) are otherwise impossible to tell apart here.
+                const details = [t.frequency, t.department_name].filter(Boolean).join(' · ')
+                return (
+                  <option key={t.id} value={t.id}>{t.name}{details ? ` (${details})` : ''}</option>
+                )
+              })}
             </select>
             {clinicId && availableTemplates.length === 0 && (
               <p className="text-xs text-red-500 mt-1">

@@ -113,11 +113,21 @@ class ChecklistTemplate {
   final String name;
   final int? departmentId;
   final String? departmentName;
-  ChecklistTemplate({required this.id, required this.name, this.departmentId, this.departmentName});
+  final String? frequency;
+  ChecklistTemplate({required this.id, required this.name, this.departmentId, this.departmentName, this.frequency});
   factory ChecklistTemplate.fromJson(Map<String, dynamic> j) => ChecklistTemplate(
         id: (j['id'] as num).toInt(), name: j['name'] as String? ?? '',
         departmentId: (j['department_id'] as num?)?.toInt(), departmentName: j['department_name'],
+        frequency: j['frequency'] as String?,
       );
+
+  // Two templates can share a near-identical name (e.g. two "Daily" checklists for
+  // different departments) -- a bare dropdown label can't tell them apart, so spell
+  // out what distinguishes them.
+  String get pickerLabel {
+    final details = [frequency, departmentName].where((d) => d != null && d.isNotEmpty).join(' · ');
+    return details.isEmpty ? name : '$name ($details)';
+  }
 }
 
 /// Matches the backend's AuditReview (GET/PUT /audits/reviews), not a

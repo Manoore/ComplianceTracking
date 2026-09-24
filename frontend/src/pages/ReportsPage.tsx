@@ -255,7 +255,7 @@ export function ReportsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {clinicData!.clinics.map(c => (
                   <button key={c.clinic_id} onClick={() => navigate(`/clinics/${c.clinic_id}/profile`)}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-brand-300 hover:bg-gray-50 transition-colors text-left">
+                    className="group flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-brand-300 hover:bg-gray-50 transition-colors text-left cursor-pointer">
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 text-sm truncate">{c.clinic_name}</p>
                       <p className="text-xs text-gray-400">{c.region || 'No location'} · {c.inspection_count} inspection{c.inspection_count !== 1 ? 's' : ''}</p>
@@ -263,7 +263,7 @@ export function ReportsPage() {
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                       <span className={clsx('text-lg font-bold', scoreTextClass(c.score, thresholds))}>{c.score != null ? `${c.score}%` : '—'}</span>
-                      <ChevronRight size={16} className="text-gray-300" />
+                      <ChevronRight size={16} className="text-gray-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </button>
                 ))}
@@ -285,14 +285,15 @@ export function ReportsPage() {
               <div className="divide-y divide-gray-100">
                 {checklistData!.checklists.map(t => (
                   <button key={t.template_id} onClick={() => navigate(`/reports/checklists/${t.template_id}`)}
-                    className="w-full flex items-center justify-between py-3 hover:bg-gray-50 transition-colors text-left px-2 -mx-2 rounded">
+                    title="View this checklist's full report"
+                    className="group w-full flex items-center justify-between py-3 hover:bg-gray-50 transition-colors text-left px-2 -mx-2 rounded cursor-pointer">
                     <div className="min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{t.template_name}</p>
+                      <p className="font-medium text-gray-900 text-sm truncate group-hover:text-brand-700 group-hover:underline">{t.template_name}</p>
                       <p className="text-xs text-gray-400">{t.inspection_count} inspection{t.inspection_count !== 1 ? 's' : ''} · {t.clinic_count} clinic{t.clinic_count !== 1 ? 's' : ''}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                       <span className={clsx('text-lg font-bold', scoreTextClass(t.score, thresholds))}>{t.score != null ? `${t.score}%` : '—'}</span>
-                      <ChevronRight size={16} className="text-gray-300" />
+                      <ChevronRight size={16} className="text-gray-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
                     </div>
                   </button>
                 ))}
@@ -353,14 +354,14 @@ export function ReportsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {peopleData.reports.map(r => (
                       <button key={r.id} onClick={() => drillInto(r.id, r.name)}
-                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-brand-300 hover:bg-gray-50 transition-colors text-left">
+                        className="group flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-brand-300 hover:bg-gray-50 transition-colors text-left cursor-pointer">
                         <div className="min-w-0">
                           <p className="font-medium text-gray-900 text-sm truncate">{r.name}</p>
                           <p className="text-xs text-gray-400">{r.role_label}</p>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                           <span className={clsx('text-lg font-bold', scoreTextClass(r.score, thresholds))}>{r.score != null ? `${r.score}%` : '—'}</span>
-                          <ChevronRight size={16} className="text-gray-300" />
+                          <ChevronRight size={16} className="text-gray-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </button>
                     ))}
