@@ -26,6 +26,11 @@ class User(Base):
     # who see every region.
     managed_region = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    # False only for a user invited by an admin without a password (create_user sends
+    # them a verify-account email instead) -- they can't log in until they click that
+    # link and set their own password. Defaults True so existing users and anyone who
+    # self-registers a new organization are never retroactively locked out.
+    is_verified = Column(Boolean, default=True)
     sso_subject = Column(String, nullable=True, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

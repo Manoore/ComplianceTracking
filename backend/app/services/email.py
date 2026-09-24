@@ -165,3 +165,15 @@ async def send_password_reset(email: str, name: str, reset_url: str):
     Or copy this link:<br><span style="color:#1B3260;word-break:break-all">{reset_url}</span></p>
     """
     await send_email(email, "Reset your CompliNow password", body)
+
+
+async def send_account_verification(email: str, name: str, org_name: str, verify_url: str):
+    body = f"""
+    <span class="label">Welcome to CompliNow</span>
+    <p>Hi {name},</p>
+    <p>An admin at <strong>{org_name}</strong> just created your CompliNow account. Click below to verify it's really
+    you and set your password — this link expires in <strong>7 days</strong>.</p>
+    <a href="{verify_url}" class="cta">Verify &amp; Set Password &rarr;</a>
+    <p style="font-size:13px;color:#6B7280">Or copy this link:<br><span style="color:#1B3260;word-break:break-all">{verify_url}</span></p>
+    """
+    await send_email(email, f"Verify your CompliNow account — {org_name}", body)

@@ -8,6 +8,7 @@ export interface User {
   custom_role?: string
   managed_region?: string
   is_active: boolean
+  is_verified?: boolean
   last_login?: string
   tenant_id?: number
 }

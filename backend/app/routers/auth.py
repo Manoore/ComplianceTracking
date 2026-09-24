@@ -52,6 +52,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class VerifyAccountRequest(BaseModel):
+    token: str
+    new_password: str
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -274,6 +279,31 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     log_action(db, "user.password_reset", user_id=user.id)
     db.commit()
     return {"message": "Password updated successfully"}
+
+
+@router.post("/verify-account")
+def verify_account(req: VerifyAccountRequest, db: Session = Depends(get_db)):
+    """The other end of the invite email create_user sends when an admin adds a
+    user without setting a password: proves they actually own that inbox and
+    lets them choose their own password, same token mechanics as password reset
+    (a dedicated type_override so this token can't be reused as a login token or
+    a password-reset token, or vice versa)."""
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    payload = decode_token(req.token)
+    if not payload or payload.get("type_override") != "account_verify":
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+    user = db.query(User).filter(User.id == int(payload["sub"]), User.is_active == True).first()  # noqa: E712
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+    user.hashed_password = hash_password(req.new_password)
+    user.is_verified = True
+    log_action(db, "user.account_verify", user_id=user.id)
+    db.commit()
+    return {"message": "Account verified — you can now sign in"}
 
 
 @router.post("/change-password")

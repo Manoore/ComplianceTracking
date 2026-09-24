@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { User, RoleConfig } from '../types'
 import { useAuth } from '../hooks/useAuth'
-import { Plus, Edit2, UserX, Eye } from 'lucide-react'
+import { Plus, Edit2, UserX, Eye, MailWarning } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 
@@ -42,7 +42,8 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
     mutationFn: (data: any) => user ? api.put(`/users/${user.id}`, data) : api.post('/users', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
-      toast.success(user ? 'User updated' : 'User created')
+      if (user) toast.success('User updated')
+      else toast.success(form.password ? 'User created' : 'User created — invite email sent')
       onClose()
     },
     onError: (e: any) => toast.error(apiError(e)),
@@ -91,10 +92,15 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
             </div>
           )}
           <div>
-            <label className="label">{user ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-            <input type="password" required={!user} className="input" value={form.password}
+            <label className="label">{user ? 'New Password (leave blank to keep)' : 'Password (optional)'}</label>
+            <input type="password" className="input" value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              placeholder={user ? 'Leave blank to keep current' : '••••••••'} />
+              placeholder={user ? 'Leave blank to keep current' : 'Leave blank to email them an invite'} />
+            {!user && (
+              <p className="text-xs text-gray-400 mt-1">
+                Leave blank to email them a secure link to verify their account and set their own password instead.
+              </p>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="btn-primary" disabled={mutation.isPending}>
@@ -157,6 +163,12 @@ export function UsersPage() {
     onError: (e: any) => toast.error(apiError(e)),
   })
 
+  const resendVerification = useMutation({
+    mutationFn: (id: number) => api.post(`/users/${id}/resend-verification`),
+    onSuccess: () => toast.success('Verification email resent'),
+    onError: (e: any) => toast.error(apiError(e, 'Could not resend verification email')),
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -197,9 +209,16 @@ export function UsersPage() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    {u.is_active
-                      ? <span className="badge bg-green-100 text-green-800">Active</span>
-                      : <span className="badge bg-red-100 text-red-800">Inactive</span>}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {u.is_active
+                        ? <span className="badge bg-green-100 text-green-800">Active</span>
+                        : <span className="badge bg-red-100 text-red-800">Inactive</span>}
+                      {u.is_active && u.is_verified === false && (
+                        <span className="badge bg-amber-100 text-amber-800" title="Invited but hasn't verified their account yet">
+                          Unverified
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-gray-500">
                     {u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Never'}
@@ -210,6 +229,14 @@ export function UsersPage() {
                         onClick={() => { setEditing(u); setShowForm(true) }}>
                         <Edit2 size={15} />
                       </button>
+                      {u.is_active && u.is_verified === false && (
+                        <button className="p-1.5 hover:bg-amber-50 rounded text-gray-400 hover:text-amber-600 disabled:opacity-50"
+                          title="Resend verification email"
+                          disabled={resendVerification.isPending}
+                          onClick={() => resendVerification.mutate(u.id)}>
+                          <MailWarning size={15} />
+                        </button>
+                      )}
                       {u.id !== me?.id && u.is_active && (
                         <button className="p-1.5 hover:bg-purple-50 rounded text-gray-400 hover:text-purple-600 disabled:opacity-50"
                           title="View exactly what this user sees"

@@ -27,6 +27,7 @@ import { SuperAdminLoginPage } from './pages/SuperAdminLoginPage'
 import { SuperAdminDashboardPage } from './pages/SuperAdminDashboardPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { VerifyAccountPage } from './pages/VerifyAccountPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { PoliciesPage } from './pages/PoliciesPage'
 import { ExecutiveDashboardPage } from './pages/ExecutiveDashboardPage'
@@ -82,6 +83,7 @@ function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-account" element={<VerifyAccountPage />} />
       <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
       <Route path="/superadmin/dashboard" element={<SuperAdminPrivateRoute><SuperAdminDashboardPage /></SuperAdminPrivateRoute>} />
       <Route path="/certify/:token" element={<TakeCertificationPage />} />
