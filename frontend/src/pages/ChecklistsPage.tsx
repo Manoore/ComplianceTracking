@@ -690,20 +690,22 @@ export function ChecklistsPage() {
             </select>
           )}
           {user?.role === 'admin' && (
-            <button className="btn-secondary" onClick={handleFixReviewStep} disabled={fixingReviewStep}
-              title="One-time fix: turns the trailing Regional Manager Initials line on the MA/PCT Daily/Monthly templates into an actual Clinic Lead/Regional Manager review step">
-              <Wrench size={15} /> {fixingReviewStep ? 'Checking…' : 'Fix Review Step'}
-            </button>
+            <>
+              <button className="btn-secondary" onClick={handleFixReviewStep} disabled={fixingReviewStep}
+                title="One-time fix: turns the trailing Regional Manager Initials line on the MA/PCT Daily/Monthly templates into an actual Clinic Lead/Regional Manager review step">
+                <Wrench size={15} /> {fixingReviewStep ? 'Checking…' : 'Fix Review Step'}
+              </button>
+              <button className="btn-secondary" onClick={() => setShowPresets(true)}>
+                <Library size={15} /> Preset Library
+              </button>
+              <button className="btn-secondary" onClick={() => setShowImport(true)}>
+                <FileUp size={15} /> Import PDF
+              </button>
+              <button className="btn-primary" onClick={() => setShowNew(true)}>
+                <Plus size={16} /> New Template
+              </button>
+            </>
           )}
-          <button className="btn-secondary" onClick={() => setShowPresets(true)}>
-            <Library size={15} /> Preset Library
-          </button>
-          <button className="btn-secondary" onClick={() => setShowImport(true)}>
-            <FileUp size={15} /> Import PDF
-          </button>
-          <button className="btn-primary" onClick={() => setShowNew(true)}>
-            <Plus size={16} /> New Template
-          </button>
         </div>
       </div>
 
@@ -753,7 +755,7 @@ export function ChecklistsPage() {
                   </div>
                   {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                 </button>
-                {t.tenant_id != null && (
+                {user?.role === 'admin' && t.tenant_id != null && (
                   <button
                     className="p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"
                     title="Edit template"
@@ -762,18 +764,20 @@ export function ChecklistsPage() {
                     <Pencil size={16} />
                   </button>
                 )}
-                <button
-                  className={(t as any).is_preset
-                    ? "flex items-center gap-1.5 mr-3 px-3 py-2 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
-                    : "p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"}
-                  title={(t as any).is_preset ? "Make your own editable copy of this reference template" : "Clone template"}
-                  onClick={() => cloneTemplate.mutate(t.id)}
-                  disabled={cloneTemplate.isPending}
-                >
-                  <Copy size={16} />
-                  {(t as any).is_preset && 'Clone to Edit'}
-                </button>
-                {t.tenant_id != null && (
+                {user?.role === 'admin' && (
+                  <button
+                    className={(t as any).is_preset
+                      ? "flex items-center gap-1.5 mr-3 px-3 py-2 text-xs font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                      : "p-4 text-gray-400 hover:text-brand-600 hover:bg-gray-50 transition-colors"}
+                    title={(t as any).is_preset ? "Make your own editable copy of this reference template" : "Clone template"}
+                    onClick={() => cloneTemplate.mutate(t.id)}
+                    disabled={cloneTemplate.isPending}
+                  >
+                    <Copy size={16} />
+                    {(t as any).is_preset && 'Clone to Edit'}
+                  </button>
+                )}
+                {user?.role === 'admin' && t.tenant_id != null && (
                   <button
                     className="p-4 text-gray-400 hover:text-red-600 hover:bg-gray-50 transition-colors"
                     title="Delete template"
