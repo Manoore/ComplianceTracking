@@ -13,6 +13,7 @@ from ..models.corrective_action import CorrectiveAction, ActionStatus
 from ..models.audit import AuditAssignment
 from ..models.user import User, UserRole
 from ..utils.audit_trail import log_action
+from ..utils.hierarchy_scope import scoped_clinic_ids
 from .deps import get_current_user, require_admin
 
 router = APIRouter(prefix="/clinics", tags=["clinics"])
@@ -95,12 +96,20 @@ def clinic_out(c: Clinic) -> dict:
 @router.get("")
 def list_clinics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id)
-    if current_user.role == UserRole.manager:
-        q = q.filter(Clinic.manager_id == current_user.id)
-    elif current_user.role == UserRole.team_member:
-        # team members can see clinics they are staff of
+    custom_role = (current_user.custom_role or "").strip().lower()
+    if current_user.role == UserRole.team_member and not custom_role:
+        # Plain MA/PCT with no oversight role: only the clinics they're staffed
+        # at, not the full directory. Everyone else -- admin/auditor/manager and
+        # every hierarchy custom role (Clinic Lead, Regional Manager, Director of
+        # Operations, Executive) -- uses the same clinic-visibility scoping every
+        # other report/list endpoint already uses, instead of the bespoke (and
+        # hierarchy-blind) logic this endpoint used to have.
         staff_clinic_ids = db.query(ClinicStaff.clinic_id).filter(ClinicStaff.user_id == current_user.id).subquery()
         q = q.filter(Clinic.id.in_(staff_clinic_ids))
+    else:
+        clinic_ids, _ = scoped_clinic_ids(db, current_user)
+        if clinic_ids is not None:
+            q = q.filter(Clinic.id.in_(clinic_ids))
     return [clinic_out(c) for c in q.order_by(Clinic.region, Clinic.name).all()]
 
 
