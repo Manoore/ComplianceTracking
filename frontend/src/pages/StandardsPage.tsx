@@ -5,6 +5,8 @@ import { BookMarked, Plus, Pencil, Trash2, X, BarChart2, CheckCircle, AlertCircl
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import { useComplianceThresholds } from '../hooks/useComplianceThresholds'
+import { scoreHex } from '../utils/complianceColor'
 
 interface Standard {
   id: number
@@ -82,6 +84,7 @@ export function StandardsPage() {
   const qc = useQueryClient()
   const confirmDialog = useConfirm()
   const isAdmin = user?.role === 'admin'
+  const thresholds = useComplianceThresholds()
   const [showModal, setShowModal] = useState(false)
   const [editStd, setEditStd] = useState<Standard | undefined>()
   const [tab, setTab] = useState<'standards' | 'compliance'>('standards')
@@ -214,7 +217,7 @@ export function StandardsPage() {
             <div className="space-y-4">
               {compliance.map(row => {
                 const rate = row.compliance_rate
-                const color = rate === null ? '#94a3b8' : rate >= 80 ? '#22c55e' : rate >= 60 ? '#f59e0b' : '#ef4444'
+                const color = scoreHex(rate, thresholds)
                 return (
                   <div key={row.code} className="bg-white rounded-xl border border-gray-200 p-5">
                     <div className="flex items-start justify-between gap-4 mb-3">

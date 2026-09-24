@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
-import { Save, Upload, Shield, Bell, Database, Key } from 'lucide-react'
+import { Save, Upload, Shield, Bell, Database, Key, Gauge } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function Section({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
@@ -28,6 +28,7 @@ export function SettingsPage() {
   const [notif, setNotif] = useState({ cert_reminder_days: '3,7,14', cert_expiry_warning_days: '7,14,30', action_overdue_escalation_days: 3 })
   const [retention, setRetention] = useState({ inspection_retention_days: 2555, audit_log_retention_days: 2555 })
   const [backup, setBackup] = useState({ backup_enabled: true, backup_frequency: 'daily', backup_retention_count: 30 })
+  const [thresholds, setThresholds] = useState({ compliance_green_threshold: 90, compliance_amber_threshold: 80 })
 
   useEffect(() => {
     if (!settings) return
@@ -40,11 +41,21 @@ export function SettingsPage() {
     })
     setRetention({ inspection_retention_days: settings.inspection_retention_days, audit_log_retention_days: settings.audit_log_retention_days })
     setBackup({ backup_enabled: settings.backup_enabled, backup_frequency: settings.backup_frequency, backup_retention_count: settings.backup_retention_count })
+    setThresholds({
+      compliance_green_threshold: settings.compliance_green_threshold ?? 90,
+      compliance_amber_threshold: settings.compliance_amber_threshold ?? 80,
+    })
   }, [settings])
 
   const save = useMutation({
     mutationFn: (data: any) => api.put('/settings', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['settings'] }); toast.success('Settings saved') },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings'] })
+      // So the matrix/dashboards/reports pick up a threshold change immediately,
+      // without waiting for their own 5-minute staleTime to expire.
+      qc.invalidateQueries({ queryKey: ['compliance-thresholds'] })
+      toast.success('Settings saved')
+    },
     onError: (e: any) => toast.error(apiError(e)),
   })
 
@@ -64,11 +75,16 @@ export function SettingsPage() {
   }
 
   const handleSave = () => {
+    if (thresholds.compliance_amber_threshold >= thresholds.compliance_green_threshold) {
+      toast.error('The amber threshold must be lower than the green threshold')
+      return
+    }
     save.mutate({
       ...org,
       ...sso,
       ...retention,
       ...backup,
+      ...thresholds,
       cert_reminder_days: notif.cert_reminder_days.split(',').map(Number).filter(Boolean),
       cert_expiry_warning_days: notif.cert_expiry_warning_days.split(',').map(Number).filter(Boolean),
       action_overdue_escalation_days: Number(notif.action_overdue_escalation_days),
@@ -126,6 +142,40 @@ export function SettingsPage() {
                 <input className="input flex-1" value={org.secondary_color} onChange={e => setOrg(o => ({ ...o, secondary_color: e.target.value }))} />
               </div>
             </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* Compliance Score Colors */}
+      <Section title="Compliance Score Colors" icon={Gauge}>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Controls the green/amber/red bands used everywhere a compliance score is shown
+            (the Enterprise Compliance Report, dashboards, reports, score rings).
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Green at or above (%)</label>
+              <input type="number" min={0} max={100} className="input"
+                value={thresholds.compliance_green_threshold}
+                onChange={e => setThresholds(t => ({ ...t, compliance_green_threshold: parseInt(e.target.value) || 0 }))} />
+            </div>
+            <div>
+              <label className="label">Amber at or above (%)</label>
+              <input type="number" min={0} max={100} className="input"
+                value={thresholds.compliance_amber_threshold}
+                onChange={e => setThresholds(t => ({ ...t, compliance_amber_threshold: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          {thresholds.compliance_amber_threshold >= thresholds.compliance_green_threshold && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">
+              The amber threshold must be lower than the green threshold.
+            </p>
+          )}
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> {thresholds.compliance_green_threshold}%+ green</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> {thresholds.compliance_amber_threshold}-{thresholds.compliance_green_threshold - 1}% amber</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> below {thresholds.compliance_amber_threshold}% red</span>
           </div>
         </div>
       </Section>

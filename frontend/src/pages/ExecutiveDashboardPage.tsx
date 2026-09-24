@@ -12,6 +12,8 @@ import {
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useComplianceThresholds } from '../hooks/useComplianceThresholds'
+import { scoreTextClass, scoreSoftBgClass, scoreBandClass, scoreHex } from '../utils/complianceColor'
 import { DashboardData, Department, User } from '../types'
 
 const HIERARCHY_ROLE_LABELS: Record<string, string> = {
@@ -329,7 +331,8 @@ const RISK_BG: Record<string, string> = {
 }
 
 function ScoreBar({ score, label, sub, onClick }: { score: number; label: string; sub?: string; onClick?: () => void }) {
-  const color = score >= 80 ? '#22c55e' : score >= 60 ? '#f59e0b' : '#ef4444'
+  const thresholds = useComplianceThresholds()
+  const color = scoreHex(score, thresholds)
   return (
     <div className={`space-y-1 ${onClick ? 'cursor-pointer group' : ''}`} onClick={onClick}>
       <div className="flex items-center justify-between text-sm">
@@ -390,18 +393,10 @@ const MATRIX_COLUMNS: Array<{ key: MatrixColumnKey; label: string }> = [
   { key: 'rm_checklist', label: 'RM Checklist' },
 ]
 
-// Matches the legend from the source spreadsheet exactly: 90%+ green, 80-89% amber,
-// below 80% red.
-function scoreBandClass(score: number | null): string {
-  if (score == null) return 'text-gray-300'
-  if (score >= 90) return 'bg-green-50 text-green-700'
-  if (score >= 80) return 'bg-amber-50 text-amber-700'
-  return 'bg-red-50 text-red-700'
-}
-
 function MatrixCell({ score }: { score: number | null }) {
+  const thresholds = useComplianceThresholds()
   return (
-    <td className={`py-2 px-3 text-center text-sm font-medium ${scoreBandClass(score)}`}>
+    <td className={`py-2 px-3 text-center text-sm font-medium ${scoreBandClass(score, thresholds)}`}>
       {score != null ? `${score}%` : '—'}
     </td>
   )
@@ -409,6 +404,7 @@ function MatrixCell({ score }: { score: number | null }) {
 
 function ComplianceMatrix() {
   const navigate = useNavigate()
+  const thresholds = useComplianceThresholds()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { data, isLoading } = useQuery<ComplianceMatrixData>({
     queryKey: ['compliance-matrix'],
@@ -440,9 +436,9 @@ function ComplianceMatrix() {
           <ClipboardCheck size={16} className="text-brand-600" /> Enterprise Compliance Report
         </h2>
         <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> 90%+</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 80-89%</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Below 80%</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> {thresholds.green}%+</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> {thresholds.amber}-{thresholds.green - 1}%</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Below {thresholds.amber}%</span>
         </div>
       </div>
       <p className="text-xs text-gray-400 mb-4">{data.scope_label} · All Inspections</p>
@@ -526,6 +522,7 @@ function ComplianceMatrix() {
 
 export function ExecutiveDashboardPage() {
   const navigate = useNavigate()
+  const thresholds = useComplianceThresholds()
   // Set by clicking a "Clinics by Risk Level" pie slice -- narrows the Location
   // Scorecard below to just that risk level, entirely client-side (already fetched).
   const [riskFilter, setRiskFilter] = useState<string | null>(null)
@@ -616,8 +613,8 @@ export function ExecutiveDashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Avg Compliance" value={`${avgScore.toFixed(1)}%`}
           icon={TrendingUp}
-          color={avgScore >= 80 ? 'text-green-600' : avgScore >= 60 ? 'text-amber-600' : 'text-red-600'}
-          bg={avgScore >= 80 ? 'bg-green-50' : avgScore >= 60 ? 'bg-amber-50' : 'bg-red-50'}
+          color={scoreTextClass(avgScore, thresholds)}
+          bg={scoreSoftBgClass(avgScore, thresholds)}
         />
         <StatCard label="Open Actions" value={s?.open_corrective_actions ?? 0}
           sub={s?.overdue_corrective_actions ? `${s.overdue_corrective_actions} overdue` : undefined}

@@ -11,6 +11,8 @@ import { clickableDot } from '../utils/chartDot'
 import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight, Gauge, AlertTriangle } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
+import { useComplianceThresholds } from '../hooks/useComplianceThresholds'
+import { scoreTextClass } from '../utils/complianceColor'
 
 const CSV_EXPORTS = [
   { resource: 'inspections', label: 'Inspections' },
@@ -25,13 +27,6 @@ const EXCEL_EXPORTS = [
   { resource: 'clinic_scorecard', label: 'Clinic Scorecard' },
 ]
 
-function scoreColorClass(score: number | null): string {
-  if (score == null) return 'text-gray-400'
-  if (score >= 85) return 'text-green-600'
-  if (score >= 75) return 'text-amber-600'
-  if (score >= 60) return 'text-orange-600'
-  return 'text-red-600'
-}
 
 interface Filters {
   clinic_id?: number
@@ -107,6 +102,7 @@ function FilterBar({ options, filters, onChange }: {
 export function ReportsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const thresholds = useComplianceThresholds()
   // The export/CSV endpoints are still admin/auditor-only on the backend (a Clinic
   // Lead/Regional Manager/Director/Executive is always base role team_member, so they'd
   // never pass that check) -- hide the tab entirely for them rather than show buttons
@@ -240,7 +236,7 @@ export function ReportsPage() {
                 </p>
               </div>
             </div>
-            <span className={clsx('text-4xl font-bold', scoreColorClass(clinicData?.overall.score ?? null))}>
+            <span className={clsx('text-4xl font-bold', scoreTextClass(clinicData?.overall.score ?? null, thresholds))}>
               {clinicData?.overall.score != null ? `${clinicData.overall.score}%` : '—'}
             </span>
           </div>
@@ -266,7 +262,7 @@ export function ReportsPage() {
                       {c.manager_name && <p className="text-xs text-gray-400">Lead: {c.manager_name}</p>}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                      <span className={clsx('text-lg font-bold', scoreColorClass(c.score))}>{c.score != null ? `${c.score}%` : '—'}</span>
+                      <span className={clsx('text-lg font-bold', scoreTextClass(c.score, thresholds))}>{c.score != null ? `${c.score}%` : '—'}</span>
                       <ChevronRight size={16} className="text-gray-300" />
                     </div>
                   </button>
@@ -295,7 +291,7 @@ export function ReportsPage() {
                       <p className="text-xs text-gray-400">{t.inspection_count} inspection{t.inspection_count !== 1 ? 's' : ''} · {t.clinic_count} clinic{t.clinic_count !== 1 ? 's' : ''}</p>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                      <span className={clsx('text-lg font-bold', scoreColorClass(t.score))}>{t.score != null ? `${t.score}%` : '—'}</span>
+                      <span className={clsx('text-lg font-bold', scoreTextClass(t.score, thresholds))}>{t.score != null ? `${t.score}%` : '—'}</span>
                       <ChevronRight size={16} className="text-gray-300" />
                     </div>
                   </button>
@@ -344,7 +340,7 @@ export function ReportsPage() {
                         : `${peopleData.subject.clinic_count} clinic${peopleData.subject.clinic_count !== 1 ? 's' : ''}`}
                     </p>
                   </div>
-                  <span className={clsx('text-2xl font-bold', scoreColorClass(peopleData.subject.score))}>
+                  <span className={clsx('text-2xl font-bold', scoreTextClass(peopleData.subject.score, thresholds))}>
                     {peopleData.subject.score != null ? `${peopleData.subject.score}%` : '—'}
                   </span>
                 </div>
@@ -363,7 +359,7 @@ export function ReportsPage() {
                           <p className="text-xs text-gray-400">{r.role_label}</p>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                          <span className={clsx('text-lg font-bold', scoreColorClass(r.score))}>{r.score != null ? `${r.score}%` : '—'}</span>
+                          <span className={clsx('text-lg font-bold', scoreTextClass(r.score, thresholds))}>{r.score != null ? `${r.score}%` : '—'}</span>
                           <ChevronRight size={16} className="text-gray-300" />
                         </div>
                       </button>

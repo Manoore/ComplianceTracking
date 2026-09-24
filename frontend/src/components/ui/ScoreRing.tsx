@@ -1,3 +1,6 @@
+import { useComplianceThresholds } from '../../hooks/useComplianceThresholds'
+import { scoreHex } from '../../utils/complianceColor'
+
 interface ScoreRingProps {
   score: number
   size?: number
@@ -5,10 +8,11 @@ interface ScoreRingProps {
 }
 
 export function ScoreRing({ score, size = 80, strokeWidth = 8 }: ScoreRingProps) {
+  const thresholds = useComplianceThresholds()
   const r = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * r
   const offset = circumference - (score / 100) * circumference
-  const color = score >= 85 ? '#16a34a' : score >= 75 ? '#d97706' : score >= 60 ? '#ea580c' : '#dc2626'
+  const color = scoreHex(score, thresholds)
 
   return (
     <div className="relative inline-flex items-center justify-center">

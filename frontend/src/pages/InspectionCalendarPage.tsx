@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { useComplianceThresholds } from '../hooks/useComplianceThresholds'
+import { scoreBandClass } from '../utils/complianceColor'
 
 interface DayCell { score: number; inspection_id: number; count: number }
 interface CalendarClinicRow {
@@ -25,18 +27,10 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-// Matches the same legend used on the Executive Dashboard's compliance matrix:
-// 90%+ green, 80-89% amber, below 80% red.
-function bandClass(score: number | null | undefined): string {
-  if (score == null) return 'bg-gray-50 text-gray-300'
-  if (score >= 90) return 'bg-green-50 text-green-700'
-  if (score >= 80) return 'bg-amber-50 text-amber-700'
-  return 'bg-red-50 text-red-700'
-}
-
 export function InspectionCalendarPage() {
   const { templateId } = useParams()
   const navigate = useNavigate()
+  const thresholds = useComplianceThresholds()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -122,7 +116,7 @@ export function InspectionCalendarPage() {
                             <button
                               onClick={() => navigate(`/inspections/${cell.inspection_id}`)}
                               title={`${cell.score}%${cell.count > 1 ? ` (avg of ${cell.count} inspections)` : ''}`}
-                              className={`w-8 h-8 rounded text-xs font-semibold hover:ring-2 hover:ring-brand-300 transition-shadow ${bandClass(cell.score)}`}>
+                              className={`w-8 h-8 rounded text-xs font-semibold hover:ring-2 hover:ring-brand-300 transition-shadow ${scoreBandClass(cell.score, thresholds)}`}>
                               {Math.round(cell.score)}
                             </button>
                           ) : (

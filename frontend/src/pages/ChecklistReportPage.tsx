@@ -7,18 +7,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ArrowLeft, ClipboardList, Building2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { clickableDot } from '../utils/chartDot'
-
-function scoreColorClass(score: number | null | undefined): string {
-  if (score == null) return 'text-gray-400'
-  if (score >= 85) return 'text-green-600'
-  if (score >= 75) return 'text-amber-600'
-  if (score >= 60) return 'text-orange-600'
-  return 'text-red-600'
-}
+import { useComplianceThresholds } from '../hooks/useComplianceThresholds'
+import { scoreTextClass } from '../utils/complianceColor'
 
 export function ChecklistReportPage() {
   const { templateId } = useParams()
   const navigate = useNavigate()
+  const thresholds = useComplianceThresholds()
 
   const { data: checklistData, isLoading: summaryLoading } = useQuery<{ checklists: ChecklistComplianceRow[] }>({
     queryKey: ['compliance-checklists', { template_id: templateId }],
@@ -55,7 +50,7 @@ export function ChecklistReportPage() {
           )}
         </div>
         {summary && (
-          <span className={clsx('text-3xl font-bold', scoreColorClass(summary.score))}>
+          <span className={clsx('text-3xl font-bold', scoreTextClass(summary.score, thresholds))}>
             {summary.score != null ? `${summary.score}%` : '—'}
           </span>
         )}
@@ -104,7 +99,7 @@ export function ChecklistReportPage() {
                 </td>
                 <td className="py-2.5 px-4 text-gray-500">{i.inspector_name}</td>
                 <td className="py-2.5 px-4">{statusBadge(i.status)}</td>
-                <td className={clsx('py-2.5 px-4 font-semibold', scoreColorClass(i.compliance_score))}>
+                <td className={clsx('py-2.5 px-4 font-semibold', scoreTextClass(i.compliance_score, thresholds))}>
                   {i.compliance_score != null ? `${i.compliance_score}%` : '—'}
                 </td>
                 <td className="py-2.5 px-4 text-gray-500">

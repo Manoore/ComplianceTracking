@@ -1,10 +1,10 @@
 from typing import Optional, List
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..database import get_db
 from ..models.org_settings import OrgSettings
-from .deps import require_admin
+from .deps import require_admin, get_current_user
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -26,6 +26,8 @@ class OrgSettingsUpdate(BaseModel):
     backup_enabled: Optional[bool] = None
     backup_frequency: Optional[str] = None
     backup_retention_count: Optional[int] = None
+    compliance_green_threshold: Optional[int] = None
+    compliance_amber_threshold: Optional[int] = None
 
 
 def _get_or_create(db: Session) -> OrgSettings:
@@ -57,6 +59,8 @@ def settings_out(s: OrgSettings) -> dict:
         "backup_enabled": s.backup_enabled,
         "backup_frequency": s.backup_frequency,
         "backup_retention_count": s.backup_retention_count,
+        "compliance_green_threshold": s.compliance_green_threshold or 90,
+        "compliance_amber_threshold": s.compliance_amber_threshold or 80,
         "updated_at": str(s.updated_at) if s.updated_at else None,
     }
 
@@ -66,9 +70,32 @@ def get_settings(db: Session = Depends(get_db), _=Depends(require_admin)):
     return settings_out(_get_or_create(db))
 
 
+# Read-only, open to any authenticated user (not just admins) -- every score display
+# across the app (matrix, dashboards, reports, score rings) needs these to color itself
+# consistently, regardless of who's viewing.
+@router.get("/compliance-thresholds")
+def get_compliance_thresholds(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    s = _get_or_create(db)
+    return {
+        "green": s.compliance_green_threshold or 90,
+        "amber": s.compliance_amber_threshold or 80,
+    }
+
+
 @router.put("")
 def update_settings(payload: OrgSettingsUpdate, db: Session = Depends(get_db),
                     _=Depends(require_admin)):
+    green = payload.compliance_green_threshold
+    amber = payload.compliance_amber_threshold
+    if green is not None or amber is not None:
+        s_existing = _get_or_create(db)
+        check_green = green if green is not None else (s_existing.compliance_green_threshold or 90)
+        check_amber = amber if amber is not None else (s_existing.compliance_amber_threshold or 80)
+        if not (0 <= check_amber < check_green <= 100):
+            raise HTTPException(
+                status_code=400,
+                detail="Thresholds must satisfy 0 <= amber < green <= 100",
+            )
     s = _get_or_create(db)
     for k, v in payload.model_dump(exclude_none=True).items():
         setattr(s, k, v)

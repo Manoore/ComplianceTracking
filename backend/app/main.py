@@ -85,6 +85,8 @@ def _apply_migrations():
         "ALTER TABLE inspection_items ADD COLUMN ma_flagged BOOLEAN DEFAULT FALSE",
         "ALTER TABLE inspection_items ADD COLUMN ma_flag_note TEXT",
         "ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE org_settings ADD COLUMN compliance_green_threshold INTEGER DEFAULT 90",
+        "ALTER TABLE org_settings ADD COLUMN compliance_amber_threshold INTEGER DEFAULT 80",
     ]
     for stmt in stmts:
         with engine.connect() as conn:

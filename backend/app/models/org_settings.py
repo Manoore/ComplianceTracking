@@ -35,4 +35,10 @@ class OrgSettings(Base):
     backup_frequency = Column(String, default="daily")  # daily/weekly
     backup_retention_count = Column(Integer, default=30)
 
+    # Compliance score color bands (0-100) -- a score >= green_threshold shows green,
+    # >= amber_threshold shows amber, below that shows red. Single source of truth for
+    # every score display across the app (matrix, dashboards, reports, score rings).
+    compliance_green_threshold = Column(Integer, default=90)
+    compliance_amber_threshold = Column(Integer, default=80)
+
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
