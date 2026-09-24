@@ -92,25 +92,33 @@ def _can_countersign(user: User, clinic: Optional[Clinic]) -> bool:
     return False
 
 
-def _notify_regional_managers(db: Session, clinic: Optional[Clinic], insp: Inspection,
-                              flagged_by: User, notes: Optional[str]):
-    """A Clinic Lead/reviewer flagged something -- alert whoever's actually
-    responsible for this clinic's region, since an RM can't personally open
-    every single submitted checklist to notice a problem. Falls back to
-    Director of Operations/Executive/Admin if no Regional Manager is assigned
-    to this clinic's region, so a flag is never silently dropped."""
+def _notify_next_level_up(db: Session, clinic: Optional[Clinic], insp: Inspection,
+                          flagged_by: User, notes: Optional[str]):
+    """Whoever just reviewed and flagged something escalates to the level ABOVE
+    them, not their own level -- a Clinic Lead's flag goes to the Regional
+    Manager, but a Regional Manager reviewing their own queue obviously isn't
+    meant to flag "Regional Manager" (that's just them; the notification would
+    silently reach no one, since they'd be excluded as their own recipient).
+    Falls back to Director of Operations/Executive/Admin whenever there's no
+    more specific person to escalate to, so a flag is never silently dropped."""
     if not clinic:
         return
-    recipients = db.query(User).filter(
-        User.tenant_id == clinic.tenant_id, User.is_active == True,
-        User.custom_role == "regional_manager", User.managed_region == clinic.region,
-    ).all() if clinic.region else []
+    custom_role = (flagged_by.custom_role or "").strip().lower()
+
+    recipients = []
+    if custom_role == "clinic_lead" or flagged_by.role == UserRole.manager:
+        recipients = db.query(User).filter(
+            User.tenant_id == clinic.tenant_id, User.is_active == True,
+            User.custom_role == "regional_manager", User.managed_region == clinic.region,
+        ).all() if clinic.region else []
+
     if not recipients:
         recipients = db.query(User).filter(
             User.tenant_id == clinic.tenant_id, User.is_active == True,
         ).filter(
             (User.role == UserRole.admin) | (User.custom_role.in_(["director_of_operations", "executive"]))
         ).all()
+
     title = f"Flagged for review: {clinic.name}"
     message = f"{flagged_by.full_name} flagged the checklist review at {clinic.name}."
     if notes:
@@ -532,7 +540,7 @@ def second_sign(inspection_id: int, item_id: int, payload: SecondSignPayload,
     item.is_flagged = bool(payload.flagged)
     db.commit()
     if item.is_flagged:
-        _notify_regional_managers(db, insp.clinic, insp, current_user, payload.notes)
+        _notify_next_level_up(db, insp.clinic, insp, current_user, payload.notes)
         db.commit()
     return {"status": "ok"}
 

@@ -291,7 +291,7 @@ class _InspectionDetailScreenState extends State<InspectionDetailScreen> {
           Icon(flagged ? Icons.flag : Icons.groups_outlined, size: 16, color: flagged ? kDanger : kSuccess),
           const SizedBox(width: 6),
           Expanded(child: Text(
-            'Reviewed by ${item.secondSignerName}${flagged ? ' — flagged for Regional Manager' : ''}',
+            'Reviewed by ${item.secondSignerName}${flagged ? ' — flagged for follow-up' : ''}',
             style: TextStyle(fontSize: 13, color: flagged ? kDanger : kSuccess),
           )),
         ]),

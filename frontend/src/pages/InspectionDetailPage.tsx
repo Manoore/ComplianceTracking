@@ -96,7 +96,7 @@ function ItemInput({ item, inspId, isEditable }: { item: InspectionItem; inspId:
         <div className="mt-2 space-y-1">
           <div className={clsx('flex items-center gap-2 text-sm', item.is_flagged ? 'text-red-600' : 'text-green-600')}>
             {item.is_flagged ? <AlertTriangle size={14} /> : <Users size={14} />}
-            Reviewed by {item.second_signer_name}{item.is_flagged && ' — flagged for Regional Manager'}
+            Reviewed by {item.second_signer_name}{item.is_flagged && ' — flagged for follow-up'}
           </div>
           {item.review_notes && <p className="text-xs text-gray-500 pl-6">{item.review_notes}</p>}
         </div>

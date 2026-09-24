@@ -59,6 +59,11 @@ class ItemIn(BaseModel):
     conditional_logic: Optional[dict] = None
     standard_tags: Optional[list] = None
     order_index: int = 0
+    # True for an item only a Clinic Lead/Regional Manager/Director of Operations/
+    # Executive/Admin may complete, after the MA/PCT has submitted the checklist --
+    # e.g. a "Reviewed by" sign-off line. Previously only settable by direct DB
+    # scripts; there was no way to create one through the template editor at all.
+    reviewer_only: bool = False
 
 
 class TemplateCreate(BaseModel):

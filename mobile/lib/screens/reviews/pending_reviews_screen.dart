@@ -62,7 +62,7 @@ class _PendingReviewsScreenState extends State<PendingReviewsScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(flagged ? 'Review recorded and flagged for your Regional Manager' : 'Review recorded'),
+          content: Text(flagged ? 'Review recorded and flagged for follow-up' : 'Review recorded'),
           backgroundColor: kSuccess,
         ));
       }
@@ -161,7 +161,7 @@ class _PendingReviewsScreenState extends State<PendingReviewsScreen> {
                               contentPadding: EdgeInsets.zero,
                               controlAffinity: ListTileControlAffinity.leading,
                               dense: true,
-                              title: const Text('Flag for Regional Manager', style: TextStyle(fontSize: 13)),
+                              title: const Text('Flag for follow-up', style: TextStyle(fontSize: 13)),
                               secondary: Icon(Icons.flag, size: 16, color: flagged ? kDanger : Colors.grey),
                             ),
                             SizedBox(

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { escalationTarget } from '../utils/hierarchy'
 import { ClipboardCheck, PenLine, Building2, User, Calendar, AlertTriangle, Flag, ExternalLink } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
@@ -24,6 +25,7 @@ function ReviewRow({ review }: { review: PendingReview }) {
   const qc = useQueryClient()
   const [reviewNotes, setReviewNotes] = useState('')
   const [flagged, setFlagged] = useState(false)
+  const escalateTo = escalationTarget(user)
 
   const sign = useMutation({
     mutationFn: () => api.post(`/inspections/${review.inspection_id}/items/${review.item_id}/second-sign`, {
@@ -33,7 +35,7 @@ function ReviewRow({ review }: { review: PendingReview }) {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pending-reviews'] })
-      toast.success(flagged ? 'Review recorded and flagged for your Regional Manager' : 'Review recorded')
+      toast.success(flagged ? `Review recorded and flagged for ${escalateTo}` : 'Review recorded')
     },
     onError: (e) => toast.error(apiError(e)),
   })
@@ -75,7 +77,7 @@ function ReviewRow({ review }: { review: PendingReview }) {
           <input type="checkbox" checked={flagged} onChange={e => setFlagged(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
           <Flag size={14} className={flagged ? 'text-red-600' : 'text-gray-400'} />
-          Flag for Regional Manager
+          Flag for {escalateTo}
         </label>
         <button onClick={() => sign.mutate()} disabled={sign.isPending}
           className={clsx('text-sm flex items-center gap-2 justify-center flex-shrink-0', flagged ? 'btn-danger' : 'btn-primary')}>
