@@ -59,7 +59,18 @@ function ActionModal({ action, onClose }: { action: CorrectiveAction; onClose: (
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-900">{action.title}</h2>
-            <p className="text-xs text-gray-500">{action.clinic_name}</p>
+            <p className="text-xs text-gray-500">
+              {action.clinic_name}
+              {action.inspection_id && (
+                <>
+                  {' · '}
+                  <button className="text-brand-700 hover:underline"
+                    onClick={() => { onClose(); navigate(`/inspections/${action.inspection_id}`) }}>
+                    View originating checklist
+                  </button>
+                </>
+              )}
+            </p>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
         </div>

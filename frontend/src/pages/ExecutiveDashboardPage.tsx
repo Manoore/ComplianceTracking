@@ -328,13 +328,13 @@ const RISK_BG: Record<string, string> = {
   unknown: 'bg-gray-100 text-gray-600',
 }
 
-function ScoreBar({ score, label, sub }: { score: number; label: string; sub?: string }) {
+function ScoreBar({ score, label, sub, onClick }: { score: number; label: string; sub?: string; onClick?: () => void }) {
   const color = score >= 80 ? '#22c55e' : score >= 60 ? '#f59e0b' : '#ef4444'
   return (
-    <div className="space-y-1">
+    <div className={`space-y-1 ${onClick ? 'cursor-pointer group' : ''}`} onClick={onClick}>
       <div className="flex items-center justify-between text-sm">
         <div>
-          <span className="font-medium text-gray-800">{label}</span>
+          <span className={`font-medium text-gray-800 ${onClick ? 'group-hover:text-brand-700 group-hover:underline' : ''}`}>{label}</span>
           {sub && <span className="text-gray-400 text-xs ml-2">{sub}</span>}
         </div>
         <span className="font-semibold" style={{ color }}>{score.toFixed(1)}%</span>
@@ -365,6 +365,7 @@ function StatCard({ label, value, sub, icon: Icon, color = 'text-brand-600', bg 
 }
 
 export function ExecutiveDashboardPage() {
+  const navigate = useNavigate()
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['exec-dashboard'],
     queryFn: () => api.get('/reports/dashboard').then(r => r.data),
@@ -498,7 +499,8 @@ export function ExecutiveDashboardPage() {
           ) : (
             <div className="space-y-3">
               {highRisk.slice(0, 6).map(c => (
-                <div key={c.clinic_id} className="flex items-center justify-between gap-2">
+                <button key={c.clinic_id} onClick={() => navigate(`/clinics/${c.clinic_id}/profile`)}
+                  className="w-full flex items-center justify-between gap-2 text-left hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{c.clinic_name}</p>
                     <span className={`inline-flex text-xs px-1.5 py-0.5 rounded font-medium ${RISK_BG[c.risk_level] ?? RISK_BG.unknown}`}>
@@ -508,7 +510,7 @@ export function ExecutiveDashboardPage() {
                   <span className="text-lg font-bold" style={{ color: RISK_COLOR[c.risk_level] ?? RISK_COLOR.unknown }}>
                     {c.score?.toFixed(0)}%
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -600,6 +602,7 @@ export function ExecutiveDashboardPage() {
                   label={c.clinic_name}
                   score={c.score ?? 0}
                   sub={c.last_inspection ? `Last: ${new Date(c.last_inspection).toLocaleDateString()}` : undefined}
+                  onClick={() => navigate(`/clinics/${c.clinic_id}/profile`)}
                 />
               ))}
           </div>
@@ -619,6 +622,7 @@ export function ExecutiveDashboardPage() {
                 label={dept.name}
                 score={avg ?? 0}
                 sub={`${clinicCount} location${clinicCount !== 1 ? 's' : ''}`}
+                onClick={() => navigate(`/clinics?department_id=${dept.id}`)}
               />
             ))}
           </div>
@@ -644,7 +648,7 @@ export function ExecutiveDashboardPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {data?.recent_inspections.map(i => (
-                  <tr key={i.id} className="hover:bg-gray-50">
+                  <tr key={i.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/inspections/${i.id}`)}>
                     <td className="py-2 font-medium text-gray-800">{i.clinic_name}</td>
                     <td className="py-2">
                       <span style={{ color: RISK_COLOR[i.risk_level ?? 'unknown'] }} className="font-semibold">

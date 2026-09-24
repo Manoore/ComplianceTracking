@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import api, { apiError } from '../services/api'
 import type { AuditReview, Inspection } from '../types'
 import { useAuth } from '../hooks/useAuth'
@@ -177,6 +178,7 @@ function ReviewModal({ review, onClose }: { review: AuditReview; onClose: () => 
 
 export function AuditsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const confirmDialog = useConfirm()
   const [selected, setSelected] = useState<AuditReview | null>(null)
@@ -245,10 +247,10 @@ export function AuditsPage() {
               <div className="space-y-2">
                 {submittedInspections!.map(insp => (
                   <div key={insp.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium">{insp.clinic_name}</p>
+                    <button className="text-left" onClick={() => navigate(`/inspections/${insp.id}`)}>
+                      <p className="text-sm font-medium text-brand-700 hover:underline">{insp.clinic_name}</p>
                       <p className="text-xs text-gray-500">Inspector: {insp.inspector_name} · {insp.submitted_at ? new Date(insp.submitted_at).toLocaleDateString() : ''}</p>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-3">
                       {insp.compliance_score != null && <ScoreRing score={insp.compliance_score} size={40} strokeWidth={4} />}
                       <button className="btn-primary py-1.5 text-xs"
@@ -280,7 +282,11 @@ export function AuditsPage() {
                   <tr><td colSpan={6} className="text-center py-8"><div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" /></td></tr>
                 ) : (reviews ?? []).map(r => (
                   <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">Inspection #{r.inspection_id}</td>
+                    <td className="py-3 px-4">
+                      <button className="text-brand-700 hover:underline" onClick={() => navigate(`/inspections/${r.inspection_id}`)}>
+                        Inspection #{r.inspection_id}
+                      </button>
+                    </td>
                     <td className="py-3 px-4 text-gray-500">{r.auditor_name}</td>
                     <td className="py-3 px-4">{statusBadge(r.status)}</td>
                     <td className="py-3 px-4">{r.risk_level ? statusBadge(r.risk_level) : '—'}</td>

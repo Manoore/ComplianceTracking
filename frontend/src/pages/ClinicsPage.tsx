@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { Clinic, Department } from '../types'
 import { useAuth } from '../hooks/useAuth'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Plus, Edit2, Trash2, Building2, ExternalLink, Upload, Layers, ChevronDown, ChevronRight } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
@@ -301,7 +301,10 @@ export function ClinicsPage() {
   const confirmDialog = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Clinic | undefined>()
-  const [filterDept, setFilterDept] = useState('')
+  const [searchParams] = useSearchParams()
+  // Seeded from ?department_id=, so a "Department Breakdown" card elsewhere (e.g. the
+  // Executive Dashboard) can link straight to that department's clinics already filtered.
+  const [filterDept, setFilterDept] = useState(searchParams.get('department_id') ?? '')
   const [filterRegion, setFilterRegion] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
