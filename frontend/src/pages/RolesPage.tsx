@@ -2,9 +2,40 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { RoleConfig } from '../types'
-import { Plus, Trash2, Shield, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Shield, Pencil, Check, X, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import { HIERARCHY_ROLES } from '../utils/hierarchy'
+
+// The "Rename" pencil only ever changes a role's display label -- the internal
+// name (the slug every permission/scoping check actually compares against) is
+// set once, permanently, from whatever was typed when the role was first
+// created, and is never shown anywhere in this UI otherwise. A typo there (e.g.
+// "reginal_manager" instead of "regional_manager") silently strips that role of
+// every hierarchy behavior everywhere in the app, with no error and no way to
+// notice short of reading this exact string. Flag anything close to one of the
+// 4 reserved hierarchy slugs that isn't an exact match.
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[a.length][b.length]
+}
+
+function suspectedTypoOf(roleName: string): string | null {
+  if (HIERARCHY_ROLES.includes(roleName)) return null
+  for (const reserved of HIERARCHY_ROLES) {
+    const dist = levenshtein(roleName, reserved)
+    if (dist > 0 && dist <= 2) return reserved
+  }
+  return null
+}
 
 const ALL_MODULES = [
   { key: 'clinics', label: 'Clinics' },
@@ -32,6 +63,7 @@ function NewRoleModal({ onClose }: { onClose: () => void }) {
   })
 
   const name = display.toLowerCase().replace(/\s+/g, '_')
+  const typoOf = suspectedTypoOf(name)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -46,6 +78,16 @@ function NewRoleModal({ onClose }: { onClose: () => void }) {
             <input required className="input" placeholder="e.g. Field Inspector"
               value={display} onChange={e => setDisplay(e.target.value)} />
             {display && <p className="text-xs text-gray-400 mt-1">Internal key: <code>{name}</code></p>}
+            {typoOf && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2 flex items-start gap-1.5">
+                <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                <span>
+                  This looks like it might be a typo of "{typoOf.replace(/_/g, ' ')}" — if so, type it exactly that
+                  way. A misspelled internal key won't get any of that role's special behavior (clinic
+                  scoping, dashboards, review queue), even though the label looks right afterward.
+                </span>
+              </p>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="btn-primary" disabled={mutation.isPending || !display.trim()}>
@@ -96,11 +138,24 @@ function RoleHeader({ role, onDelete }: { role: RoleConfig; onDelete: () => void
     )
   }
 
+  const typoOf = suspectedTypoOf(role.name)
+
   return (
     <div className="flex flex-col items-center gap-1">
-      <span>{role.display_name}</span>
+      <span className="flex items-center gap-1">
+        {role.display_name}
+        {typoOf && (
+          <span
+            title={`This role's internal name is "${role.name}", which looks like a typo of the reserved "${typoOf}" role. As long as it's spelled differently, every Clinic Lead/Regional Manager/Director/Executive feature (clinic scoping, dashboards, review queue) silently doesn't apply to anyone assigned this role. This can't be fixed by renaming -- delete this role and recreate it with the name typed exactly as "${typoOf.replace(/_/g, ' ')}", then reassign anyone on it.`}>
+            <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" />
+          </span>
+        )}
+      </span>
+      <span className="text-[10px] text-gray-400 font-mono" title="Internal role name -- what the app's permission checks actually compare against">
+        {role.name}
+      </span>
       <div className="flex gap-1.5">
-        <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-brand-600" title="Rename">
+        <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-brand-600" title="Rename (display label only -- see note above about the internal name)">
           <Pencil size={12} />
         </button>
         {!role.is_system && (
