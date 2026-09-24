@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
@@ -364,6 +364,166 @@ function StatCard({ label, value, sub, icon: Icon, color = 'text-brand-600', bg 
   )
 }
 
+// ---- Enterprise Compliance Report (Region -> Clinic x 3 checklists x 3 metrics) ----
+
+type MatrixColumnKey = 'ma_daily' | 'ma_monthly' | 'rm_checklist'
+
+interface MatrixMetric { current_month: number | null; three_month: number | null }
+interface MatrixClinicRow {
+  clinic_id: number
+  clinic_name: string
+  ma_daily: MatrixMetric
+  ma_monthly: MatrixMetric
+  rm_checklist: MatrixMetric
+}
+interface MatrixRegion { region: string; clinics: MatrixClinicRow[] }
+interface ComplianceMatrixData {
+  scope_label: string
+  templates: Record<MatrixColumnKey, { id: number; name: string } | null>
+  enterprise: Record<MatrixColumnKey, number | null>
+  regions: MatrixRegion[]
+}
+
+const MATRIX_COLUMNS: Array<{ key: MatrixColumnKey; label: string }> = [
+  { key: 'ma_daily', label: 'MA Daily Checklist' },
+  { key: 'ma_monthly', label: 'MA Monthly Checklist' },
+  { key: 'rm_checklist', label: 'RM Checklist' },
+]
+
+// Matches the legend from the source spreadsheet exactly: 90%+ green, 80-89% amber,
+// below 80% red.
+function scoreBandClass(score: number | null): string {
+  if (score == null) return 'text-gray-300'
+  if (score >= 90) return 'bg-green-50 text-green-700'
+  if (score >= 80) return 'bg-amber-50 text-amber-700'
+  return 'bg-red-50 text-red-700'
+}
+
+function MatrixCell({ score }: { score: number | null }) {
+  return (
+    <td className={`py-2 px-3 text-center text-sm font-medium ${scoreBandClass(score)}`}>
+      {score != null ? `${score}%` : '—'}
+    </td>
+  )
+}
+
+function ComplianceMatrix() {
+  const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { data, isLoading } = useQuery<ComplianceMatrixData>({
+    queryKey: ['compliance-matrix'],
+    queryFn: () => api.get('/reports/compliance-matrix').then(r => r.data),
+    refetchInterval: 60_000,
+  })
+
+  const toggleRegion = (r: string) => setCollapsed(prev => {
+    const next = new Set(prev)
+    if (next.has(r)) next.delete(r); else next.add(r)
+    return next
+  })
+
+  if (isLoading || !data) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mx-auto" />
+      </div>
+    )
+  }
+
+  const missingColumns = MATRIX_COLUMNS.filter(col => !data.templates[col.key])
+  const colSpan = 1 + MATRIX_COLUMNS.length * 3
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 overflow-x-auto">
+      <div className="flex items-center justify-between mb-1 gap-3 flex-wrap">
+        <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-brand-600" /> Enterprise Compliance Report
+        </h2>
+        <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> 90%+</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> 80-89%</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Below 80%</span>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">{data.scope_label} · All Inspections</p>
+
+      {missingColumns.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          {missingColumns.map(c => c.label).join(', ')} {missingColumns.length === 1 ? "isn't" : "aren't"} set up as
+          a template yet, so those columns are empty.
+        </p>
+      )}
+
+      <table className="w-full text-sm min-w-[900px]">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th rowSpan={2} className="text-left py-2 px-3 text-gray-500 font-medium align-bottom">Clinic</th>
+            {MATRIX_COLUMNS.map(col => (
+              <th key={col.key} colSpan={3} className="py-2 px-3 text-center text-gray-700 font-semibold border-l border-gray-100">
+                {data.templates[col.key] ? (
+                  <button onClick={() => navigate(`/reports/calendar/${data.templates[col.key]!.id}`)}
+                    className="hover:text-brand-700 hover:underline">
+                    {col.label}
+                  </button>
+                ) : col.label}
+              </th>
+            ))}
+          </tr>
+          <tr className="border-b border-gray-200 text-xs text-gray-400">
+            {MATRIX_COLUMNS.map(col => (
+              <Fragment key={col.key}>
+                <th className="py-1.5 px-3 text-center font-medium border-l border-gray-100">This Month</th>
+                <th className="py-1.5 px-3 text-center font-medium">3-Mo Avg</th>
+                <th className="py-1.5 px-3 text-center font-medium">Enterprise</th>
+              </Fragment>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.regions.map(region => {
+            const isCollapsed = collapsed.has(region.region)
+            return (
+              <Fragment key={region.region}>
+                <tr className="bg-gray-50">
+                  <td colSpan={colSpan} className="py-2 px-3">
+                    <button onClick={() => toggleRegion(region.region)} className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                      {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                      {region.region}
+                      <span className="text-xs text-gray-400 font-normal">
+                        ({region.clinics.length} clinic{region.clinics.length !== 1 ? 's' : ''})
+                      </span>
+                    </button>
+                  </td>
+                </tr>
+                {!isCollapsed && region.clinics.map(c => (
+                  <tr key={c.clinic_id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-2 px-3">
+                      <button onClick={() => navigate(`/clinics/${c.clinic_id}/profile`)}
+                        className="text-gray-800 hover:text-brand-700 hover:underline text-left">
+                        {c.clinic_name}
+                      </button>
+                    </td>
+                    {MATRIX_COLUMNS.map(col => (
+                      <Fragment key={col.key}>
+                        <MatrixCell score={c[col.key].current_month} />
+                        <MatrixCell score={c[col.key].three_month} />
+                        <MatrixCell score={data.enterprise[col.key]} />
+                      </Fragment>
+                    ))}
+                  </tr>
+                ))}
+              </Fragment>
+            )
+          })}
+          {data.regions.length === 0 && (
+            <tr><td colSpan={colSpan} className="text-center py-8 text-gray-400">No clinics in view yet</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function ExecutiveDashboardPage() {
   const navigate = useNavigate()
   // Set by clicking a "Clinics by Risk Level" pie slice -- narrows the Location
@@ -469,6 +629,8 @@ export function ExecutiveDashboardPage() {
           sub={s?.overdue_certifications ? `${s.overdue_certifications} expiring soon` : 'all on track'}
           icon={Award} color="text-purple-600" bg="bg-purple-50" />
       </div>
+
+      <ComplianceMatrix />
 
       <HierarchyDashboard />
 

@@ -677,6 +677,172 @@ def compliance_people(as_user_id: Optional[int] = None, region: Optional[str] = 
     }
 
 
+# The 3 standard checklists the compliance matrix tracks -- looked up by their exact
+# names since there's no other way to identify "the daily one" vs "the monthly one"
+# vs the RM's own site-visit checklist. A tenant missing one of these templates just
+# gets None for that column, not an error.
+_MATRIX_TEMPLATES = [
+    ("ma_daily", "MA/PCT Daily Check List"),
+    ("ma_monthly", "MA/PCT Monthly Check List"),
+    ("rm_checklist", "Regional Manager Clinic Site Visit"),
+]
+
+
+def _month_start(now: datetime) -> datetime:
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _trailing_3_months_start(now: datetime) -> datetime:
+    """First day of the month 2 months before the current one -- a rolling 3
+    calendar-month window (this month, last month, the month before) that always
+    includes the current, still-in-progress month."""
+    first_of_this_month = _month_start(now)
+    month = first_of_this_month.month - 2
+    year = first_of_this_month.year
+    while month <= 0:
+        month += 12
+        year -= 1
+    return first_of_this_month.replace(year=year, month=month)
+
+
+def _avg_score(db: Session, tenant_id: int, template_id: int, clinic_ids: Optional[list] = None,
+              date_from: Optional[datetime] = None) -> Optional[float]:
+    q = db.query(func.avg(Inspection.compliance_score)).filter(
+        Inspection.tenant_id == tenant_id, Inspection.template_id == template_id,
+        Inspection.compliance_score.isnot(None))
+    if clinic_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(clinic_ids))
+    if date_from is not None:
+        q = q.filter(Inspection.submitted_at >= date_from)
+    val = q.scalar()
+    return round(val, 1) if val is not None else None
+
+
+@router.get("/compliance-matrix")
+def compliance_matrix(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """The Region -> Clinic grid the Executive Dashboard leads with: for each of the
+    3 standard checklists, every clinic's current-month score, trailing-3-month
+    score, and the enterprise-wide average for that same checklist to compare
+    against. The enterprise number is always computed across every clinic in the
+    tenant, regardless of the viewer's own scope -- a Regional Manager/Clinic Lead
+    should be able to see how their clinics compare to the whole org, not just
+    their own slice of it. Rows themselves are scoped normally (admin/Director/
+    Executive see every region; a Regional Manager sees their region; a Clinic
+    Lead sees their clinics)."""
+    from ..models.checklist import ChecklistTemplate
+
+    now = datetime.utcnow()
+    month_start = _month_start(now)
+    trailing_start = _trailing_3_months_start(now)
+
+    templates = {}
+    for key, name in _MATRIX_TEMPLATES:
+        t = db.query(ChecklistTemplate).filter(
+            ChecklistTemplate.tenant_id == current_user.tenant_id, ChecklistTemplate.name == name,
+        ).first()
+        templates[key] = {"id": t.id, "name": t.name} if t else None
+
+    enterprise = {
+        key: (_avg_score(db, current_user.tenant_id, meta["id"]) if meta else None)
+        for key, meta in templates.items()
+    }
+
+    clinic_ids, scope_label = get_scoped_clinic_ids(db, current_user)
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+    if clinic_ids is not None:
+        clinics_q = clinics_q.filter(Clinic.id.in_(clinic_ids))
+    clinics = clinics_q.order_by(Clinic.region, Clinic.name).all()
+
+    regions: dict = {}
+    for c in clinics:
+        row = {"clinic_id": c.id, "clinic_name": c.name}
+        for key, meta in templates.items():
+            if not meta:
+                row[key] = {"current_month": None, "three_month": None}
+                continue
+            row[key] = {
+                "current_month": _avg_score(db, current_user.tenant_id, meta["id"],
+                                            clinic_ids=[c.id], date_from=month_start),
+                "three_month": _avg_score(db, current_user.tenant_id, meta["id"],
+                                          clinic_ids=[c.id], date_from=trailing_start),
+            }
+        region_name = c.region or "Unassigned"
+        regions.setdefault(region_name, []).append(row)
+
+    region_list = [
+        {"region": r, "clinics": rows}
+        for r, rows in sorted(regions.items(), key=lambda kv: (kv[0] == "Unassigned", kv[0]))
+    ]
+
+    return {
+        "scope_label": scope_label,
+        "templates": templates,
+        "enterprise": enterprise,
+        "regions": region_list,
+    }
+
+
+@router.get("/inspection-calendar")
+def inspection_calendar(template_id: int, year: int, month: int,
+                        db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """The "Inspection Wise Report" drill-down: pick one checklist template and one
+    month, get a day-by-day compliance grid across whatever clinics current_user
+    can see. A cell carries the inspection id it came from so the frontend can
+    link straight to that checklist rather than duplicating item-level detail
+    here -- that detail already lives on the inspection itself."""
+    from ..models.checklist import ChecklistTemplate
+
+    if not (1 <= month <= 12):
+        raise HTTPException(status_code=400, detail="month must be between 1 and 12")
+
+    template = db.query(ChecklistTemplate).filter(
+        ChecklistTemplate.id == template_id, ChecklistTemplate.tenant_id == current_user.tenant_id,
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Checklist template not found")
+
+    month_start = datetime(year, month, 1)
+    next_month = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+    clinic_ids, scope_label = get_scoped_clinic_ids(db, current_user)
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+    if clinic_ids is not None:
+        clinics_q = clinics_q.filter(Clinic.id.in_(clinic_ids))
+    clinics = clinics_q.order_by(Clinic.region, Clinic.name).all()
+
+    q = db.query(Inspection).filter(
+        Inspection.tenant_id == current_user.tenant_id, Inspection.template_id == template_id,
+        Inspection.submitted_at >= month_start, Inspection.submitted_at < next_month,
+        Inspection.compliance_score.isnot(None),
+    )
+    if clinic_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(clinic_ids))
+
+    by_clinic_day: dict = {}
+    for i in q.all():
+        by_clinic_day.setdefault(i.clinic_id, {}).setdefault(i.submitted_at.day, []).append(i)
+
+    rows = []
+    for c in clinics:
+        days = {}
+        for day, items in by_clinic_day.get(c.id, {}).items():
+            scores = [x.compliance_score for x in items]
+            days[str(day)] = {
+                "score": round(sum(scores) / len(scores), 1),
+                "inspection_id": items[0].id,  # first that day -- the cell links through to it
+                "count": len(items),
+            }
+        rows.append({"clinic_id": c.id, "clinic_name": c.name, "region": c.region, "days": days})
+
+    return {
+        "scope_label": scope_label,
+        "template": {"id": template.id, "name": template.name},
+        "year": year, "month": month,
+        "days_in_month": (next_month - month_start).days,
+        "clinics": rows,
+    }
+
+
 @router.get("/compliance-trends")
 def compliance_trends(clinic_id: Optional[int] = None, days: int = 180,
                       template_id: Optional[int] = None, region: Optional[str] = None,

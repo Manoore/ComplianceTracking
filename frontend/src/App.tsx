@@ -31,6 +31,7 @@ import { VerifyAccountPage } from './pages/VerifyAccountPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { PoliciesPage } from './pages/PoliciesPage'
 import { ExecutiveDashboardPage } from './pages/ExecutiveDashboardPage'
+import { InspectionCalendarPage } from './pages/InspectionCalendarPage'
 import { DepartmentsPage } from './pages/DepartmentsPage'
 import { CredentialsPage } from './pages/CredentialsPage'
 import { DocumentHubPage } from './pages/DocumentHubPage'
@@ -106,6 +107,7 @@ function AppRoutes() {
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />
         <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive"><ExecutiveDashboardPage /></PrivateRoute>} />
+        <Route path="reports/calendar/:templateId" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive"><InspectionCalendarPage /></PrivateRoute>} />
         <Route path="departments" element={<PrivateRoute roles={['admin', 'manager']}><DepartmentsPage /></PrivateRoute>} />
         <Route path="credentials" element={<CredentialsPage />} />
         <Route path="document-hub" element={<DocumentHubPage />} />
