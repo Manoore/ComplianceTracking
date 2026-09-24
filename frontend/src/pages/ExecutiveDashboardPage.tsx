@@ -9,7 +9,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, BarChart, Bar,
 } from 'recharts'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { DashboardData, Department, User } from '../types'
@@ -366,6 +366,9 @@ function StatCard({ label, value, sub, icon: Icon, color = 'text-brand-600', bg 
 
 export function ExecutiveDashboardPage() {
   const navigate = useNavigate()
+  // Set by clicking a "Clinics by Risk Level" pie slice -- narrows the Location
+  // Scorecard below to just that risk level, entirely client-side (already fetched).
+  const [riskFilter, setRiskFilter] = useState<string | null>(null)
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['exec-dashboard'],
     queryFn: () => api.get('/reports/dashboard').then(r => r.data),
@@ -400,10 +403,11 @@ export function ExecutiveDashboardPage() {
     : []
   const auditChartData = auditSummary
     ? (['pending', 'in_review', 'approved', 'rejected', 'escalated'] as const)
-      .map(k => ({ name: k.replace('_', ' '), value: auditSummary[k as keyof typeof auditSummary] as number }))
+      .map(k => ({ status: k, name: k.replace('_', ' '), value: auditSummary[k as keyof typeof auditSummary] as number }))
     : []
 
   const highRisk = clinics.filter(c => c.risk_level === 'high' || c.risk_level === 'critical')
+  const scorecardClinics = riskFilter ? clinics.filter(c => c.risk_level === riskFilter) : clinics
 
   // Compute department-level rollup from clinic scores
   const deptBreakdown = (departments ?? []).map(dept => {
@@ -462,7 +466,10 @@ export function ExecutiveDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Compliance trend */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">6-Month Compliance Trend</h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-semibold text-gray-900">6-Month Compliance Trend</h2>
+            <Link to="/reports" className="text-xs font-medium text-brand-700 hover:underline">View full report →</Link>
+          </div>
           <p className="text-xs text-gray-400 mb-3">Average score across all submitted inspections</p>
           {trend.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-16">No inspection data yet</p>
@@ -530,21 +537,27 @@ export function ExecutiveDashboardPage() {
             <div className="flex items-center gap-4">
               <ResponsiveContainer width="55%" height={180}>
                 <PieChart>
-                  <Pie data={riskChartData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                    {riskChartData.map(d => <Cell key={d.name} fill={RISK_COLOR[d.name] ?? RISK_COLOR.unknown} />)}
+                  <Pie data={riskChartData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}
+                    cursor="pointer"
+                    onClick={(d: any) => setRiskFilter(prev => prev === d?.name ? null : d?.name)}>
+                    {riskChartData.map(d => (
+                      <Cell key={d.name} fill={RISK_COLOR[d.name] ?? RISK_COLOR.unknown}
+                        opacity={riskFilter && riskFilter !== d.name ? 0.35 : 1} />
+                    ))}
                   </Pie>
                   <Tooltip formatter={(v: number, n: string) => [`${v} clinic${v !== 1 ? 's' : ''}`, n]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-1.5 flex-1">
                 {riskChartData.map(d => (
-                  <div key={d.name} className="flex items-center justify-between text-sm">
+                  <button key={d.name} onClick={() => setRiskFilter(prev => prev === d.name ? null : d.name)}
+                    className={`flex items-center justify-between text-sm w-full hover:bg-gray-50 rounded px-1 -mx-1 ${riskFilter && riskFilter !== d.name ? 'opacity-40' : ''}`}>
                     <span className="flex items-center gap-1.5 capitalize text-gray-600">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: RISK_COLOR[d.name] ?? RISK_COLOR.unknown }} />
                       {d.name}
                     </span>
                     <span className="font-semibold text-gray-800">{d.value}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -571,7 +584,8 @@ export function ExecutiveDashboardPage() {
                 <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} className="capitalize" />
                 <Tooltip formatter={(v: number) => [`${v}`, 'Reviews']} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} cursor="pointer"
+                  onClick={(d: any) => d?.status && navigate(`/audits?status=${d.status}`)}>
                   {auditChartData.map(d => (
                     <Cell key={d.name} fill={
                       d.name === 'approved' ? '#22c55e' : d.name === 'rejected' ? '#ef4444'
@@ -587,14 +601,28 @@ export function ExecutiveDashboardPage() {
 
       {/* Clinic scorecard */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Building2 size={16} className="text-brand-600" /> Location Scorecard
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Building2 size={16} className="text-brand-600" /> Location Scorecard
+          </h2>
+          {riskFilter && (
+            <button onClick={() => setRiskFilter(null)}
+              className="flex items-center gap-1 text-xs font-medium text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg hover:bg-brand-100">
+              {riskFilter} risk only <X size={12} />
+            </button>
+          )}
+        </div>
         {clinics.length === 0 ? (
           <p className="text-sm text-gray-400">No inspection data yet.</p>
+        ) : scorecardClinics.length === 0 ? (
+          <p className="text-sm text-gray-400">
+            {riskFilter === 'unknown'
+              ? "Clinics with no inspection yet aren't scored here -- check the Clinics page."
+              : `No clinics at ${riskFilter} risk.`}
+          </p>
         ) : (
           <div className="space-y-3">
-            {[...clinics]
+            {[...scorecardClinics]
               .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
               .map(c => (
                 <ScoreBar

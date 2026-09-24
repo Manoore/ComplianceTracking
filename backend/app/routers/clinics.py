@@ -165,7 +165,7 @@ def clinic_profile(clinic_id: int, db: Session = Depends(get_db),
     staff = (db.query(ClinicStaff).filter(ClinicStaff.clinic_id == clinic_id).all())
 
     score_history = [
-        {"date": str(i.submitted_at.date()) if i.submitted_at else None,
+        {"id": i.id, "date": str(i.submitted_at.date()) if i.submitted_at else None,
          "score": i.compliance_score, "risk_level": i.risk_level}
         for i in reversed(inspections)
     ]

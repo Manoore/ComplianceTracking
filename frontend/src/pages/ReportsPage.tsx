@@ -7,6 +7,7 @@ import type {
   ComplianceFilterOptions, ClinicComplianceRow, ChecklistComplianceRow, PersonComplianceReport, OverallComplianceScore,
 } from '../types'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { clickableDot } from '../utils/chartDot'
 import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight, Gauge } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
@@ -435,7 +436,8 @@ export function ReportsPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                   <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
-                  <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2}
+                    dot={clickableDot((p: any) => p?.id && navigate(`/inspections/${p.id}`))} />
                 </LineChart>
               </ResponsiveContainer>
             )}

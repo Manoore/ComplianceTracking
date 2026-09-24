@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api, { apiError } from '../services/api'
 import type { AuditReview, Inspection } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
-import { FileText, CheckCircle, XCircle, Download, Trash2 } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, Download, Trash2, X } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import toast from 'react-hot-toast'
 
@@ -183,11 +183,17 @@ export function AuditsPage() {
   const confirmDialog = useConfirm()
   const [selected, setSelected] = useState<AuditReview | null>(null)
   const [tab, setTab] = useState<'reviews' | 'trail'>('reviews')
+  // Set by clicking a bucket on the Executive Dashboard's Audit Pipeline chart
+  // (?status=pending etc), or clearable here directly -- narrows the reviews
+  // table client-side, same list already fetched below.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = searchParams.get('status')
 
-  const { data: reviews, isLoading } = useQuery<AuditReview[]>({
+  const { data: allReviews, isLoading } = useQuery<AuditReview[]>({
     queryKey: ['audit-reviews'],
     queryFn: () => api.get('/audits/reviews').then(r => r.data),
   })
+  const reviews = statusFilter ? (allReviews ?? []).filter(r => r.status === statusFilter) : allReviews
 
   const { data: submittedInspections } = useQuery<Inspection[]>({
     queryKey: ['submitted-inspections'],
@@ -265,6 +271,14 @@ export function AuditsPage() {
             </div>
           )}
 
+          {statusFilter && (
+            <button
+              onClick={() => setSearchParams(p => { p.delete('status'); return p })}
+              className="flex items-center gap-1.5 text-xs font-medium text-brand-700 bg-brand-50 px-2.5 py-1.5 rounded-lg hover:bg-brand-100 w-fit">
+              Status: {statusFilter.replace('_', ' ')} <X size={12} />
+            </button>
+          )}
+
           <div className="card p-0 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -311,7 +325,9 @@ export function AuditsPage() {
                   </tr>
                 ))}
                 {!isLoading && (reviews?.length ?? 0) === 0 && (
-                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">No reviews yet</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">
+                    {statusFilter ? `No ${statusFilter.replace('_', ' ')} reviews` : 'No reviews yet'}
+                  </td></tr>
                 )}
               </tbody>
             </table>

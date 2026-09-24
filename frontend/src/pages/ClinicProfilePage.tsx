@@ -8,6 +8,7 @@ import { ScoreRing } from '../components/ui/ScoreRing'
 import { statusBadge } from '../components/ui/Badge'
 import { ArrowLeft, MapPin, Phone, Mail, Globe, Clock, UserPlus, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { clickableDot } from '../utils/chartDot'
 import toast from 'react-hot-toast'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
@@ -158,7 +159,8 @@ export function ClinicProfilePage() {
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
-                <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2}
+                  dot={clickableDot((p: any) => p?.id && navigate(`/inspections/${p.id}`))} />
               </LineChart>
             </ResponsiveContainer>
           )}

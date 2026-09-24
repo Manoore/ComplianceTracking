@@ -698,7 +698,7 @@ def compliance_trends(clinic_id: Optional[int] = None, days: int = 180,
         q = q.join(Clinic, Inspection.clinic_id == Clinic.id).filter(Clinic.region == region)
     inspections = q.order_by(Inspection.submitted_at).all()
     return [
-        {"date": str(i.submitted_at.date()), "score": i.compliance_score,
+        {"id": i.id, "date": str(i.submitted_at.date()), "score": i.compliance_score,
          "risk_level": i.risk_level, "clinic_name": i.clinic.name if i.clinic else None}
         for i in inspections
     ]

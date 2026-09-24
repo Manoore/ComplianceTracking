@@ -11,6 +11,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts'
 import { ClipboardList, AlertTriangle, CheckSquare, Building2, LayoutDashboard, User, Award, X, ClipboardCheck } from 'lucide-react'
+import { clsx } from 'clsx'
 
 function StatCard({ title, value, sub, icon: Icon, color, to }: {
   title: string; value: number | string; sub?: string; icon: any; color: string; to?: string
@@ -157,6 +158,14 @@ export function DashboardPage() {
 
   const isStaff = !hasOversight(user)
 
+  // Set by clicking a Risk Breakdown pie slice -- narrows the Clinic Compliance
+  // Scores chart/cards below to just that risk level, entirely client-side (the
+  // data's already fetched with risk_level per clinic, no extra request needed).
+  const [riskFilter, setRiskFilter] = useState<string | null>(null)
+  const filteredClinicScores = riskFilter
+    ? (data?.clinic_scores ?? []).filter(c => c.risk_level === riskFilter)
+    : (data?.clinic_scores ?? [])
+
   // Real count of items waiting on this specific person's countersignature, not just
   // the tenant-wide "pending review" total in the KPI row above -- so a Clinic Lead/
   // Regional Manager can tell at a glance whether their own queue actually has
@@ -220,7 +229,10 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Compliance Trend */}
             <div className="card xl:col-span-2">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Compliance Trend (6 Months)</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900">Compliance Trend (6 Months)</h2>
+                {!isStaff && <Link to="/reports" className="text-xs font-medium text-brand-700 hover:underline">View full report →</Link>}
+              </div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={data?.trend ?? []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -241,9 +253,15 @@ export function DashboardPage() {
                 <>
                   <ResponsiveContainer width="100%" height={160}>
                     <PieChart>
-                      <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value">
-                        {riskPieData.map((_, i) => (
-                          <Cell key={i} fill={RISK_PIE_COLORS[i]} />
+                      <Pie data={riskPieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value"
+                        cursor="pointer"
+                        onClick={(d: any) => {
+                          const risk = d?.name?.toLowerCase()
+                          setRiskFilter(prev => prev === risk ? null : risk)
+                        }}>
+                        {riskPieData.map((d, i) => (
+                          <Cell key={i} fill={RISK_PIE_COLORS[i]}
+                            opacity={riskFilter && riskFilter !== d.name.toLowerCase() ? 0.35 : 1} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(v: number, name: string) => [v, name]} />
@@ -251,10 +269,13 @@ export function DashboardPage() {
                   </ResponsiveContainer>
                   <div className="grid grid-cols-2 gap-1 mt-2">
                     {riskPieData.map((d, i) => (
-                      <div key={d.name} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <button key={d.name}
+                        onClick={() => setRiskFilter(prev => prev === d.name.toLowerCase() ? null : d.name.toLowerCase())}
+                        className={clsx('flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900',
+                          riskFilter && riskFilter !== d.name.toLowerCase() && 'opacity-40')}>
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: RISK_PIE_COLORS[i] }} />
                         <span>{d.name}: <strong>{d.value}</strong></span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </>
@@ -265,19 +286,29 @@ export function DashboardPage() {
           {/* Clinic Scores */}
           {!isStaff && (
             <div className="card">
-              <h2 className="text-base font-semibold text-gray-900 mb-4">Clinic Compliance Scores</h2>
-              {(data?.clinic_scores?.length ?? 0) === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-12">No data yet</p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-900">Clinic Compliance Scores</h2>
+                {riskFilter && (
+                  <button onClick={() => setRiskFilter(null)}
+                    className="flex items-center gap-1 text-xs font-medium text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg hover:bg-brand-100">
+                    {riskFilter} risk only <X size={12} />
+                  </button>
+                )}
+              </div>
+              {filteredClinicScores.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12">
+                  {riskFilter ? `No clinics at ${riskFilter} risk` : 'No data yet'}
+                </p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={data?.clinic_scores ?? []}>
+                  <BarChart data={filteredClinicScores}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="clinic_name" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                     <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
                     <Bar dataKey="score" radius={[4, 4, 0, 0]} cursor="pointer"
                       onClick={(entry: any) => entry?.clinic_id && navigate(`/clinics/${entry.clinic_id}/profile`)}>
-                      {(data?.clinic_scores ?? []).map((entry, i) => (
+                      {filteredClinicScores.map((entry, i) => (
                         <Cell key={i} fill={RISK_COLORS[entry.risk_level] || '#6b7280'} />
                       ))}
                     </Bar>
@@ -329,9 +360,9 @@ export function DashboardPage() {
           </div>
 
           {/* Clinic score cards */}
-          {(data?.clinic_scores?.length ?? 0) > 0 && !isStaff && (
+          {filteredClinicScores.length > 0 && !isStaff && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(data?.clinic_scores ?? []).map((c) => (
+              {filteredClinicScores.map((c) => (
                 <Link key={c.clinic_id} to={`/clinics/${c.clinic_id}/profile`}
                   className="card flex items-center gap-4 hover:shadow-md transition-shadow">
                   <ScoreRing score={c.score} size={64} />

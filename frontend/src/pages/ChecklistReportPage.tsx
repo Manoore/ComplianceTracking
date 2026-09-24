@@ -6,6 +6,7 @@ import { statusBadge } from '../components/ui/Badge'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { ArrowLeft, ClipboardList, Building2 } from 'lucide-react'
 import { clsx } from 'clsx'
+import { clickableDot } from '../utils/chartDot'
 
 function scoreColorClass(score: number | null | undefined): string {
   if (score == null) return 'text-gray-400'
@@ -71,7 +72,8 @@ export function ChecklistReportPage() {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
               <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
-              <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2}
+                dot={clickableDot((p: any) => p?.id && navigate(`/inspections/${p.id}`))} />
             </LineChart>
           </ResponsiveContainer>
         )}
