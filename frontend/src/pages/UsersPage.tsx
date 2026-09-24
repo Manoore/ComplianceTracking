@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { User, RoleConfig } from '../types'
 import { useAuth } from '../hooks/useAuth'
-import { Plus, Edit2, UserX } from 'lucide-react'
+import { Plus, Edit2, UserX, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 
@@ -115,11 +116,25 @@ const roleColors: Record<string, string> = {
 }
 
 export function UsersPage() {
-  const { user: me } = useAuth()
+  const { user: me, startImpersonation } = useAuth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const confirmDialog = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<User | undefined>()
+  const [viewingAsId, setViewingAsId] = useState<number | null>(null)
+
+  const handleViewAs = async (u: User) => {
+    setViewingAsId(u.id)
+    try {
+      await startImpersonation(u.id)
+      navigate('/')
+    } catch (e: any) {
+      toast.error(apiError(e, "Couldn't view as this user"))
+    } finally {
+      setViewingAsId(null)
+    }
+  }
 
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['users'],
@@ -195,6 +210,14 @@ export function UsersPage() {
                         onClick={() => { setEditing(u); setShowForm(true) }}>
                         <Edit2 size={15} />
                       </button>
+                      {u.id !== me?.id && u.is_active && (
+                        <button className="p-1.5 hover:bg-purple-50 rounded text-gray-400 hover:text-purple-600 disabled:opacity-50"
+                          title="View exactly what this user sees"
+                          disabled={viewingAsId === u.id}
+                          onClick={() => handleViewAs(u)}>
+                          <Eye size={15} />
+                        </button>
+                      )}
                       {u.id !== me?.id && u.is_active && (
                         <button className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-500"
                           onClick={async () => { if (await confirmDialog(`Deactivate ${u.full_name}?`)) deactivate.mutate(u.id) }}>

@@ -4,10 +4,36 @@ import { useQuery } from '@tanstack/react-query'
 import { Sidebar } from './Sidebar'
 import { useAuth } from '../../hooks/useAuth'
 import api from '../../services/api'
-import { User, LogOut, Settings, AlertTriangle, X } from 'lucide-react'
+import { User, LogOut, Settings, AlertTriangle, X, Eye, LogOut as ExitIcon } from 'lucide-react'
 
 function initials(name: string) {
   return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+}
+
+function ImpersonationBanner() {
+  const { user, stopImpersonation } = useAuth()
+  const navigate = useNavigate()
+
+  const handleExit = async () => {
+    await stopImpersonation()
+    navigate('/')
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm bg-purple-700">
+      <div className="flex items-center gap-2 text-white">
+        <Eye size={15} className="flex-shrink-0" />
+        <span>
+          Viewing as <strong>{user?.full_name}</strong>
+          {user ? ` (${(user.custom_role || user.role).replace(/_/g, ' ')})` : ''} — actions you take here are logged under their account.
+        </span>
+      </div>
+      <button onClick={handleExit}
+        className="flex items-center gap-1.5 text-white bg-white/15 hover:bg-white/25 rounded-lg px-3 py-1 flex-shrink-0 transition-colors">
+        <ExitIcon size={13} /> Exit to my account
+      </button>
+    </div>
+  )
 }
 
 function TrialBanner({ onDismiss }: { onDismiss: () => void }) {
@@ -46,7 +72,7 @@ function TrialBanner({ onDismiss }: { onDismiss: () => void }) {
 }
 
 function UserMenu() {
-  const { user, logout } = useAuth()
+  const { user, logout, impersonating, stopImpersonation } = useAuth()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -61,7 +87,14 @@ function UserMenu() {
 
   if (!user) return null
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // A plain full logout while impersonating would clear the stashed admin
+    // session too, forcing a real re-login -- exit back to it instead.
+    if (impersonating) {
+      await stopImpersonation()
+      navigate('/')
+      return
+    }
     logout()
     navigate('/home')
   }
@@ -101,7 +134,7 @@ function UserMenu() {
           <div className="border-t border-gray-100 mt-1 pt-1">
             <button onClick={handleLogout}
               className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full transition-colors">
-              <LogOut size={15} /> Sign Out
+              <LogOut size={15} /> {impersonating ? 'Exit to my account' : 'Sign Out'}
             </button>
           </div>
         </div>
@@ -112,15 +145,18 @@ function UserMenu() {
 
 export function AppLayout() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
-  const { user } = useAuth()
+  const { user, impersonating } = useAuth()
 
-  const showTrialBanner = !bannerDismissed && user?.role === 'admin'
+  const showTrialBanner = !bannerDismissed && user?.role === 'admin' && !impersonating
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
       <div className="lg:pl-64 flex flex-col min-h-screen">
-        {/* Trial banner */}
+        {/* Impersonation always takes priority over the trial banner -- an admin
+            viewing as someone else shouldn't be distracted by their own tenant's
+            trial status while checking that person's view. */}
+        {impersonating && <ImpersonationBanner />}
         {showTrialBanner && <TrialBanner onDismiss={() => setBannerDismissed(true)} />}
 
         {/* Top header */}

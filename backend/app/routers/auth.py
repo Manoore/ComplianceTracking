@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from ..database import get_db
@@ -10,7 +11,7 @@ from ..services.auth import authenticate_user, create_access_token, create_refre
 from ..services.email import send_password_reset
 from ..utils.audit_trail import log_action
 from ..config import settings
-from .deps import get_current_user
+from .deps import get_current_user, require_admin, bearer
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -105,6 +106,48 @@ async def refresh(req: RefreshRequest, db: Session = Depends(get_db)):
             "id": user.id, "email": user.email,
             "full_name": user.full_name, "role": user.role.value,
             "tenant_id": user.tenant_id,
+        },
+    )
+
+
+@router.post("/impersonate/{user_id}", response_model=TokenResponse)
+async def impersonate(user_id: int, request: Request,
+                      credentials: HTTPAuthorizationCredentials = Depends(bearer),
+                      db: Session = Depends(get_db),
+                      current_user: User = Depends(require_admin)):
+    """Admin-only "View As": issues a normal access/refresh token pair for another
+    user in the same tenant, so an admin can see exactly what that person's account
+    sees (every existing endpoint "just works" since get_current_user only ever
+    looks at the token's `sub`) without knowing their password. Purely for
+    verifying how each role's views look -- actions taken while impersonating are
+    logged under the impersonated user, same as if they'd done it themselves, so
+    the frontend keeps a persistent banner up for the whole time."""
+    payload = decode_token(credentials.credentials) or {}
+    if payload.get("imp_by"):
+        raise HTTPException(status_code=403, detail="Already viewing as someone else -- exit back to your own account first")
+
+    target = db.query(User).filter(User.id == user_id, User.tenant_id == current_user.tenant_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="That's your own account")
+    if not target.is_active:
+        raise HTTPException(status_code=400, detail="That user's account is disabled")
+
+    log_action(db, "user.impersonate_start", user_id=current_user.id, resource_type="user",
+               resource_id=target.id, details={"target_name": target.full_name},
+               ip_address=request.client.host if request.client else None)
+    db.commit()
+
+    token_data = _make_token_data(target)
+    token_data["imp_by"] = current_user.id
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+        user={
+            "id": target.id, "email": target.email,
+            "full_name": target.full_name, "role": target.role.value,
+            "custom_role": target.custom_role, "tenant_id": target.tenant_id,
         },
     )
 

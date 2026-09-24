@@ -392,6 +392,13 @@ export interface ClinicComplianceRow {
   inspection_count: number
 }
 
+export interface OverallComplianceScore {
+  score: number | null
+  clinic_count: number
+  scored_clinic_count: number
+  inspection_count: number
+}
+
 export interface ChecklistComplianceRow {
   template_id: number
   template_name: string

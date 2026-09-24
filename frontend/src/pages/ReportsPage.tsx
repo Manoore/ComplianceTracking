@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import type {
-  ComplianceFilterOptions, ClinicComplianceRow, ChecklistComplianceRow, PersonComplianceReport,
+  ComplianceFilterOptions, ClinicComplianceRow, ChecklistComplianceRow, PersonComplianceReport, OverallComplianceScore,
 } from '../types'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight } from 'lucide-react'
+import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight, Gauge } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 
@@ -127,10 +127,9 @@ export function ReportsPage() {
   const { data: filterOptions } = useQuery<ComplianceFilterOptions>({
     queryKey: ['compliance-filters'],
     queryFn: () => api.get('/reports/compliance/filters').then(r => r.data),
-    enabled: tab === 'overview',
   })
 
-  const { data: clinicData, isLoading: clinicsLoading } = useQuery<{ clinics: ClinicComplianceRow[] }>({
+  const { data: clinicData, isLoading: clinicsLoading } = useQuery<{ overall: OverallComplianceScore; clinics: ClinicComplianceRow[] }>({
     queryKey: ['compliance-clinics', filterParams],
     queryFn: () => api.get('/reports/compliance/clinics', { params: filterParams }).then(r => r.data),
     enabled: tab === 'overview',
@@ -164,13 +163,21 @@ export function ReportsPage() {
     setTrail(t => t.slice(0, idx + 1))
   }
 
+  // The backend now names the file after the scope it's limited to and the date it
+  // was generated (e.g. inspections_region-east_2026-09-24.csv) -- use that instead
+  // of the generic resource name so the download itself says what's in it.
+  const filenameFromHeaders = (response: any, fallback: string) => {
+    const match = /filename=([^;]+)/.exec(response.headers?.['content-disposition'] ?? '')
+    return match ? match[1].trim() : fallback
+  }
+
   const handleCsvExport = async (resource: string) => {
     try {
       const response = await api.get(`/reports/export/csv?resource=${resource}`, { responseType: 'blob' })
       const url = URL.createObjectURL(response.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${resource}.csv`
+      a.download = filenameFromHeaders(response, `${resource}.csv`)
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -184,7 +191,7 @@ export function ReportsPage() {
       const url = URL.createObjectURL(response.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${resource}.xlsx`
+      a.download = filenameFromHeaders(response, `${resource}.xlsx`)
       a.click()
       URL.revokeObjectURL(url)
       toast.success('Excel export downloaded')
@@ -209,6 +216,27 @@ export function ReportsPage() {
       {tab === 'overview' && (
         <div className="space-y-6">
           <FilterBar options={filterOptions} filters={filters} onChange={handleFilterChange} />
+
+          {/* Overall compliance score -- one top-line number for everything
+              currently in view, before drilling into any one clinic/checklist/person. */}
+          <div className="card flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-brand-50 rounded-xl">
+                <Gauge size={22} className="text-brand-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Overall Compliance Score</p>
+                <p className="text-xs text-gray-400">
+                  {clinicsLoading ? 'Loading…' : clinicData
+                    ? `Across ${clinicData.overall.scored_clinic_count} of ${clinicData.overall.clinic_count} clinic${clinicData.overall.clinic_count !== 1 ? 's' : ''} · ${clinicData.overall.inspection_count} inspection${clinicData.overall.inspection_count !== 1 ? 's' : ''}`
+                    : ''}
+                </p>
+              </div>
+            </div>
+            <span className={clsx('text-4xl font-bold', scoreColorClass(clinicData?.overall.score ?? null))}>
+              {clinicData?.overall.score != null ? `${clinicData.overall.score}%` : '—'}
+            </span>
+          </div>
 
           {/* Clinics */}
           <div className="card">
@@ -343,6 +371,13 @@ export function ReportsPage() {
 
       {tab === 'exports' && canExport && (
         <div className="space-y-6">
+          {filterOptions?.scope_label && (
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              Every export below is limited to what you can see: <strong>{filterOptions.scope_label}</strong>.
+              The clinic each row belongs to is included as its own column, and the file name and sheet
+              both note this scope and the date it was generated.
+            </p>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* CSV Exports */}
             <div className="card">

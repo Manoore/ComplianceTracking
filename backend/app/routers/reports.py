@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,6 +27,10 @@ def _parse_date(s: Optional[str], end_of_day: bool = False) -> Optional[datetime
     if end_of_day:
         d = d.replace(hour=23, minute=59, second=59)
     return d
+
+
+def _scope_slug(scope_label: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", scope_label.lower()).strip("-") or "all"
 
 
 def _role_label(user: User) -> str:
@@ -548,6 +553,8 @@ def compliance_clinics(clinic_id: Optional[int] = None, region: Optional[str] = 
 
     clinics = q.order_by(Clinic.region, Clinic.name).all()
     rows = []
+    scored = []
+    total_inspections = 0
     for c in clinics:
         result = clinic_compliance_score(db, c, date_from=df, date_to=dt, template_id=template_id)
         rows.append({
@@ -555,7 +562,20 @@ def compliance_clinics(clinic_id: Optional[int] = None, region: Optional[str] = 
             "manager_name": c.manager.full_name if c.manager else None,
             "score": result["score"], "inspection_count": result["inspection_count"],
         })
-    return {"scope_label": scope_label, "clinics": rows}
+        total_inspections += result["inspection_count"]
+        if result["score"] is not None:
+            scored.append(result["score"])
+
+    # A single top-line number for the whole filtered view -- the simple average
+    # of the clinics actually scored, same math as every other level of the
+    # hierarchy (a large clinic doesn't outweigh a small one).
+    overall = {
+        "score": round(sum(scored) / len(scored), 1) if scored else None,
+        "clinic_count": len(rows),
+        "scored_clinic_count": len(scored),
+        "inspection_count": total_inspections,
+    }
+    return {"scope_label": scope_label, "overall": overall, "clinics": rows}
 
 
 @router.get("/compliance/checklists")
@@ -686,46 +706,61 @@ def compliance_trends(clinic_id: Optional[int] = None, days: int = 180,
 
 @router.get("/export/csv")
 def export_csv(resource: str = "inspections", db: Session = Depends(get_db),
-               _=Depends(require_admin_or_auditor)):
+               current_user: User = Depends(require_admin_or_auditor)):
     import csv
     output = io.StringIO()
     writer = csv.writer(output)
+    # Was previously completely unscoped -- an auditor whose access is limited to one
+    # region could export every tenant's data. Same scoping every other report endpoint
+    # here uses, so an export only ever contains what that person can actually see.
+    scoped_ids, scope_label = get_scoped_clinic_ids(db, current_user)
 
     if resource == "inspections":
         writer.writerow(["ID", "Clinic", "Inspector", "Score", "Risk", "Status", "Submitted"])
-        rows = db.query(Inspection).filter(Inspection.compliance_score.isnot(None)).all()
-        for r in rows:
+        q = db.query(Inspection).filter(
+            Inspection.tenant_id == current_user.tenant_id, Inspection.compliance_score.isnot(None))
+        if scoped_ids is not None:
+            q = q.filter(Inspection.clinic_id.in_(scoped_ids))
+        for r in q.all():
             writer.writerow([r.id, r.clinic.name if r.clinic else "", r.inspector.full_name if r.inspector else "",
                               r.compliance_score, r.risk_level, r.status.value if r.status else "", r.submitted_at])
     elif resource == "actions":
         writer.writerow(["ID", "Clinic", "Title", "Status", "Priority", "Due Date", "Assignee"])
-        rows = db.query(CorrectiveAction).all()
-        for r in rows:
+        q = db.query(CorrectiveAction).filter(CorrectiveAction.tenant_id == current_user.tenant_id)
+        if scoped_ids is not None:
+            q = q.filter(CorrectiveAction.clinic_id.in_(scoped_ids))
+        for r in q.all():
             writer.writerow([r.id, r.clinic.name if r.clinic else "", r.title,
                               r.status.value if r.status else "", r.priority, r.due_date,
                               r.assignee.full_name if r.assignee else ""])
     elif resource == "certifications":
         writer.writerow(["ID", "Name", "Email", "Course", "Score", "Status", "Completed", "Expires"])
-        rows = db.query(TeamCertification).all()
-        for r in rows:
+        from ..models.certification import Course
+        q = (db.query(TeamCertification)
+             .join(Course, TeamCertification.course_id == Course.id)
+             .filter(Course.tenant_id == current_user.tenant_id))
+        for r in q.all():
             writer.writerow([r.id, r.participant_name, r.participant_email,
                               r.course.title if r.course else "", r.score,
                               r.status.value if r.status else "", r.completed_at, r.expires_at])
 
     output.seek(0)
+    filename = f"{resource}_{_scope_slug(scope_label)}_{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode()),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={resource}.csv"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
 @router.get("/export/excel")
 def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
-                 _=Depends(require_admin_or_auditor)):
+                 current_user: User = Depends(require_admin_or_auditor)):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
+
+    scoped_ids, scope_label = get_scoped_clinic_ids(db, current_user)
 
     wb = Workbook()
     ws = wb.active
@@ -733,21 +768,35 @@ def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
     HEADER_FONT = Font(bold=True, color="FFFFFF")
     HEADER_FILL = PatternFill("solid", fgColor="1E40AF")
     HEADER_ALIGN = Alignment(horizontal="center")
+    META_FONT = Font(italic=True, color="6B7280", size=10)
 
-    def write_headers(headers):
+    def write_meta_and_headers(title: str, headers: list):
+        # A sheet with just column headers gives no clue what it actually covers once
+        # downloaded -- lead with who generated it, when, and exactly what scope of
+        # data it's limited to (the same scope_label shown in the app), before the
+        # real header row.
+        ws.title = title
+        ws.append([f"Generated by {current_user.full_name} on {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"])
+        ws.append([f"Scope: {scope_label}"])
+        ws.append([])
+        for row in (1, 2):
+            ws.cell(row=row, column=1).font = META_FONT
+        header_row = ws.max_row + 1
         ws.append(headers)
         for col, _ in enumerate(headers, start=1):
-            cell = ws.cell(row=1, column=col)
+            cell = ws.cell(row=header_row, column=col)
             cell.font = HEADER_FONT
             cell.fill = HEADER_FILL
             cell.alignment = HEADER_ALIGN
             ws.column_dimensions[get_column_letter(col)].width = 20
 
     if resource == "inspections":
-        ws.title = "Inspections"
-        write_headers(["ID", "Clinic", "Clinic Type", "Inspector", "Score", "Risk Level",
-                        "Status", "Check-in", "Submitted"])
-        for r in db.query(Inspection).order_by(Inspection.created_at.desc()).all():
+        write_meta_and_headers("Inspections", ["ID", "Clinic", "Clinic Type", "Inspector", "Score", "Risk Level",
+                                               "Status", "Check-in", "Submitted"])
+        q = db.query(Inspection).filter(Inspection.tenant_id == current_user.tenant_id)
+        if scoped_ids is not None:
+            q = q.filter(Inspection.clinic_id.in_(scoped_ids))
+        for r in q.order_by(Inspection.created_at.desc()).all():
             ws.append([r.id,
                         r.clinic.name if r.clinic else "",
                         r.clinic.clinic_type.value if r.clinic and r.clinic.clinic_type else "",
@@ -759,10 +808,12 @@ def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
                         str(r.submitted_at) if r.submitted_at else ""])
 
     elif resource == "actions":
-        ws.title = "Corrective Actions"
-        write_headers(["ID", "Clinic", "Title", "Status", "Priority", "Assigned To",
-                        "Due Date", "Resolved At", "Source"])
-        for r in db.query(CorrectiveAction).order_by(CorrectiveAction.created_at.desc()).all():
+        write_meta_and_headers("Corrective Actions", ["ID", "Clinic", "Title", "Status", "Priority", "Assigned To",
+                                                       "Due Date", "Resolved At", "Source"])
+        q = db.query(CorrectiveAction).filter(CorrectiveAction.tenant_id == current_user.tenant_id)
+        if scoped_ids is not None:
+            q = q.filter(CorrectiveAction.clinic_id.in_(scoped_ids))
+        for r in q.order_by(CorrectiveAction.created_at.desc()).all():
             ws.append([r.id,
                         r.clinic.name if r.clinic else "",
                         r.title,
@@ -774,10 +825,13 @@ def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
                         "Manual" if r.is_manual else f"Inspection #{r.inspection_id}"])
 
     elif resource == "certifications":
-        ws.title = "Certifications"
-        write_headers(["ID", "Name", "Email", "Course", "Score", "Status",
-                        "Attempts", "Completed", "Expires"])
-        for r in db.query(TeamCertification).order_by(TeamCertification.created_at.desc()).all():
+        write_meta_and_headers("Certifications", ["ID", "Name", "Email", "Course", "Score", "Status",
+                                                   "Attempts", "Completed", "Expires"])
+        from ..models.certification import Course
+        q = (db.query(TeamCertification)
+             .join(Course, TeamCertification.course_id == Course.id)
+             .filter(Course.tenant_id == current_user.tenant_id))
+        for r in q.order_by(TeamCertification.created_at.desc()).all():
             ws.append([r.id, r.participant_name, r.participant_email,
                         r.course.title if r.course else "", r.score,
                         r.status.value if r.status else "", r.attempts,
@@ -785,10 +839,12 @@ def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
                         str(r.expires_at) if r.expires_at else ""])
 
     elif resource == "clinic_scorecard":
-        ws.title = "Clinic Scorecard"
-        write_headers(["Clinic", "Type", "City", "State", "Avg Score",
-                        "Last Score", "Risk Level", "Open Actions", "Last Inspection"])
-        for c in db.query(Clinic).filter(Clinic.is_active == True).order_by(Clinic.name).all():
+        write_meta_and_headers("Clinic Scorecard", ["Clinic", "Type", "City", "State", "Avg Score",
+                                                     "Last Score", "Risk Level", "Open Actions", "Last Inspection"])
+        cq = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+        if scoped_ids is not None:
+            cq = cq.filter(Clinic.id.in_(scoped_ids))
+        for c in cq.order_by(Clinic.name).all():
             avg = db.query(func.avg(Inspection.compliance_score)).filter(
                 Inspection.clinic_id == c.id, Inspection.compliance_score.isnot(None)).scalar()
             latest = (db.query(Inspection)
@@ -809,10 +865,11 @@ def export_excel(resource: str = "inspections", db: Session = Depends(get_db),
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    filename = f"{resource}_{_scope_slug(scope_label)}_{datetime.utcnow().strftime('%Y-%m-%d')}.xlsx"
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={resource}.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

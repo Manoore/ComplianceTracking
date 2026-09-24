@@ -213,6 +213,11 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Content-Disposition isn't exposed to browser JS by default even cross-origin
+    # headers are otherwise allowed -- needed so the frontend can read the real
+    # export filename (which now encodes scope + date) instead of falling back
+    # to a generic name.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(auth.router, prefix="/api")
