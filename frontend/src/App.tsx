@@ -106,8 +106,8 @@ function AppRoutes() {
         <Route path="users" element={<PrivateRoute roles={['admin']}><UsersPage /></PrivateRoute>} />
         <Route path="roles" element={<PrivateRoute roles={['admin']}><RolesPage /></PrivateRoute>} />
         <Route path="policies" element={<PoliciesPage />} />
-        <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive"><ExecutiveDashboardPage /></PrivateRoute>} />
-        <Route path="reports/calendar/:templateId" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive"><InspectionCalendarPage /></PrivateRoute>} />
+        <Route path="executive" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive" customRoles={HIERARCHY_ROLES}><ExecutiveDashboardPage /></PrivateRoute>} />
+        <Route path="reports/calendar/:templateId" element={<PrivateRoute roles={['admin', 'manager', 'auditor']} module="executive" customRoles={HIERARCHY_ROLES}><InspectionCalendarPage /></PrivateRoute>} />
         <Route path="departments" element={<PrivateRoute roles={['admin', 'manager']}><DepartmentsPage /></PrivateRoute>} />
         <Route path="credentials" element={<CredentialsPage />} />
         <Route path="document-hub" element={<DocumentHubPage />} />

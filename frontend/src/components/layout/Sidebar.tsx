@@ -60,7 +60,16 @@ export function Sidebar() {
   // outright, same as PrivateRoute's customRoles check on the /reports route itself --
   // each sees only their own scoped clinics/checklists/people, so no admin grant needed.
   const canViewReports = canView('reports') || HIERARCHY_ROLES.includes(customRole)
-  const visible = allNavItems.filter(item => item.module === 'reports' ? canViewReports : canView(item.module))
+  // The "Executive View" module permission is for an admin to hand the dashboard to someone
+  // outside the reporting hierarchy (e.g. an auditor); a hierarchy role gets a scoped version
+  // of the same dashboard automatically, same as Reports above -- it's inherent to the role,
+  // not something that needs granting, and it isn't exclusive to the "Executive" custom role.
+  const canViewExecutive = canView('executive') || HIERARCHY_ROLES.includes(customRole)
+  const visible = allNavItems.filter(item => {
+    if (item.module === 'reports') return canViewReports
+    if (item.module === 'executive') return canViewExecutive
+    return canView(item.module)
+  })
 
   const displayRole = user?.custom_role
     ? user.custom_role.replace(/_/g, ' ')
