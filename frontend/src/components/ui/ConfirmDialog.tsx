@@ -53,7 +53,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <h2 className="text-base font-semibold text-gray-900">
                   {pending.opts.title ?? 'Are you sure?'}
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">{pending.opts.message}</p>
+                <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">{pending.opts.message}</p>
               </div>
             </div>
             <div className="flex gap-3 justify-end mt-6">

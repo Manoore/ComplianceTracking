@@ -105,6 +105,7 @@ def item_out(i: ChecklistItem) -> dict:
         "conditional_logic": i.conditional_logic,
         "standard_tags": i.standard_tags or [],
         "order_index": i.order_index,
+        "reviewer_only": bool(i.reviewer_only),
     }
 
 
@@ -572,3 +573,55 @@ async def import_pdf(
         "item_count": len(items),
         "pages_processed": len(full_text.split('\n\n')),
     }
+
+
+_REVIEW_ITEM_TEMPLATE_NAMES = ("MA/PCT Daily Check List", "MA/PCT Monthly Check List")
+_REVIEW_ITEM_NEW_QUESTION = "Regional Manager / Clinic Lead Review"
+_REVIEW_ITEM_NEW_DESCRIPTION = (
+    "Completed by the assigned Clinic Lead or Regional Manager after the "
+    "MA/PCT submits this checklist — not something the MA fills in."
+)
+
+
+@router.post("/fix-review-item")
+def fix_review_item(apply: bool = False, db: Session = Depends(get_db),
+                    current_user: User = Depends(require_admin)):
+    """One-time data fix, runnable from the app itself (no shell/DB access needed):
+    turns the "Regional Manager Initials / Date" line on the MA/PCT Daily and
+    Monthly checklist templates into an actual reviewer-only step, so there's
+    something for a Clinic Lead/Regional Manager to see in Pending Reviews at all.
+    Without this, those templates have no review step and the queue is correctly
+    empty — which looks identical to a bug from the outside. Idempotent: items
+    already fixed are skipped, safe to call again. Scoped to the caller's own
+    tenant. Pass apply=true to actually write; omit it (or apply=false) to preview
+    what would change first."""
+    items = (db.query(ChecklistItem)
+             .join(ChecklistTemplate, ChecklistItem.template_id == ChecklistTemplate.id)
+             .filter(ChecklistTemplate.tenant_id == current_user.tenant_id,
+                     ChecklistTemplate.name.in_(_REVIEW_ITEM_TEMPLATE_NAMES),
+                     ChecklistItem.question.in_(["Regional Manager Initials / Date", _REVIEW_ITEM_NEW_QUESTION]))
+             .all())
+    already_done = [i for i in items if i.item_type == ItemType.signature and i.reviewer_only]
+    to_fix = [i for i in items if i not in already_done]
+    report = [{"template_name": i.template.name, "item_id": i.id, "question": i.question} for i in to_fix]
+
+    if apply:
+        for item in to_fix:
+            item.question = _REVIEW_ITEM_NEW_QUESTION
+            item.item_type = ItemType.signature
+            item.description = _REVIEW_ITEM_NEW_DESCRIPTION
+            item.reviewer_only = True
+        db.commit()
+        log_action(db, "checklist.fix_review_item", user_id=current_user.id,
+                   details={"fixed_count": len(to_fix)})
+        db.commit()
+
+    result = {
+        "applied": apply,
+        "already_correct": len(already_done),
+        "items": report,
+        "templates_found": sorted({i["template_name"] for i in report}) or
+                           sorted({i.template.name for i in already_done}),
+    }
+    result["fixed" if apply else "would_fix"] = len(to_fix)
+    return result

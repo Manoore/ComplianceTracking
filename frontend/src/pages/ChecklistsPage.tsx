@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { apiError } from '../services/api'
 import type { ChecklistTemplate, AccreditationStandard, Department } from '../types'
-import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X, User, Calendar } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, AlertTriangle, Copy, Library, Rocket, Pencil, Tag, FileUp, X, User, Calendar, Wrench } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import { useAuth } from '../hooks/useAuth'
 import toast from 'react-hot-toast'
 
 type ItemCategory = 'safety' | 'hygiene' | 'equipment' | 'documentation' | 'staff' | 'facility' | 'regulatory' | 'other'
@@ -603,6 +604,7 @@ function ImportPdfModal({ onClose }: { onClose: () => void }) {
 }
 
 export function ChecklistsPage() {
+  const { user } = useAuth()
   const qc = useQueryClient()
   const confirmDialog = useConfirm()
   const [showNew, setShowNew] = useState(false)
@@ -611,6 +613,7 @@ export function ChecklistsPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
   const [editTemplate, setEditTemplate] = useState<ChecklistTemplate | null>(null)
   const [filterDept, setFilterDept] = useState('')
+  const [fixingReviewStep, setFixingReviewStep] = useState(false)
   const { data: templates, isLoading } = useQuery<ChecklistTemplate[]>({
     queryKey: ['checklists'],
     queryFn: () => api.get('/checklists').then(r => r.data),
@@ -643,6 +646,38 @@ export function ChecklistsPage() {
     }
   }
 
+  // One-time fix for the "MA/PCT Daily/Monthly Check List" templates: turns their
+  // trailing "Regional Manager Initials / Date" line into an actual reviewer-only
+  // step. Without it there's nothing for a Clinic Lead/Regional Manager to see in
+  // Pending Reviews -- an empty queue that looks identical to a bug from the
+  // outside. Previews what would change (no writes) before asking to confirm.
+  const handleFixReviewStep = async () => {
+    setFixingReviewStep(true)
+    try {
+      const preview = await api.post('/checklists/fix-review-item').then(r => r.data)
+      if (preview.would_fix === 0) {
+        toast.success(
+          preview.already_correct > 0
+            ? `Already up to date — ${preview.already_correct} item(s) already have the review step enabled.`
+            : "No \"MA/PCT Daily/Monthly Check List\" templates found to fix yet."
+        )
+        return
+      }
+      const names = preview.items.map((i: any) => `${i.template_name}: "${i.question}"`).join('\n')
+      const ok = await confirmDialog(
+        `This will turn ${preview.would_fix} item(s) into a Clinic Lead/Regional Manager review step:\n\n${names}\n\nApply this now?`
+      )
+      if (!ok) return
+      const applied = await api.post('/checklists/fix-review-item?apply=true').then(r => r.data)
+      toast.success(`Fixed ${applied.fixed} item(s) — Pending Reviews should now pick these up.`)
+      qc.invalidateQueries({ queryKey: ['checklists'] })
+    } catch (e: any) {
+      toast.error(apiError(e, 'Could not check/apply the review-step fix'))
+    } finally {
+      setFixingReviewStep(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -653,6 +688,12 @@ export function ChecklistsPage() {
               <option value="">All Departments</option>
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
+          )}
+          {user?.role === 'admin' && (
+            <button className="btn-secondary" onClick={handleFixReviewStep} disabled={fixingReviewStep}
+              title="One-time fix: turns the trailing Regional Manager Initials line on the MA/PCT Daily/Monthly templates into an actual Clinic Lead/Regional Manager review step">
+              <Wrench size={15} /> {fixingReviewStep ? 'Checking…' : 'Fix Review Step'}
+            </button>
           )}
           <button className="btn-secondary" onClick={() => setShowPresets(true)}>
             <Library size={15} /> Preset Library
