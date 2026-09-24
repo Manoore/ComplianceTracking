@@ -6,7 +6,7 @@ import type { Inspection, Clinic, ChecklistTemplate, Department } from '../types
 import { useAuth } from '../hooks/useAuth'
 import { statusBadge } from '../components/ui/Badge'
 import { ScoreRing } from '../components/ui/ScoreRing'
-import { Plus, ChevronRight, MapPin, Trash2, X } from 'lucide-react'
+import { Plus, ChevronRight, MapPin, Trash2 } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import { hasOversight } from '../utils/hierarchy'
 import toast from 'react-hot-toast'
@@ -157,8 +157,6 @@ export function InspectionsPage() {
   const { data: clinics } = useQuery<Clinic[]>({ queryKey: ['clinics'], queryFn: () => api.get('/clinics').then(r => r.data), enabled: !isInspector })
   const { data: departments } = useQuery<Department[]>({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data), enabled: !isInspector })
 
-  const filterClinic = filterClinicId ? (clinics ?? []).find(c => c.id.toString() === filterClinicId) : null
-
   const clinicsByDept = filterDept
     ? new Set((clinics ?? []).filter((c: any) => c.department_id?.toString() === filterDept).map(c => c.id))
     : null
@@ -295,13 +293,16 @@ export function InspectionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
         <div className="flex gap-2 items-center">
-          {filterClinic && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-700 bg-brand-50 px-2.5 py-1.5 rounded-lg">
-              {filterClinic.name}
-              <button onClick={() => setSearchParams(p => { p.delete('clinic_id'); return p })} className="hover:text-brand-900">
-                <X size={13} />
-              </button>
-            </span>
+          {(clinics ?? []).length > 0 && (
+            <select className="input w-auto text-sm py-1.5" value={filterClinicId}
+              onChange={e => setSearchParams(p => {
+                if (e.target.value) p.set('clinic_id', e.target.value)
+                else p.delete('clinic_id')
+                return p
+              })}>
+              <option value="">All Clinics</option>
+              {(clinics ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           )}
           {(departments ?? []).length > 0 && (
             <select className="input w-auto text-sm py-1.5" value={filterDept} onChange={e => setFilterDept(e.target.value)}>

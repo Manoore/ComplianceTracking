@@ -6,17 +6,17 @@ import { ScoreRing } from '../components/ui/ScoreRing'
 import { statusBadge } from '../components/ui/Badge'
 import { useAuth } from '../hooks/useAuth'
 import { hasOversight } from '../utils/hierarchy'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts'
-import { ClipboardList, AlertTriangle, CheckSquare, Building2, LayoutDashboard, User, Award, X } from 'lucide-react'
+import { ClipboardList, AlertTriangle, CheckSquare, Building2, LayoutDashboard, User, Award, X, ClipboardCheck } from 'lucide-react'
 
-function StatCard({ title, value, sub, icon: Icon, color }: {
-  title: string; value: number | string; sub?: string; icon: any; color: string
+function StatCard({ title, value, sub, icon: Icon, color, to }: {
+  title: string; value: number | string; sub?: string; icon: any; color: string; to?: string
 }) {
-  return (
-    <div className="card flex items-start gap-4">
+  const body = (
+    <>
       <div className={`p-3 rounded-xl ${color}`}>
         <Icon size={22} className="text-white" />
       </div>
@@ -25,8 +25,14 @@ function StatCard({ title, value, sub, icon: Icon, color }: {
         <p className="text-2xl font-bold text-gray-900">{value}</p>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
-    </div>
+    </>
   )
+  if (to) return (
+    <Link to={to} className="card flex items-start gap-4 hover:shadow-md hover:border-brand-200 transition-shadow">
+      {body}
+    </Link>
+  )
+  return <div className="card flex items-start gap-4">{body}</div>
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -132,6 +138,7 @@ function CredentialExpiryBanner() {
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'overview' | 'my-tasks'>('overview')
 
   const { data, isLoading } = useQuery<DashboardData>({
@@ -149,6 +156,16 @@ export function DashboardPage() {
   ].filter(d => d.value > 0)
 
   const isStaff = !hasOversight(user)
+
+  // Real count of items waiting on this specific person's countersignature, not just
+  // the tenant-wide "pending review" total in the KPI row above -- so a Clinic Lead/
+  // Regional Manager can tell at a glance whether their own queue actually has
+  // anything in it, instead of having to click into Pending Reviews to find out.
+  const { data: pendingReviews } = useQuery({
+    queryKey: ['pending-reviews'],
+    queryFn: () => api.get('/inspections/pending-review').then(r => r.data),
+    enabled: !isStaff && tab === 'overview',
+  })
 
   if (isLoading && tab === 'overview') return (
     <div className="flex items-center justify-center h-64">
@@ -181,7 +198,7 @@ export function DashboardPage() {
         <>
           {(user?.role === 'admin' || user?.role === 'manager') && <CredentialExpiryBanner />}
           {!isStaff && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
               <StatCard title="Total Inspections" value={s?.total_inspections ?? 0}
                 sub={`${s?.pending_review ?? 0} pending review`}
                 icon={ClipboardList} color="bg-brand-600" />
@@ -194,6 +211,9 @@ export function DashboardPage() {
               <StatCard title="Certifications" value={s?.completed_certifications ?? 0}
                 sub={`of ${s?.total_certifications ?? 0} total`}
                 icon={CheckSquare} color="bg-purple-600" />
+              <StatCard title="Pending Your Review" value={pendingReviews?.length ?? 0}
+                sub={(pendingReviews?.length ?? 0) > 0 ? 'waiting on your countersignature' : 'nothing waiting on you'}
+                icon={ClipboardCheck} color="bg-teal-600" to="/pending-reviews" />
             </div>
           )}
 
@@ -255,7 +275,8 @@ export function DashboardPage() {
                     <XAxis dataKey="clinic_name" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                     <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} />
-                    <Bar dataKey="score" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="score" radius={[4, 4, 0, 0]} cursor="pointer"
+                      onClick={(entry: any) => entry?.clinic_id && navigate(`/clinics/${entry.clinic_id}/profile`)}>
                       {(data?.clinic_scores ?? []).map((entry, i) => (
                         <Cell key={i} fill={RISK_COLORS[entry.risk_level] || '#6b7280'} />
                       ))}
@@ -282,7 +303,8 @@ export function DashboardPage() {
                 </thead>
                 <tbody>
                   {(data?.recent_inspections ?? []).map((insp) => (
-                    <tr key={insp.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={insp.id} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate(`/inspections/${insp.id}`)}>
                       <td className="py-2.5 px-3 font-medium">{insp.clinic_name ?? '—'}</td>
                       <td className="py-2.5 px-3">
                         {insp.score != null ? (
