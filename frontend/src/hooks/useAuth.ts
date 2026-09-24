@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, createContext } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
 import type { User } from '../types'
 
@@ -25,6 +26,7 @@ export const AuthContext = createContext<AuthContextType>({
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   // Presence of a stashed "real" token is what marks an admin session as currently
@@ -44,12 +46,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
+    // Every already-mounted query (sidebar permissions, dashboard, etc.) is
+    // scoped to whoever was logged in before -- without this they'd keep
+    // serving that stale cached data until something else happened to trigger
+    // a refetch, instead of reflecting the new session immediately.
+    queryClient.clear()
     setUser(data.user)
   }
 
   const logout = () => {
     api.post('/auth/logout').catch(() => {})
     localStorage.clear()
+    queryClient.clear()
     setUser(null)
     setImpersonating(false)
   }
@@ -72,6 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (realRefresh) localStorage.setItem('real_refresh_token', realRefresh)
     localStorage.setItem('access_token', data.access_token)
     localStorage.setItem('refresh_token', data.refresh_token)
+    // Same reason as login()/logout() -- swapping identity without this left the
+    // sidebar, dashboard, and everything else showing the admin's own cached data
+    // until a manual refresh forced a real refetch.
+    queryClient.clear()
     setUser(data.user)
     setImpersonating(true)
   }
@@ -84,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (realRefresh) localStorage.setItem('refresh_token', realRefresh)
     localStorage.removeItem('real_access_token')
     localStorage.removeItem('real_refresh_token')
+    queryClient.clear()
     setImpersonating(false)
     const r = await api.get('/auth/me')
     setUser(r.data)
