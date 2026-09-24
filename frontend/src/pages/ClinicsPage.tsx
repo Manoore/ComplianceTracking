@@ -306,6 +306,7 @@ export function ClinicsPage() {
   // Executive Dashboard) can link straight to that department's clinics already filtered.
   const [filterDept, setFilterDept] = useState(searchParams.get('department_id') ?? '')
   const [filterRegion, setFilterRegion] = useState('')
+  const [filterService, setFilterService] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { data: clinics, isLoading } = useQuery<Clinic[]>({
     queryKey: ['clinics'],
@@ -346,8 +347,9 @@ export function ClinicsPage() {
 
   const visible = useMemo(() => all.filter(c =>
     (!filterDept || c.department_id?.toString() === filterDept) &&
-    (!filterRegion || (c.region || UNASSIGNED) === filterRegion)
-  ), [all, filterDept, filterRegion])
+    (!filterRegion || (c.region || UNASSIGNED) === filterRegion) &&
+    (!filterService || (c.services ?? []).includes(filterService))
+  ), [all, filterDept, filterRegion, filterService])
 
   const grouped = useMemo(() => {
     const m = new Map<string, Clinic[]>()
@@ -392,6 +394,14 @@ export function ClinicsPage() {
               {(departments ?? []).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
+          <select className="input w-auto text-sm py-1.5" value={filterService} onChange={e => setFilterService(e.target.value)}>
+            <option value="">All Services</option>
+            {SERVICE_OPTIONS.map(s => (
+              <option key={s} value={s}>
+                {s} ({all.filter(c => (c.services ?? []).includes(s)).length})
+              </option>
+            ))}
+          </select>
           {isAdmin && <CsvImportButton />}
           {isAdmin && (
             <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true) }}>
@@ -407,7 +417,7 @@ export function ClinicsPage() {
         </div>
       ) : grouped.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          {filterDept || filterRegion ? 'No clinics match these filters' : 'No clinics registered yet'}
+          {filterDept || filterRegion || filterService ? 'No clinics match these filters' : 'No clinics registered yet'}
         </div>
       ) : (
         <div className="space-y-6">
