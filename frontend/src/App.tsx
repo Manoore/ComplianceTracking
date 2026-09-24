@@ -91,7 +91,7 @@ function AppRoutes() {
         <Route index element={<DashboardPage />} />
         <Route path="clinics" element={<ClinicsPage />} />
         <Route path="clinics/:id/profile" element={<ClinicProfilePage />} />
-        <Route path="checklists" element={<PrivateRoute roles={['admin']}><ChecklistsPage /></PrivateRoute>} />
+        <Route path="checklists" element={<PrivateRoute roles={['admin']} module="checklists"><ChecklistsPage /></PrivateRoute>} />
         <Route path="inspections" element={<InspectionsPage />} />
         <Route path="inspections/:id" element={<InspectionDetailPage />} />
         <Route path="pending-reviews" element={<PendingReviewsPage />} />

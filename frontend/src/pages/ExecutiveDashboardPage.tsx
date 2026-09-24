@@ -424,6 +424,15 @@ export function ExecutiveDashboardPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {data?.scope_label === 'No region assigned' && (
+        <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+          <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+          <span className="text-amber-800">
+            Your account doesn't have a region assigned yet, so you can't see any clinics or inspections.
+            Ask your admin to set your Managed Region on the Users page.
+          </span>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

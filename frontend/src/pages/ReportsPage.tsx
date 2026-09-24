@@ -8,7 +8,7 @@ import type {
 } from '../types'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { clickableDot } from '../utils/chartDot'
-import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight, Gauge } from 'lucide-react'
+import { Download, FileSpreadsheet, FileText, Building2, ClipboardList, Users, Filter, X, ChevronRight, Gauge, AlertTriangle } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 
@@ -53,6 +53,12 @@ function FilterBar({ options, filters, onChange }: {
         <Filter size={15} /> Filters
         {options?.scope_label && <span className="ml-auto text-xs font-normal text-gray-400">{options.scope_label}</span>}
       </div>
+      {options?.scope_label === 'No region assigned' && (
+        <div className="flex items-center gap-2 mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <AlertTriangle size={14} className="flex-shrink-0" />
+          Your account doesn't have a region assigned yet, so nothing shows up here. Ask your admin to set your Managed Region on the Users page.
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div>
           <label className="text-xs text-gray-500">Clinic</label>

@@ -210,9 +210,15 @@ def hierarchy_dashboard(region: Optional[str] = None, view_as_user_id: Optional[
 
     if scope_user.role == UserRole.admin or custom_role in ("director_of_operations", "executive"):
         scope_label = "All Regions"
-    elif custom_role == "regional_manager" and scope_user.managed_region:
-        clinics_q = clinics_q.filter(Clinic.region == scope_user.managed_region)
-        scope_label = f"Region: {scope_user.managed_region}"
+    elif custom_role == "regional_manager":
+        if scope_user.managed_region:
+            clinics_q = clinics_q.filter(Clinic.region == scope_user.managed_region)
+            scope_label = f"Region: {scope_user.managed_region}"
+        else:
+            # No region assigned yet -- scope to nothing rather than silently
+            # falling through to "every clinic in the tenant" below.
+            clinics_q = clinics_q.filter(Clinic.id.in_([]))
+            scope_label = "No region assigned"
     elif custom_role == "clinic_lead" or scope_user.role == UserRole.manager:
         clinics_q = clinics_q.filter(Clinic.manager_id == scope_user.id)
         scope_label = "Your Clinics"
