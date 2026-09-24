@@ -31,7 +31,10 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
     return {
       email: form.email,
       full_name: form.full_name,
-      password: form.password || undefined,
+      // A new user is always invited by email -- no password field for them at all,
+      // so there's nothing here to send. Editing an existing user still supports
+      // setting one directly (a separate action from the invite flow).
+      password: user ? (form.password || undefined) : undefined,
       role: isSystem ? form.selectedRole : 'team_member',
       custom_role: isSystem ? '' : form.selectedRole,
       managed_region: form.selectedRole === 'regional_manager' ? form.managedRegion : '',
@@ -42,8 +45,7 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
     mutationFn: (data: any) => user ? api.put(`/users/${user.id}`, data) : api.post('/users', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
-      if (user) toast.success('User updated')
-      else toast.success(form.password ? 'User created' : 'User created — invite email sent')
+      toast.success(user ? 'User updated' : 'Verification link sent')
       onClose()
     },
     onError: (e: any) => toast.error(apiError(e)),
@@ -91,20 +93,22 @@ function UserForm({ user, roles, onClose }: { user?: User; roles: RoleConfig[]; 
               </p>
             </div>
           )}
-          <div>
-            <label className="label">{user ? 'New Password (leave blank to keep)' : 'Password (optional)'}</label>
-            <input type="password" className="input" value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              placeholder={user ? 'Leave blank to keep current' : 'Leave blank to email them an invite'} />
-            {!user && (
-              <p className="text-xs text-gray-400 mt-1">
-                Leave blank to email them a secure link to verify their account and set their own password instead.
-              </p>
-            )}
-          </div>
+          {user ? (
+            <div>
+              <label className="label">New Password (leave blank to keep)</label>
+              <input type="password" className="input" value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Leave blank to keep current" />
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+              They'll get an email with a link to verify their account and set their own password —
+              no password to set here.
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="submit" className="btn-primary" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving…' : 'Save'}
+              {mutation.isPending ? (user ? 'Saving…' : 'Sending…') : (user ? 'Save' : 'Send Link')}
             </button>
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           </div>
