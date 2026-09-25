@@ -393,13 +393,29 @@ const MATRIX_COLUMNS: Array<{ key: MatrixColumnKey; label: string }> = [
   { key: 'rm_checklist', label: 'RM Checklist' },
 ]
 
-function MatrixCell({ score }: { score: number | null }) {
+function MatrixCell({ score, onClick, title }: { score: number | null; onClick?: () => void; title?: string }) {
   const thresholds = useComplianceThresholds()
+  const clickable = !!onClick && score != null
   return (
-    <td className={`py-2 px-3 text-center text-sm font-medium ${scoreBandClass(score, thresholds)}`}>
+    <td
+      onClick={clickable ? onClick : undefined}
+      title={clickable ? title : undefined}
+      className={`py-2 px-3 text-center text-sm font-medium ${scoreBandClass(score, thresholds)} ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-brand-300 transition-shadow' : ''}`}
+    >
       {score != null ? `${score}%` : '—'}
     </td>
   )
+}
+
+// Builds a link into the day-by-day calendar for one checklist, optionally scoped to
+// a specific clinic (highlighted/scrolled to on arrival) and a specific month.
+function calendarUrl(templateId: number, opts?: { clinicId?: number; year?: number; month?: number }): string {
+  const params = new URLSearchParams()
+  if (opts?.clinicId) params.set('clinic_id', String(opts.clinicId))
+  if (opts?.year) params.set('year', String(opts.year))
+  if (opts?.month) params.set('month', String(opts.month))
+  const qs = params.toString()
+  return `/reports/calendar/${templateId}${qs ? `?${qs}` : ''}`
 }
 
 function ComplianceMatrix() {
@@ -428,6 +444,12 @@ function ComplianceMatrix() {
 
   const missingColumns = MATRIX_COLUMNS.filter(col => !data.templates[col.key])
   const colSpan = 1 + MATRIX_COLUMNS.length * 3
+  // The trailing-3-month window's first month (mirrors the backend's
+  // _trailing_3_months_start) -- clicking a "3-Mo Avg" cell lands here so paging
+  // forward twice with the calendar's own arrows covers the whole window.
+  const now = new Date()
+  const threeMoStartYear = new Date(now.getFullYear(), now.getMonth() - 2, 1).getFullYear()
+  const threeMoStartMonth = new Date(now.getFullYear(), now.getMonth() - 2, 1).getMonth() + 1
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 overflow-x-auto">
@@ -499,13 +521,24 @@ function ComplianceMatrix() {
                         {c.clinic_name}
                       </button>
                     </td>
-                    {MATRIX_COLUMNS.map(col => (
-                      <Fragment key={col.key}>
-                        <MatrixCell score={c[col.key].current_month} />
-                        <MatrixCell score={c[col.key].three_month} />
-                        <MatrixCell score={data.enterprise[col.key]} />
-                      </Fragment>
-                    ))}
+                    {MATRIX_COLUMNS.map(col => {
+                      const tmpl = data.templates[col.key]
+                      return (
+                        <Fragment key={col.key}>
+                          <MatrixCell score={c[col.key].current_month}
+                            title="View this month's day-by-day report"
+                            onClick={tmpl ? () => navigate(calendarUrl(tmpl.id, { clinicId: c.clinic_id })) : undefined} />
+                          <MatrixCell score={c[col.key].three_month}
+                            title="View the 3-month trailing window (use the arrows to page through it)"
+                            onClick={tmpl ? () => navigate(calendarUrl(tmpl.id, {
+                              clinicId: c.clinic_id, year: threeMoStartYear, month: threeMoStartMonth,
+                            })) : undefined} />
+                          <MatrixCell score={data.enterprise[col.key]}
+                            title="View this checklist's day-by-day report"
+                            onClick={tmpl ? () => navigate(calendarUrl(tmpl.id)) : undefined} />
+                        </Fragment>
+                      )
+                    })}
                   </tr>
                 ))}
               </Fragment>

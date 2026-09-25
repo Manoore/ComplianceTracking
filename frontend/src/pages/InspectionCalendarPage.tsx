@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 import { ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
@@ -30,10 +30,21 @@ const MONTH_NAMES = [
 export function InspectionCalendarPage() {
   const { templateId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const thresholds = useComplianceThresholds()
   const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  // Arriving from a matrix cell scopes the view to the clinic that cell belonged to
+  // (and, for a "3-Mo Avg" cell, to the start of that trailing window) -- otherwise
+  // this defaults to every clinic, current month, same as clicking the column header.
+  const highlightClinicId = searchParams.get('clinic_id') ? Number(searchParams.get('clinic_id')) : null
+  const [year, setYear] = useState(() => {
+    const y = searchParams.get('year')
+    return y ? Number(y) : now.getFullYear()
+  })
+  const [month, setMonth] = useState(() => {
+    const m = searchParams.get('month')
+    return m ? Number(m) : now.getMonth() + 1
+  })
 
   const { data, isLoading } = useQuery<CalendarData>({
     queryKey: ['inspection-calendar', templateId, year, month],
@@ -41,6 +52,13 @@ export function InspectionCalendarPage() {
       params: { template_id: templateId, year, month },
     }).then(r => r.data),
   })
+
+  const highlightedRowRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    if (highlightClinicId != null && data) {
+      highlightedRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [highlightClinicId, data])
 
   const goToMonth = (delta: number) => {
     let m = month + delta
@@ -106,8 +124,9 @@ export function InspectionCalendarPage() {
               </thead>
               <tbody>
                 {data!.clinics.map(c => (
-                  <tr key={c.clinic_id} className="border-t border-gray-100">
-                    <td className="py-1.5 px-3 text-gray-800 whitespace-nowrap sticky left-0 bg-white">{c.clinic_name}</td>
+                  <tr key={c.clinic_id} ref={c.clinic_id === highlightClinicId ? highlightedRowRef : undefined}
+                    className={`border-t border-gray-100 ${c.clinic_id === highlightClinicId ? 'bg-brand-50' : ''}`}>
+                    <td className={`py-1.5 px-3 whitespace-nowrap sticky left-0 ${c.clinic_id === highlightClinicId ? 'bg-brand-50 font-semibold text-brand-800' : 'bg-white text-gray-800'}`}>{c.clinic_name}</td>
                     {dayNumbers.map(d => {
                       const cell = c.days[String(d)]
                       return (
