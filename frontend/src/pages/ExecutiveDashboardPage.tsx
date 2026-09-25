@@ -567,6 +567,7 @@ interface CeoException {
   clinic_count: number
   owner_name: string | null
   owner_id: number | null
+  status: 'healthy' | 'exception'
 }
 interface CeoSummaryData {
   scope_label: string
@@ -575,6 +576,7 @@ interface CeoSummaryData {
   overall: { score: number | null; previous_score: number | null; trend: number | null }
   exceptions: CeoException[]
   healthy_region_count: number
+  regions: CeoException[]
 }
 
 const EXCEPTION_REASON_LABELS: Record<string, string> = {
@@ -640,6 +642,54 @@ function CeoSummary() {
           </p>
         )}
       </div>
+
+      {data.regions.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-3 border-t border-gray-100">
+          <div className="lg:col-span-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Score by Region</p>
+            <ResponsiveContainer width="100%" height={Math.max(120, data.regions.length * 34)}>
+              <BarChart data={data.regions} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
+                <YAxis type="category" dataKey="region" width={90} tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v: number) => [v != null ? `${v}%` : '—', 'Score']} />
+                <Bar dataKey="score" radius={[0, 4, 4, 0]} cursor="pointer"
+                  onClick={(d: any) => d?.region && scrollToRegion(d.region)}>
+                  {data.regions.map(r => <Cell key={r.region} fill={scoreHex(r.score, thresholds)} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 text-center">Region Health</p>
+            {(() => {
+              const healthData = [
+                { name: 'Healthy', value: data.healthy_region_count, color: '#22c55e' },
+                { name: 'Needs Attention', value: data.exceptions.length, color: '#ef4444' },
+              ].filter(d => d.value > 0)
+              return (
+                <>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie data={healthData} dataKey="value" nameKey="name" innerRadius={38} outerRadius={62} paddingAngle={2}>
+                        {healthData.map(d => <Cell key={d.name} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number, n: string) => [`${v} region${v !== 1 ? 's' : ''}`, n]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+                    {healthData.map(d => (
+                      <span key={d.name} className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} /> {d.name}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
 
       {data.exceptions.length > 0 && (
         <div className="space-y-2 pt-3 border-t border-gray-100">

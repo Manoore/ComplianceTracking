@@ -843,6 +843,7 @@ def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
         by_region.setdefault(c.region or "Unassigned", []).append(c.id)
 
     exceptions = []
+    all_regions = []
     healthy_count = 0
     for region, region_clinic_ids in by_region.items():
         this_month = _avg_score_period(db, current_user.tenant_id, clinic_ids=region_clinic_ids, date_from=month_start)
@@ -853,9 +854,7 @@ def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
 
         below_threshold = this_month is not None and this_month < amber_threshold
         declining = trend is not None and trend < -_TREND_EPSILON
-        if not (below_threshold or declining):
-            healthy_count += 1
-            continue
+        is_exception = below_threshold or declining
 
         owner = None
         if region != "Unassigned":
@@ -870,7 +869,7 @@ def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
         if declining:
             reasons.append("declining")
 
-        exceptions.append({
+        row = {
             "region": region,
             "score": this_month,
             "previous_score": last_month,
@@ -879,11 +878,19 @@ def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
             "clinic_count": len(region_clinic_ids),
             "owner_name": owner.full_name if owner else None,
             "owner_id": owner.id if owner else None,
-        })
+            "status": "exception" if is_exception else "healthy",
+        }
+        all_regions.append(row)
+        if is_exception:
+            exceptions.append(row)
+        else:
+            healthy_count += 1
 
     # Worst score first; a region with no inspections yet (score is None) sorts last --
     # it's a gap worth noticing, but a 55% clinic is the more urgent fire.
-    exceptions.sort(key=lambda e: (e["score"] is None, e["score"] if e["score"] is not None else 0))
+    _sort_key = lambda r: (r["score"] is None, r["score"] if r["score"] is not None else 0)
+    exceptions.sort(key=_sort_key)
+    all_regions.sort(key=_sort_key)
 
     return {
         "scope_label": scope_label,
@@ -896,6 +903,7 @@ def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_
         },
         "exceptions": exceptions,
         "healthy_region_count": healthy_count,
+        "regions": all_regions,
     }
 
 
