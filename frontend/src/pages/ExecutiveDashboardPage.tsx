@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
   Building2, BarChart2, Award, ShieldAlert, Layers,
-  ChevronDown, ChevronUp, ClipboardCheck, Eye, X, ShieldCheck, Users
+  ChevronDown, ChevronUp, ClipboardCheck, Eye, X, ShieldCheck, Users,
+  ArrowUp, ArrowDown, Minus, Flag,
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -502,7 +503,7 @@ function ComplianceMatrix() {
             const isCollapsed = collapsed.has(region.region)
             return (
               <Fragment key={region.region}>
-                <tr className="bg-gray-50">
+                <tr id={`matrix-region-${region.region}`} className="bg-gray-50 scroll-mt-4">
                   <td colSpan={colSpan} className="py-2 px-3">
                     <button onClick={() => toggleRegion(region.region)} className="flex items-center gap-2 text-sm font-medium text-gray-800">
                       {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -549,6 +550,127 @@ function ComplianceMatrix() {
           )}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ---- CEO Summary: one headline score + trend, and an exceptions-only list of
+// regions that need attention, each with the accountable owner attached. Sits above
+// the full matrix as the 30-second answer; everything below it is the drill-down. ----
+
+interface CeoException {
+  region: string
+  score: number | null
+  previous_score: number | null
+  trend: number | null
+  reasons: string[]
+  clinic_count: number
+  owner_name: string | null
+  owner_id: number | null
+}
+interface CeoSummaryData {
+  scope_label: string
+  period_label: string
+  amber_threshold: number
+  overall: { score: number | null; previous_score: number | null; trend: number | null }
+  exceptions: CeoException[]
+  healthy_region_count: number
+}
+
+const EXCEPTION_REASON_LABELS: Record<string, string> = {
+  below_threshold: 'Below threshold',
+  declining: 'Declining',
+}
+
+function TrendIndicator({ trend }: { trend: number | null }) {
+  if (trend == null) return <span className="text-xs text-gray-400">No prior month to compare</span>
+  if (Math.abs(trend) < 0.5) {
+    return <span className="flex items-center gap-1 text-xs font-medium text-gray-500"><Minus size={12} /> Flat</span>
+  }
+  const up = trend > 0
+  return (
+    <span className={`flex items-center gap-1 text-xs font-medium ${up ? 'text-green-600' : 'text-red-600'}`}>
+      {up ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+      {Math.abs(trend).toFixed(1)}pt vs last month
+    </span>
+  )
+}
+
+function CeoSummary() {
+  const thresholds = useComplianceThresholds()
+  const { data, isLoading } = useQuery<CeoSummaryData>({
+    queryKey: ['ceo-summary'],
+    queryFn: () => api.get('/reports/ceo-summary').then(r => r.data),
+    refetchInterval: 60_000,
+  })
+
+  const scrollToRegion = (region: string) => {
+    document.getElementById(`matrix-region-${region}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mx-auto" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{data.scope_label} · {data.period_label}</p>
+          <div className="flex items-baseline gap-3 mt-1">
+            <span className={`text-4xl font-bold ${scoreTextClass(data.overall.score, thresholds)}`}>
+              {data.overall.score != null ? `${data.overall.score}%` : '—'}
+            </span>
+            <TrendIndicator trend={data.overall.trend} />
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Overall compliance this month</p>
+        </div>
+        {data.exceptions.length === 0 ? (
+          <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm font-medium flex-shrink-0">
+            <CheckCircle size={16} /> Every region is on track
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 flex-shrink-0">
+            <span className="font-semibold text-gray-800">{data.exceptions.length}</span> region{data.exceptions.length !== 1 ? 's' : ''} need attention
+            {data.healthy_region_count > 0 && ` · ${data.healthy_region_count} healthy`}
+          </p>
+        )}
+      </div>
+
+      {data.exceptions.length > 0 && (
+        <div className="space-y-2 pt-3 border-t border-gray-100">
+          {data.exceptions.map(e => (
+            <button key={e.region} onClick={() => scrollToRegion(e.region)}
+              title="Jump to this region in the report below"
+              className="w-full flex items-center justify-between gap-3 p-3 bg-red-50/60 border border-red-100 rounded-lg hover:bg-red-50 transition-colors text-left">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Flag size={13} className="text-red-500 flex-shrink-0" />
+                  <span className="font-medium text-gray-900">{e.region}</span>
+                  {e.reasons.map(r => (
+                    <span key={r} className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+                      {EXCEPTION_REASON_LABELS[r] ?? r}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {e.clinic_count} clinic{e.clinic_count !== 1 ? 's' : ''} · Owner: {e.owner_name ?? 'No Regional Manager assigned'}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                <span className={`text-lg font-bold ${scoreTextClass(e.score, thresholds)}`}>
+                  {e.score != null ? `${e.score}%` : '—'}
+                </span>
+                <TrendIndicator trend={e.trend} />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -659,6 +781,8 @@ export function ExecutiveDashboardPage() {
           sub={s?.overdue_certifications ? `${s.overdue_certifications} expiring soon` : 'all on track'}
           icon={Award} color="text-purple-600" bg="bg-purple-50" />
       </div>
+
+      <CeoSummary />
 
       <ComplianceMatrix />
 

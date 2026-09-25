@@ -692,17 +692,22 @@ def _month_start(now: datetime) -> datetime:
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def _trailing_3_months_start(now: datetime) -> datetime:
-    """First day of the month 2 months before the current one -- a rolling 3
-    calendar-month window (this month, last month, the month before) that always
-    includes the current, still-in-progress month."""
+def _months_before(now: datetime, n: int) -> datetime:
+    """First day of the month n months before the current one."""
     first_of_this_month = _month_start(now)
-    month = first_of_this_month.month - 2
+    month = first_of_this_month.month - n
     year = first_of_this_month.year
     while month <= 0:
         month += 12
         year -= 1
     return first_of_this_month.replace(year=year, month=month)
+
+
+def _trailing_3_months_start(now: datetime) -> datetime:
+    """First day of the month 2 months before the current one -- a rolling 3
+    calendar-month window (this month, last month, the month before) that always
+    includes the current, still-in-progress month."""
+    return _months_before(now, 2)
 
 
 def _avg_score(db: Session, tenant_id: int, template_id: int, clinic_ids: Optional[list] = None,
@@ -714,6 +719,22 @@ def _avg_score(db: Session, tenant_id: int, template_id: int, clinic_ids: Option
         q = q.filter(Inspection.clinic_id.in_(clinic_ids))
     if date_from is not None:
         q = q.filter(Inspection.submitted_at >= date_from)
+    val = q.scalar()
+    return round(val, 1) if val is not None else None
+
+
+def _avg_score_period(db: Session, tenant_id: int, clinic_ids: Optional[list] = None,
+                      date_from: Optional[datetime] = None, date_to: Optional[datetime] = None) -> Optional[float]:
+    """Same as _avg_score but across every checklist template, not just one --
+    used for the CEO summary's headline number and region rollups."""
+    q = db.query(func.avg(Inspection.compliance_score)).filter(
+        Inspection.tenant_id == tenant_id, Inspection.compliance_score.isnot(None))
+    if clinic_ids is not None:
+        q = q.filter(Inspection.clinic_id.in_(clinic_ids))
+    if date_from is not None:
+        q = q.filter(Inspection.submitted_at >= date_from)
+    if date_to is not None:
+        q = q.filter(Inspection.submitted_at < date_to)
     val = q.scalar()
     return round(val, 1) if val is not None else None
 
@@ -779,6 +800,102 @@ def compliance_matrix(db: Session = Depends(get_db), current_user: User = Depend
         "templates": templates,
         "enterprise": enterprise,
         "regions": region_list,
+    }
+
+
+# A region's month-over-month change smaller than this is noise, not a real "declining"
+# trend -- avoids flagging a region as an exception over a 0.1pt wobble.
+_TREND_EPSILON = 0.5
+
+
+@router.get("/ceo-summary")
+def ceo_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Headline snapshot for the top of the Executive Dashboard: one score (scoped to
+    the viewer, same as everywhere else) with a trend arrow, plus a short, exceptions-
+    only list of regions that need attention -- below the configured amber threshold,
+    or declining month over month -- each with the accountable Regional Manager
+    attached. Everything else on the page is the drill-down; this is the 30-second
+    answer to "is the company compliant, and where's the fire."""
+    from ..models.org_settings import OrgSettings
+
+    now = datetime.utcnow()
+    month_start = _month_start(now)
+    last_month_start = _months_before(now, 1)
+
+    settings_row = db.query(OrgSettings).first()
+    amber_threshold = (settings_row.compliance_amber_threshold if settings_row else None) or 80
+
+    clinic_ids, scope_label = get_scoped_clinic_ids(db, current_user)
+
+    overall_this_month = _avg_score_period(db, current_user.tenant_id, clinic_ids=clinic_ids, date_from=month_start)
+    overall_last_month = _avg_score_period(db, current_user.tenant_id, clinic_ids=clinic_ids,
+                                           date_from=last_month_start, date_to=month_start)
+    overall_trend = (round(overall_this_month - overall_last_month, 1)
+                     if overall_this_month is not None and overall_last_month is not None else None)
+
+    clinics_q = db.query(Clinic).filter(Clinic.tenant_id == current_user.tenant_id, Clinic.is_active == True)
+    if clinic_ids is not None:
+        clinics_q = clinics_q.filter(Clinic.id.in_(clinic_ids))
+    clinics = clinics_q.all()
+
+    by_region: dict = {}
+    for c in clinics:
+        by_region.setdefault(c.region or "Unassigned", []).append(c.id)
+
+    exceptions = []
+    healthy_count = 0
+    for region, region_clinic_ids in by_region.items():
+        this_month = _avg_score_period(db, current_user.tenant_id, clinic_ids=region_clinic_ids, date_from=month_start)
+        last_month = _avg_score_period(db, current_user.tenant_id, clinic_ids=region_clinic_ids,
+                                       date_from=last_month_start, date_to=month_start)
+        trend = (round(this_month - last_month, 1)
+                if this_month is not None and last_month is not None else None)
+
+        below_threshold = this_month is not None and this_month < amber_threshold
+        declining = trend is not None and trend < -_TREND_EPSILON
+        if not (below_threshold or declining):
+            healthy_count += 1
+            continue
+
+        owner = None
+        if region != "Unassigned":
+            owner = db.query(User).filter(
+                User.tenant_id == current_user.tenant_id, User.is_active == True,
+                User.custom_role == "regional_manager", User.managed_region == region,
+            ).first()
+
+        reasons = []
+        if below_threshold:
+            reasons.append("below_threshold")
+        if declining:
+            reasons.append("declining")
+
+        exceptions.append({
+            "region": region,
+            "score": this_month,
+            "previous_score": last_month,
+            "trend": trend,
+            "reasons": reasons,
+            "clinic_count": len(region_clinic_ids),
+            "owner_name": owner.full_name if owner else None,
+            "owner_id": owner.id if owner else None,
+        })
+
+    # Worst score first; a region with no inspections yet (score is None) sorts last --
+    # it's a gap worth noticing, but a 55% clinic is the more urgent fire.
+    exceptions.sort(key=lambda e: (e["score"] is None, e["score"] if e["score"] is not None else 0))
+
+    return {
+        "scope_label": scope_label,
+        "period_label": now.strftime("%B %Y"),
+        "amber_threshold": amber_threshold,
+        "overall": {
+            "score": overall_this_month,
+            "previous_score": overall_last_month,
+            "trend": overall_trend,
+        },
+        "exceptions": exceptions,
+        "healthy_region_count": healthy_count,
     }
 
 
